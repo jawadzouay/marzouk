@@ -12,7 +12,7 @@ load_dotenv()
 router = APIRouter()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 JWT_SECRET = os.getenv("JWT_SECRET")
-ADMIN_PIN = os.getenv("ADMIN_PIN")
+ADMIN_PIN = (os.getenv("ADMIN_PIN") or "").strip()
 ALGORITHM = "HS256"
 
 
