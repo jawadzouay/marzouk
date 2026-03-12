@@ -34,7 +34,12 @@ def health():
 @app.get("/debug-env")
 def debug_env():
     pin = (os.getenv("ADMIN_PIN") or "").strip()
-    return {"admin_pin_set": bool(pin), "admin_pin_length": len(pin), "admin_pin_value": pin}
+    return {
+        "admin_pin_set": bool(pin),
+        "admin_pin_length": len(pin),
+        "admin_pin_value": pin,
+        "all_env_keys": sorted(os.environ.keys())
+    }
 
 # Serve frontend static files
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
