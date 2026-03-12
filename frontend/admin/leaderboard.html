@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>الترتيب — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f4f8; min-height: 100vh; }
+    header { background: #1e3a8a; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .back-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer; }
+    .container { padding: 20px; max-width: 800px; margin: 0 auto; }
+    .lb-row { background: white; border-radius: 12px; padding: 16px; margin-bottom: 10px; display: flex; align-items: center; gap: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    .rank { font-size: 24px; font-weight: 700; color: #9ca3af; min-width: 40px; text-align: center; }
+    .rank.gold { color: #f59e0b; }
+    .rank.silver { color: #9ca3af; }
+    .rank.bronze { color: #d97706; }
+    .agent-info { flex: 1; }
+    .agent-info .name { font-weight: 700; font-size: 16px; }
+    .agent-info .sub { font-size: 13px; color: #6b7280; }
+    .rdv-count { font-size: 22px; font-weight: 700; color: #1e3a8a; text-align: left; }
+    .rdv-pct { font-size: 12px; color: #6b7280; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🏆 الترتيب</h1>
+    <button class="back-btn" onclick="window.location.href='dashboard.html'">← رجوع</button>
+  </header>
+
+  <div class="container">
+    <div id="leaderboard"></div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    const token = localStorage.getItem('token');
+    if (!token || localStorage.getItem('role') !== 'admin') window.location.href = '/index.html';
+
+    async function loadLeaderboard() {
+      const res = await fetch(`${API}/admin/leaderboard`, { headers: { Authorization: `Bearer ${token}` } });
+      const board = await res.json();
+      const list = document.getElementById('leaderboard');
+      list.innerHTML = '';
+
+      board.forEach((entry, i) => {
+        const rankClass = i === 0 ? 'gold' : i === 1 ? 'silver' : i === 2 ? 'bronze' : '';
+        const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : entry.rank;
+        const div = document.createElement('div');
+        div.className = 'lb-row';
+        div.innerHTML = `
+          <div class="rank ${rankClass}">${medal}</div>
+          <div class="agent-info">
+            <div class="name">${entry.name}</div>
+            <div class="sub">إجمالي: ${entry.total} عميل</div>
+          </div>
+          <div>
+            <div class="rdv-count">${entry.rdv}</div>
+            <div class="rdv-pct">${entry.rdv_pct}% RDV</div>
+          </div>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    loadLeaderboard();
+  </script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>تقويم RDV — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f4f8; min-height: 100vh; }
+    header { background: #1e3a8a; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .back-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer; }
+    .container { padding: 20px; max-width: 900px; margin: 0 auto; }
+    .rdv-card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); border-right: 4px solid #1e3a8a; }
+    .rdv-top { display: flex; justify-content: space-between; align-items: flex-start; }
+    .rdv-name { font-weight: 700; font-size: 16px; }
+    .rdv-agent { font-size: 13px; color: #6b7280; }
+    .rdv-date { font-size: 14px; color: #1e3a8a; font-weight: 600; margin-top: 4px; }
+    .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .s-scheduled { background: #E2EFDA; color: #2d6a4f; }
+    .s-showed { background: #dcfce7; color: #166534; }
+    .s-noshow { background: #fef2f2; color: #dc2626; }
+    .filter-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+    .filter-btn { padding: 8px 16px; border-radius: 20px; border: 2px solid #e5e7eb; background: white; font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 14px; }
+    .filter-btn.active { background: #1e3a8a; color: white; border-color: #1e3a8a; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📅 تقويم RDV</h1>
+    <button class="back-btn" onclick="window.location.href='dashboard.html'">← رجوع</button>
+  </header>
+
+  <div class="container">
+    <div class="filter-row">
+      <button class="filter-btn active" onclick="filterRdv('all', this)">الكل</button>
+      <button class="filter-btn" onclick="filterRdv('scheduled', this)">مجدول</button>
+      <button class="filter-btn" onclick="filterRdv('showed_up', this)">حضر ✅</button>
+      <button class="filter-btn" onclick="filterRdv('no_show', this)">لم يحضر ❌</button>
+    </div>
+    <div id="rdv-list"></div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    const token = localStorage.getItem('token');
+    if (!token || localStorage.getItem('role') !== 'admin') window.location.href = '/index.html';
+
+    let allRdvs = [];
+
+    async function loadRdvs() {
+      const res = await fetch(`${API}/rdv/all`, { headers: { Authorization: `Bearer ${token}` } });
+      allRdvs = await res.json();
+      renderRdvs(allRdvs);
+    }
+
+    function renderRdvs(rdvs) {
+      const list = document.getElementById('rdv-list');
+      list.innerHTML = '';
+
+      if (!rdvs.length) {
+        list.innerHTML = '<p style="color:#9ca3af;text-align:center;padding:30px">لا توجد مواعيد</p>';
+        return;
+      }
+
+      rdvs.sort((a, b) => new Date(a.rdv_date) - new Date(b.rdv_date)).forEach(rdv => {
+        const lead = rdv.leads || {};
+        const agent = rdv.agents || {};
+        const date = new Date(rdv.rdv_date).toLocaleString('ar-MA', { dateStyle: 'full', timeStyle: 'short' });
+        const sc = rdv.status === 'showed_up' ? 's-showed' : rdv.status === 'no_show' ? 's-noshow' : 's-scheduled';
+        const label = rdv.status === 'showed_up' ? 'حضر ✅' : rdv.status === 'no_show' ? 'لم يحضر ❌' : 'مجدول';
+
+        const card = document.createElement('div');
+        card.className = 'rdv-card';
+        card.innerHTML = `
+          <div class="rdv-top">
+            <div>
+              <div class="rdv-name">${lead.name || '—'} — <span style="direction:ltr;display:inline-block">${lead.phone || ''}</span></div>
+              <div class="rdv-agent">وكيل: ${agent.name || '—'}</div>
+              <div class="rdv-date">📅 ${date}</div>
+            </div>
+            <span class="status-badge ${sc}">${label}</span>
+          </div>
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    function filterRdv(status, btn) {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (status === 'all') renderRdvs(allRdvs);
+      else renderRdvs(allRdvs.filter(r => r.status === status));
+    }
+
+    loadRdvs();
+  </script>
+</body>
+</html>

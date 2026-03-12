@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>لوحة تحكم الوكيل — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f4f8; min-height: 100vh; }
+    header {
+      background: #1a56db;
+      color: white;
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    header h1 { font-size: 20px; }
+    header button {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-family: 'Cairo', sans-serif;
+      cursor: pointer;
+    }
+    .container { padding: 20px; max-width: 800px; margin: 0 auto; }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .stat-card .num { font-size: 32px; font-weight: 700; color: #1a56db; }
+    .stat-card .label { font-size: 13px; color: #6b7280; margin-top: 4px; }
+    .action-btn {
+      display: block;
+      width: 100%;
+      padding: 16px;
+      background: #1a56db;
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 18px;
+      font-family: 'Cairo', sans-serif;
+      font-weight: 700;
+      cursor: pointer;
+      margin-bottom: 12px;
+      text-align: center;
+      text-decoration: none;
+    }
+    .action-btn.secondary { background: #6b7280; }
+    .section-title { font-size: 16px; font-weight: 700; color: #374151; margin: 20px 0 12px; }
+    .search-input {
+      width: 100%; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 10px;
+      font-size: 15px; font-family: 'Cairo', sans-serif; margin-bottom: 12px; direction: rtl;
+    }
+    .search-input:focus { outline: none; border-color: #1a56db; }
+    .lead-row {
+      background: white;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      cursor: pointer;
+      transition: box-shadow 0.15s;
+    }
+    .lead-row:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+    .lead-detail {
+      display: none;
+      padding: 12px 0 4px;
+      border-top: 1px solid #f3f4f6;
+      margin-top: 10px;
+      font-size: 13px;
+      color: #374151;
+    }
+    .lead-detail.open { display: block; }
+    .lead-detail-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .lead-detail-label { color: #9ca3af; }
+    .lead-detail-actions { display: flex; gap: 8px; margin-top: 10px; }
+    .status-select {
+      flex: 1; padding: 8px 10px; border: 2px solid #e5e7eb; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; font-size: 14px; background: white; cursor: pointer;
+    }
+    .status-select:focus { outline: none; border-color: #1a56db; }
+    .btn-update-status {
+      padding: 8px 16px; background: #1a56db; color: white; border: none;
+      border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 14px;
+      font-weight: 600; cursor: pointer;
+    }
+    .lead-status {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .s-rdv { background: #E2EFDA; color: #2d6a4f; }
+    .s-bv  { background: #FFF2CC; color: #7d6608; }
+    .s-nr  { background: #FCE4D6; color: #9c2a10; }
+    .s-pi  { background: #F2CEEF; color: #6d1f6b; }
+    .s-av  { background: #DDEBF7; color: #154360; }
+    .call-btn {
+      background: #10b981;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-family: 'Cairo', sans-serif;
+      cursor: pointer;
+      font-size: 13px;
+    }
+    .rank-badge {
+      background: #fef3c7;
+      border: 2px solid #f59e0b;
+      border-radius: 12px;
+      padding: 12px 20px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .rank-badge .rank-num { font-size: 36px; font-weight: 700; color: #d97706; }
+    .rank-badge .rank-label { color: #92400e; font-size: 14px; }
+
+    /* Call popup */
+    .call-popup {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: white;
+      border-radius: 20px 20px 0 0;
+      padding: 24px;
+      box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+      z-index: 1000;
+    }
+    .call-popup.show { display: block; }
+    .call-popup h3 { margin-bottom: 16px; color: #374151; }
+    .call-option {
+      display: block;
+      width: 100%;
+      padding: 14px;
+      margin-bottom: 10px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-family: 'Cairo', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      text-align: center;
+    }
+    .call-normal { background: #dbeafe; color: #1e40af; }
+    .call-wa { background: #dcfce7; color: #166534; }
+    .call-cancel { background: #f3f4f6; color: #374151; }
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 999;
+    }
+    .overlay.show { display: block; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>مرحباً، <span id="agent-name"></span></h1>
+    <button onclick="logout()">خروج</button>
+  </header>
+
+  <div class="container">
+    <div class="rank-badge">
+      <div class="rank-num" id="rank">—</div>
+      <div class="rank-label">مرتبتك في الترتيب</div>
+    </div>
+
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="num" id="total">0</div><div class="label">إجمالي العملاء</div></div>
+      <div class="stat-card"><div class="num" id="rdv-count">0</div><div class="label">RDV</div></div>
+      <div class="stat-card"><div class="num" id="bv-count">0</div><div class="label">B.V</div></div>
+      <div class="stat-card"><div class="num" id="nr-count">0</div><div class="label">N.R</div></div>
+    </div>
+
+    <a href="submit.html" class="action-btn">📸 إرسال قائمة اليوم</a>
+    <a href="rdv.html" class="action-btn secondary">📅 مواعيد RDV</a>
+
+    <div class="section-title">عملائي المحتملون</div>
+    <input class="search-input" id="search-input" placeholder="🔍 بحث بالاسم أو رقم الهاتف..." oninput="filterLeads()" />
+    <div id="leads-list"></div>
+  </div>
+
+  <!-- Call Popup -->
+  <div class="overlay" id="overlay" onclick="closeAllPopups()"></div>
+  <div class="call-popup" id="call-popup">
+    <h3>اتصل بـ <span id="popup-name"></span></h3>
+    <a class="call-option call-normal" id="call-normal-btn">📱 مكالمة عادية</a>
+    <a class="call-option call-wa" id="call-wa-btn" target="_blank">💬 واتساب</a>
+    <button class="call-option call-cancel" onclick="closeAllPopups()">إلغاء</button>
+  </div>
+
+  <!-- RDV Booking Popup -->
+  <div class="call-popup" id="rdv-popup">
+    <h3>حجز موعد RDV</h3>
+    <p style="color:#6b7280;font-size:13px;margin-bottom:12px" id="rdv-lead-name"></p>
+    <label style="display:block;font-size:14px;font-weight:600;color:#374151;margin-bottom:6px">تاريخ ووقت الموعد</label>
+    <input type="datetime-local" id="rdv-date-input" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:15px;margin-bottom:16px" />
+    <button class="call-option call-normal" onclick="confirmRdv()" style="display:block">✅ تأكيد الموعد</button>
+    <button class="call-option call-cancel" onclick="closeAllPopups()">إلغاء</button>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('role');
+
+    if (!token || role !== 'agent') {
+      window.location.href = '/index.html';
+    }
+
+    document.getElementById('agent-name').textContent = localStorage.getItem('name');
+
+    const statusClass = { 'RDV': 's-rdv', 'B.V': 's-bv', 'N.R': 's-nr', 'P.I': 's-pi', 'Autre ville': 's-av', 'registered': 's-pi' };
+    let allLeads = [];
+
+    async function loadDashboard() {
+      const agentId = localStorage.getItem('agent_id');
+
+      const [statsRes, leadsRes] = await Promise.all([
+        fetch(`${API}/agents/${agentId}/stats`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/leads/my`, { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+
+      const stats = await statsRes.json();
+      allLeads = await leadsRes.json();
+
+      document.getElementById('total').textContent = stats.total || 0;
+      document.getElementById('rdv-count').textContent = stats['RDV'] || 0;
+      document.getElementById('bv-count').textContent = stats['B.V'] || 0;
+      document.getElementById('nr-count').textContent = stats['N.R'] || 0;
+
+      renderLeads(allLeads);
+    }
+
+    function filterLeads() {
+      const q = document.getElementById('search-input').value.trim().toLowerCase();
+      if (!q) return renderLeads(allLeads);
+      const filtered = allLeads.filter(l =>
+        (l.name || '').toLowerCase().includes(q) || (l.phone || '').includes(q)
+      );
+      renderLeads(filtered);
+    }
+
+    function renderLeads(leads) {
+      const list = document.getElementById('leads-list');
+      list.innerHTML = '';
+      if (!leads.length) {
+        list.innerHTML = '<p style="color:#9ca3af;text-align:center;padding:20px">لا يوجد عملاء</p>';
+        return;
+      }
+
+      leads.forEach(lead => {
+        const sc = statusClass[lead.status] || '';
+        const div = document.createElement('div');
+        div.className = 'lead-row';
+        const rdvBtn = lead.status === 'RDV'
+          ? `<button class="call-btn" style="background:#1a56db" onclick="event.stopPropagation();openRdvPopup('${lead.id}','${(lead.name||'').replace(/'/g,"\\'")}')">📅</button>`
+          : '';
+        div.innerHTML = `
+          <div style="flex:1">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div>
+                <div style="font-weight:600">${lead.name || '—'}</div>
+                <div style="font-size:13px;color:#6b7280;direction:ltr;text-align:right">${lead.phone}</div>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center">
+                <span class="lead-status ${sc}">${lead.status}</span>
+                ${rdvBtn}
+                <button class="call-btn" onclick="event.stopPropagation();openCallPopup('${lead.phone}','${(lead.name||'').replace(/'/g,"\\'")}')">📞</button>
+              </div>
+            </div>
+            <div class="lead-detail" id="detail-${lead.id}">
+              <div class="lead-detail-row"><span class="lead-detail-label">المستوى</span><span>${lead.level || '—'}</span></div>
+              <div class="lead-detail-row"><span class="lead-detail-label">المدينة</span><span>${lead.city || '—'}</span></div>
+              <div class="lead-detail-row"><span class="lead-detail-label">تاريخ الإرسال</span><span>${new Date(lead.submitted_at).toLocaleDateString('ar-MA')}</span></div>
+              <div class="lead-detail-row"><span class="lead-detail-label">عدد التبادلات</span><span>${lead.swap_count}/3</span></div>
+              <div class="lead-detail-actions">
+                <select class="status-select" id="status-select-${lead.id}" onclick="event.stopPropagation()" onchange="toggleCustomStatus('${lead.id}', this.value)">
+                  <option value="RDV" ${lead.status==='RDV'?'selected':''}>RDV</option>
+                  <option value="B.V" ${lead.status==='B.V'?'selected':''}>B.V</option>
+                  <option value="N.R" ${lead.status==='N.R'?'selected':''}>N.R</option>
+                  <option value="P.I" ${lead.status==='P.I'?'selected':''}>P.I</option>
+                  <option value="Autre ville" ${lead.status==='Autre ville'?'selected':''}>Autre ville</option>
+                  <option value="__custom__">✏️ نص مخصص...</option>
+                </select>
+                <button class="btn-update-status" onclick="event.stopPropagation();updateLeadStatus('${lead.id}')">تحديث</button>
+              </div>
+              <div id="custom-status-wrap-${lead.id}" style="display:none;margin-top:8px">
+                <input type="text" id="custom-status-${lead.id}" class="status-select" style="width:100%" placeholder="اكتب الحالة هنا..." onclick="event.stopPropagation()" />
+              </div>
+            </div>
+          </div>
+        `;
+        div.querySelector('.lead-detail').id = `detail-${lead.id}`;
+        div.addEventListener('click', () => {
+          document.getElementById(`detail-${lead.id}`).classList.toggle('open');
+        });
+        list.appendChild(div);
+      });
+    }
+
+    function toggleCustomStatus(leadId, value) {
+      const wrap = document.getElementById(`custom-status-wrap-${leadId}`);
+      wrap.style.display = value === '__custom__' ? 'block' : 'none';
+    }
+
+    async function updateLeadStatus(leadId) {
+      const select = document.getElementById(`status-select-${leadId}`);
+      let newStatus = select.value;
+      if (newStatus === '__custom__') {
+        newStatus = document.getElementById(`custom-status-${leadId}`).value.trim();
+        if (!newStatus) return alert('يرجى كتابة الحالة المخصصة');
+      }
+      const res = await fetch(`${API}/leads/${leadId}/status`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) {
+        loadDashboard();
+      } else {
+        const d = await res.json();
+        alert(d.detail || 'خطأ في التحديث');
+      }
+    }
+
+    function openCallPopup(phone, name) {
+      document.getElementById('popup-name').textContent = name || phone;
+      document.getElementById('call-normal-btn').href = `tel:${phone}`;
+      const wa = phone.startsWith('0') ? '212' + phone.slice(1) : phone;
+      document.getElementById('call-wa-btn').href = `https://wa.me/${wa}`;
+      document.getElementById('call-popup').classList.add('show');
+      document.getElementById('overlay').classList.add('show');
+    }
+
+    let currentRdvLeadId = null;
+    function openRdvPopup(leadId, name) {
+      currentRdvLeadId = leadId;
+      document.getElementById('rdv-lead-name').textContent = name;
+      // Default to tomorrow at 10:00
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(10, 0, 0, 0);
+      document.getElementById('rdv-date-input').value = tomorrow.toISOString().slice(0, 16);
+      document.getElementById('rdv-popup').classList.add('show');
+      document.getElementById('overlay').classList.add('show');
+    }
+
+    async function confirmRdv() {
+      const dateVal = document.getElementById('rdv-date-input').value;
+      if (!dateVal) return alert('يرجى اختيار تاريخ الموعد');
+      const res = await fetch(`${API}/rdv/`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_id: currentRdvLeadId, rdv_date: new Date(dateVal).toISOString() })
+      });
+      if (res.ok) {
+        closeAllPopups();
+        loadDashboard();
+      } else {
+        const d = await res.json();
+        alert(d.detail || 'خطأ في حجز الموعد');
+      }
+    }
+
+    function closeAllPopups() {
+      document.getElementById('call-popup').classList.remove('show');
+      document.getElementById('rdv-popup').classList.remove('show');
+      document.getElementById('overlay').classList.remove('show');
+    }
+
+    function logout() {
+      localStorage.clear();
+      window.location.href = '/index.html';
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

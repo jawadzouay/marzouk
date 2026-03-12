@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>لوحة تحكم الإدارة — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f4f8; min-height: 100vh; }
+    header {
+      background: #1e3a8a; color: white; padding: 16px 20px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    header h1 { font-size: 20px; }
+    .logout-btn {
+      background: rgba(255,255,255,0.2); border: none; color: white;
+      padding: 8px 16px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer;
+    }
+    nav {
+      background: white; border-bottom: 1px solid #e5e7eb;
+      display: flex; overflow-x: auto; padding: 0 12px;
+    }
+    nav a {
+      padding: 14px 16px; text-decoration: none; color: #6b7280;
+      font-size: 14px; font-weight: 600; white-space: nowrap; border-bottom: 3px solid transparent;
+    }
+    nav a.active, nav a:hover { color: #1e3a8a; border-bottom-color: #1e3a8a; }
+    .container { padding: 20px; max-width: 1000px; margin: 0 auto; }
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px; }
+    @media(min-width:600px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
+    .stat-card { background: white; border-radius: 12px; padding: 16px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    .stat-card .num { font-size: 28px; font-weight: 700; color: #1e3a8a; }
+    .stat-card .label { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    .section-title { font-size: 16px; font-weight: 700; color: #374151; margin: 20px 0 12px; }
+    .agent-row {
+      background: white; border-radius: 10px; padding: 14px 16px;
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .agent-name { font-weight: 700; }
+    .submitted-yes { color: #166534; font-weight: 700; }
+    .submitted-no { color: #dc2626; font-weight: 700; }
+    .nav-links { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .nav-link {
+      padding: 10px 16px; background: #1e3a8a; color: white; border-radius: 8px;
+      text-decoration: none; font-size: 14px; font-weight: 600;
+    }
+    .nav-link.light { background: #e0e7ff; color: #1e3a8a; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>لوحة تحكم الإدارة</h1>
+    <button class="logout-btn" onclick="logout()">خروج</button>
+  </header>
+
+  <div class="container">
+    <div class="nav-links">
+      <a href="agents.html" class="nav-link">👥 إدارة الوكلاء</a>
+      <a href="leaderboard.html" class="nav-link light">🏆 الترتيب</a>
+      <a href="calendar.html" class="nav-link light">📅 تقويم RDV</a>
+      <a href="swap.html" class="nav-link light">🔄 قائمة التبادل</a>
+      <a href="blacklist.html" class="nav-link light">🚫 القائمة السوداء</a>
+    </div>
+
+    <div class="stats-grid">
+      <div class="stat-card"><div class="num" id="total-leads">—</div><div class="label">إجمالي العملاء</div></div>
+      <div class="stat-card"><div class="num" id="total-rdv">—</div><div class="label">RDV</div></div>
+      <div class="stat-card"><div class="num" id="swap-pool">—</div><div class="label">قائمة التبادل</div></div>
+      <div class="stat-card"><div class="num" id="active-agents">—</div><div class="label">وكلاء نشطون</div></div>
+    </div>
+
+    <div class="section-title">إرسال اليوم</div>
+    <div id="agents-list"></div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('role');
+    if (!token || role !== 'admin') window.location.href = '/index.html';
+
+    async function loadDashboard() {
+      const res = await fetch(`${API}/admin/dashboard`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+
+      document.getElementById('total-leads').textContent = data.total_leads ?? '—';
+      document.getElementById('total-rdv').textContent = data.total_rdv ?? '—';
+      document.getElementById('swap-pool').textContent = data.swap_pool_count ?? '—';
+      document.getElementById('active-agents').textContent = data.agents?.length ?? '—';
+
+      const list = document.getElementById('agents-list');
+      list.innerHTML = '';
+      (data.agents || []).forEach(agent => {
+        const div = document.createElement('div');
+        div.className = 'agent-row';
+        div.innerHTML = `
+          <span class="agent-name">${agent.name}</span>
+          <span class="${agent.submitted_today ? 'submitted-yes' : 'submitted-no'}">
+            ${agent.submitted_today ? '✅ أرسل' : '❌ لم يرسل'}
+          </span>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    function logout() {
+      localStorage.clear();
+      window.location.href = '/index.html';
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>إرسال العملاء — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f4f8; min-height: 100vh; }
+    header {
+      background: #1a56db; color: white; padding: 16px 20px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    header h1 { font-size: 18px; }
+    .back-btn {
+      background: rgba(255,255,255,0.2); border: none; color: white;
+      padding: 8px 16px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer;
+    }
+    .container { padding: 20px; max-width: 900px; margin: 0 auto; }
+    .upload-zone {
+      background: white; border: 3px dashed #93c5fd; border-radius: 16px;
+      padding: 40px 20px; text-align: center; cursor: pointer; margin-bottom: 20px;
+      transition: background 0.2s;
+    }
+    .upload-zone:hover { background: #eff6ff; }
+    .upload-zone input { display: none; }
+    .upload-zone p { color: #6b7280; margin-top: 12px; }
+    .upload-zone .icon { font-size: 48px; }
+    .preview-img { max-width: 100%; border-radius: 10px; margin-top: 12px; }
+    .btn {
+      width: 100%; padding: 14px; border: none; border-radius: 12px;
+      font-size: 16px; font-family: 'Cairo', sans-serif; font-weight: 700;
+      cursor: pointer; margin-bottom: 12px;
+    }
+    .btn-primary { background: #1a56db; color: white; }
+    .btn-success { background: #10b981; color: white; }
+    .btn-secondary { background: #6b7280; color: white; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .loading { text-align: center; padding: 20px; color: #6b7280; display: none; }
+    .spinner {
+      width: 40px; height: 40px; border: 4px solid #e5e7eb;
+      border-top-color: #1a56db; border-radius: 50%;
+      animation: spin 0.8s linear infinite; margin: 0 auto 12px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .table-wrap { overflow-x: auto; margin-bottom: 20px; }
+    table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; }
+    th { background: #1a56db; color: white; padding: 12px; font-size: 14px; }
+    td { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; font-size: 14px; }
+    tr:last-child td { border-bottom: none; }
+    .phone-input {
+      border: 2px solid #e5e7eb; border-radius: 6px; padding: 6px 10px;
+      font-family: 'Cairo', sans-serif; font-size: 14px; width: 130px; direction: ltr;
+    }
+    .phone-invalid { border-color: #ef4444; background: #fef2f2; }
+    .status-badge {
+      padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    }
+    .s-rdv { background:#E2EFDA;color:#2d6a4f; }
+    .s-bv  { background:#FFF2CC;color:#7d6608; }
+    .s-nr  { background:#FCE4D6;color:#9c2a10; }
+    .s-pi  { background:#F2CEEF;color:#6d1f6b; }
+    .s-av  { background:#DDEBF7;color:#154360; }
+    .delete-btn {
+      background: #fef2f2; color: #dc2626; border: none; border-radius: 6px;
+      padding: 6px 10px; cursor: pointer; font-size: 12px;
+    }
+    .alert {
+      padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 14px;
+    }
+    .alert-success { background: #dcfce7; color: #166534; }
+    .alert-error { background: #fef2f2; color: #dc2626; }
+    .alert-warn { background: #fef3c7; color: #92400e; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>إرسال قائمة العملاء</h1>
+    <button class="back-btn" onclick="window.location.href='dashboard.html'">← رجوع</button>
+  </header>
+
+  <div class="container">
+    <div class="upload-zone" onclick="document.getElementById('file-input').click()">
+      <div class="icon">📸</div>
+      <p>اضغط لالتقاط صورة أو رفع ملف</p>
+      <input type="file" id="file-input" accept="image/*" capture="environment" onchange="handleFile(event)" />
+      <img id="preview-img" class="preview-img" style="display:none" />
+    </div>
+
+    <button class="btn btn-primary" id="extract-btn" onclick="extractLeads()" disabled>
+      🤖 استخراج البيانات بالذكاء الاصطناعي
+    </button>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p>جاري استخراج البيانات... يرجى الانتظار</p>
+    </div>
+
+    <div id="alerts"></div>
+
+    <div id="table-section" style="display:none">
+      <div class="table-wrap">
+        <table id="leads-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>الهاتف</th>
+              <th>الاسم</th>
+              <th>المستوى</th>
+              <th>المدينة</th>
+              <th>الحالة</th>
+              <th>حذف</th>
+            </tr>
+          </thead>
+          <tbody id="leads-body"></tbody>
+        </table>
+      </div>
+      <button class="btn btn-success" onclick="submitLeads()">✅ تأكيد الإرسال</button>
+      <button class="btn btn-secondary" onclick="resetForm()">🔄 إعادة المحاولة</button>
+    </div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '/index.html';
+
+    let extractedLeads = [];
+    let selectedFile = null;
+
+    const statusClass = { 'RDV': 's-rdv', 'B.V': 's-bv', 'N.R': 's-nr', 'P.I': 's-pi', 'Autre ville': 's-av' };
+
+    function handleFile(event) {
+      selectedFile = event.target.files[0];
+      if (!selectedFile) return;
+      const url = URL.createObjectURL(selectedFile);
+      const img = document.getElementById('preview-img');
+      img.src = url;
+      img.style.display = 'block';
+      document.getElementById('extract-btn').disabled = false;
+    }
+
+    async function extractLeads() {
+      if (!selectedFile) return;
+      document.getElementById('loading').style.display = 'block';
+      document.getElementById('extract-btn').disabled = true;
+      document.getElementById('alerts').innerHTML = '';
+
+      const formData = new FormData();
+      formData.append('file', selectedFile);
+
+      try {
+        const res = await fetch(`${API}/leads/extract`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: formData
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'خطأ في الاستخراج');
+
+        extractedLeads = data.leads;
+        renderTable();
+      } catch (err) {
+        showAlert(err.message, 'error');
+        document.getElementById('extract-btn').disabled = false;
+      } finally {
+        document.getElementById('loading').style.display = 'none';
+      }
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('leads-body');
+      tbody.innerHTML = '';
+      document.getElementById('table-section').style.display = 'block';
+
+      extractedLeads.forEach((lead, i) => {
+        const sc = statusClass[lead.status] || '';
+        const isInvalid = lead.flagged;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${i + 1}</td>
+          <td>
+            <input class="phone-input ${isInvalid ? 'phone-invalid' : ''}"
+              value="${lead.phone}"
+              onchange="updatePhone(${i}, this.value)"
+              oninput="validatePhoneInput(this)"
+              dir="ltr"
+            />
+            ${isInvalid ? '<div style="color:#ef4444;font-size:11px">رقم غير صحيح</div>' : ''}
+          </td>
+          <td>${lead.name || '—'}</td>
+          <td>${lead.level || '—'}</td>
+          <td>${lead.city || '—'}</td>
+          <td><span class="status-badge ${sc}">${lead.status}</span></td>
+          <td><button class="delete-btn" onclick="deleteLead(${i})">🗑️</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function validatePhoneInput(input) {
+      const val = input.value.replace(/[\s\-]/g, '');
+      const valid = /^0[67]\d{8}$/.test(val);
+      input.classList.toggle('phone-invalid', !valid);
+    }
+
+    function updatePhone(index, value) {
+      extractedLeads[index].phone = value.replace(/[\s\-]/g, '');
+      const valid = /^0[67]\d{8}$/.test(extractedLeads[index].phone);
+      extractedLeads[index].flagged = !valid;
+    }
+
+    function deleteLead(index) {
+      extractedLeads.splice(index, 1);
+      renderTable();
+    }
+
+    async function submitLeads() {
+      const hasInvalid = extractedLeads.some(l => l.flagged);
+      if (hasInvalid) {
+        showAlert('يوجد أرقام هاتف غير صحيحة. يرجى تصحيحها أو حذفها قبل الإرسال.', 'warn');
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/leads/submit`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ leads: extractedLeads })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'خطأ في الإرسال');
+
+        let msg = `تم حفظ ${data.saved} عميل بنجاح.`;
+        if (data.skipped?.length) {
+          const dups = data.skipped.filter(s => s.reason === 'duplicate').length;
+          const black = data.skipped.filter(s => s.reason === 'blacklisted').length;
+          if (dups) msg += ` ${dups} رقم مكرر تم تجاهله.`;
+          if (black) msg += ` ${black} رقم محظور تم تجاهله.`;
+        }
+
+        showAlert(msg, 'success');
+        document.getElementById('table-section').style.display = 'none';
+        setTimeout(() => window.location.href = 'dashboard.html', 2000);
+      } catch (err) {
+        showAlert(err.message, 'error');
+      }
+    }
+
+    function resetForm() {
+      extractedLeads = [];
+      selectedFile = null;
+      document.getElementById('file-input').value = '';
+      document.getElementById('preview-img').style.display = 'none';
+      document.getElementById('table-section').style.display = 'none';
+      document.getElementById('extract-btn').disabled = true;
+      document.getElementById('alerts').innerHTML = '';
+    }
+
+    function showAlert(msg, type) {
+      const map = { success: 'alert-success', error: 'alert-error', warn: 'alert-warn' };
+      document.getElementById('alerts').innerHTML = `<div class="alert ${map[type]}">${msg}</div>`;
+    }
+  </script>
+</body>
+</html>

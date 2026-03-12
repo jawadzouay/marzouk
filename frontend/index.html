@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مرزوق أكاديمي — تسجيل الدخول</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Cairo', sans-serif;
+      background: #f0f4f8;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: white;
+      border-radius: 16px;
+      padding: 40px 32px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+    }
+    .logo {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .logo h1 {
+      font-size: 26px;
+      font-weight: 700;
+      color: #1a56db;
+    }
+    .logo p {
+      color: #6b7280;
+      font-size: 14px;
+      margin-top: 4px;
+    }
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+    input {
+      width: 100%;
+      padding: 12px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 10px;
+      font-size: 16px;
+      font-family: 'Cairo', sans-serif;
+      direction: rtl;
+      margin-bottom: 20px;
+      transition: border 0.2s;
+    }
+    input:focus {
+      outline: none;
+      border-color: #1a56db;
+    }
+    button {
+      width: 100%;
+      padding: 14px;
+      background: #1a56db;
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      font-family: 'Cairo', sans-serif;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover { background: #1648c0; }
+    .error {
+      background: #fef2f2;
+      color: #dc2626;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      font-size: 14px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <h1>مرزوق أكاديمي</h1>
+      <p>نظام إدارة العملاء المحتملين</p>
+    </div>
+    <div class="error" id="error-msg"></div>
+    <form id="login-form">
+      <label>الاسم</label>
+      <input type="text" id="name" placeholder="أدخل اسمك" required />
+      <label>رمز PIN</label>
+      <input type="password" id="pin" placeholder="أدخل رمز PIN" maxlength="6" required />
+      <button type="submit">دخول</button>
+    </form>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('name').value.trim();
+      const pin = document.getElementById('pin').value.trim();
+      const errorEl = document.getElementById('error-msg');
+      errorEl.style.display = 'none';
+
+      try {
+        const res = await fetch(`${API}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, pin })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'خطأ في تسجيل الدخول');
+
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('role', data.role);
+        localStorage.setItem('name', data.name);
+        if (data.agent_id) localStorage.setItem('agent_id', data.agent_id);
+
+        if (data.role === 'admin') {
+          window.location.href = '/admin/dashboard.html';
+        } else {
+          window.location.href = '/agent/dashboard.html';
+        }
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.style.display = 'block';
+      }
+    });
+  </script>
+</body>
+</html>

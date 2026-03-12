@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مواعيد RDV — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f4f8; min-height: 100vh; }
+    header {
+      background: #1a56db; color: white; padding: 16px 20px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .back-btn {
+      background: rgba(255,255,255,0.2); border: none; color: white;
+      padding: 8px 16px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer;
+    }
+    .container { padding: 20px; max-width: 800px; margin: 0 auto; }
+    .rdv-card {
+      background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .rdv-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .rdv-name { font-weight: 700; font-size: 16px; }
+    .rdv-phone { font-size: 13px; color: #6b7280; }
+    .rdv-date { font-size: 13px; color: #1a56db; font-weight: 600; }
+    .rdv-actions { display: flex; gap: 8px; margin-top: 12px; }
+    .btn-show { background: #dcfce7; color: #166534; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex: 1; }
+    .btn-noshow { background: #fef2f2; color: #dc2626; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex: 1; }
+    .btn-registered { background: #ede9fe; color: #6d28d9; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex: 1; }
+    .btn-call { background: #e0f2fe; color: #0369a1; border: none; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; font-size: 14px; cursor: pointer; }
+    .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .s-scheduled { background: #E2EFDA; color: #2d6a4f; }
+    .s-showed { background: #dcfce7; color: #166534; }
+    .s-noshow { background: #fef2f2; color: #dc2626; }
+    .s-registered { background: #ede9fe; color: #6d28d9; }
+    .empty { text-align: center; color: #9ca3af; padding: 40px; }
+
+    .call-popup { display:none; position:fixed; bottom:0; left:0; right:0; background:white; border-radius:20px 20px 0 0; padding:24px; box-shadow:0 -4px 20px rgba(0,0,0,0.15); z-index:1000; }
+    .call-popup.show { display:block; }
+    .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:999; }
+    .overlay.show { display:block; }
+    .call-option { display:block; width:100%; padding:14px; margin-bottom:10px; border:none; border-radius:10px; font-size:16px; font-family:'Cairo',sans-serif; font-weight:600; cursor:pointer; text-decoration:none; text-align:center; }
+    .call-normal { background:#dbeafe; color:#1e40af; }
+    .call-wa { background:#dcfce7; color:#166534; }
+    .call-cancel { background:#f3f4f6; color:#374151; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>مواعيد RDV</h1>
+    <button class="back-btn" onclick="window.location.href='dashboard.html'">← رجوع</button>
+  </header>
+
+  <div class="container">
+    <div id="rdv-list"></div>
+  </div>
+
+  <div class="overlay" id="overlay" onclick="closeCallPopup()"></div>
+  <div class="call-popup" id="call-popup">
+    <h3>اتصل بـ <span id="popup-name"></span></h3>
+    <a class="call-option call-normal" id="call-normal-btn">📱 مكالمة عادية</a>
+    <a class="call-option call-wa" id="call-wa-btn" target="_blank">💬 واتساب</a>
+    <button class="call-option call-cancel" onclick="closeCallPopup()">إلغاء</button>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '/index.html';
+
+    async function loadRdvs() {
+      const res = await fetch(`${API}/rdv/my`, { headers: { Authorization: `Bearer ${token}` } });
+      const rdvs = await res.json();
+      const list = document.getElementById('rdv-list');
+
+      if (!rdvs.length) {
+        list.innerHTML = '<div class="empty">لا توجد مواعيد RDV حالياً</div>';
+        return;
+      }
+
+      rdvs.forEach(rdv => {
+        const lead = rdv.leads || {};
+        const date = new Date(rdv.rdv_date).toLocaleString('ar-MA', { dateStyle: 'medium', timeStyle: 'short' });
+        const sc = rdv.status === 'showed_up' ? 's-showed' : rdv.status === 'no_show' ? 's-noshow' : rdv.status === 'registered' ? 's-registered' : 's-scheduled';
+        const label = rdv.status === 'showed_up' ? 'حضر ✅' : rdv.status === 'no_show' ? 'لم يحضر ❌' : rdv.status === 'registered' ? 'مسجل ⭐' : 'مجدول';
+
+        const card = document.createElement('div');
+        card.className = 'rdv-card';
+        card.innerHTML = `
+          <div class="rdv-header">
+            <div>
+              <div class="rdv-name">${lead.name || '—'}</div>
+              <div class="rdv-phone">${lead.phone || '—'}</div>
+              <div class="rdv-date">📅 ${date}</div>
+            </div>
+            <span class="status-badge ${sc}">${label}</span>
+          </div>
+          ${rdv.status === 'scheduled' || rdv.status === 'showed_up' ? `
+          <div class="rdv-actions">
+            ${rdv.status === 'scheduled' ? `<button class="btn-show" onclick="updateRdv('${rdv.id}', 'showed_up')">✅ حضر</button>` : ''}
+            ${rdv.status === 'scheduled' ? `<button class="btn-noshow" onclick="updateRdv('${rdv.id}', 'no_show')">❌ لم يحضر</button>` : ''}
+            <button class="btn-registered" onclick="updateRdv('${rdv.id}', 'registered')">⭐ تسجل</button>
+            <button class="btn-call" onclick="openCallPopup('${lead.phone}','${lead.name||''}')">📞</button>
+          </div>` : ''}
+        `;
+        list.appendChild(card);
+      });
+    }
+
+    async function updateRdv(rdvId, status) {
+      const res = await fetch(`${API}/rdv/${rdvId}`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status })
+      });
+      if (res.ok) loadRdvs();
+    }
+
+    function openCallPopup(phone, name) {
+      document.getElementById('popup-name').textContent = name || phone;
+      document.getElementById('call-normal-btn').href = `tel:${phone}`;
+      const wa = phone.startsWith('0') ? '212' + phone.slice(1) : phone;
+      document.getElementById('call-wa-btn').href = `https://wa.me/${wa}`;
+      document.getElementById('call-popup').classList.add('show');
+      document.getElementById('overlay').classList.add('show');
+    }
+
+    function closeCallPopup() {
+      document.getElementById('call-popup').classList.remove('show');
+      document.getElementById('overlay').classList.remove('show');
+    }
+
+    loadRdvs();
+  </script>
+</body>
+</html>

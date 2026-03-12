@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>إدارة الوكلاء — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f4f8; min-height: 100vh; }
+    header { background: #1e3a8a; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .back-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer; }
+    .container { padding: 20px; max-width: 800px; margin: 0 auto; }
+    .add-form { background: white; border-radius: 12px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    .add-form h2 { margin-bottom: 16px; font-size: 16px; }
+    .form-row { display: flex; gap: 12px; }
+    input { flex: 1; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 15px; font-family: 'Cairo', sans-serif; }
+    input:focus { outline: none; border-color: #1e3a8a; }
+    .btn-add { background: #1e3a8a; color: white; border: none; border-radius: 8px; padding: 10px 20px; font-family: 'Cairo', sans-serif; font-size: 15px; cursor: pointer; font-weight: 700; }
+    .agent-row { background: white; border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .agent-name { font-weight: 700; }
+    .agent-date { font-size: 12px; color: #9ca3af; }
+    .btn-fire { background: #fef2f2; color: #dc2626; border: 2px solid #fecaca; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; }
+    .badge-inactive { background: #f3f4f6; color: #6b7280; padding: 4px 10px; border-radius: 20px; font-size: 12px; }
+    .alert { padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 14px; }
+    .alert-success { background: #dcfce7; color: #166534; }
+    .alert-error { background: #fef2f2; color: #dc2626; }
+    .section-title { font-size: 16px; font-weight: 700; color: #374151; margin: 0 0 12px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>إدارة الوكلاء</h1>
+    <button class="back-btn" onclick="window.location.href='dashboard.html'">← رجوع</button>
+  </header>
+
+  <div class="container">
+    <div class="add-form">
+      <h2>إضافة وكيل جديد</h2>
+      <div id="alert"></div>
+      <div class="form-row">
+        <input type="text" id="new-name" placeholder="اسم الوكيل" />
+        <input type="text" id="new-pin" placeholder="PIN (4 أرقام)" maxlength="6" />
+        <button class="btn-add" onclick="addAgent()">إضافة</button>
+      </div>
+    </div>
+
+    <div class="section-title">الوكلاء النشطون</div>
+    <div id="agents-list"></div>
+  </div>
+
+  <script>
+    const API = window.location.origin;
+    const token = localStorage.getItem('token');
+    if (!token || localStorage.getItem('role') !== 'admin') window.location.href = '/index.html';
+
+    async function loadAgents() {
+      const res = await fetch(`${API}/agents/`, { headers: { Authorization: `Bearer ${token}` } });
+      const agents = await res.json();
+      const list = document.getElementById('agents-list');
+      list.innerHTML = '';
+
+      agents.filter(a => a.is_active).forEach(agent => {
+        const div = document.createElement('div');
+        div.className = 'agent-row';
+        div.innerHTML = `
+          <div>
+            <div class="agent-name">${agent.name}</div>
+            <div class="agent-date">تاريخ الإضافة: ${new Date(agent.created_at).toLocaleDateString('ar-MA')}</div>
+          </div>
+          <button class="btn-fire" onclick="fireAgent('${agent.id}', '${agent.name}')">🔴 إيقاف</button>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    async function addAgent() {
+      const name = document.getElementById('new-name').value.trim();
+      const pin = document.getElementById('new-pin').value.trim();
+      const alertEl = document.getElementById('alert');
+
+      if (!name || !pin) {
+        alertEl.className = 'alert alert-error';
+        alertEl.textContent = 'يرجى إدخال الاسم ورمز PIN';
+        return;
+      }
+
+      const res = await fetch(`${API}/agents/`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, pin })
+      });
+      const data = await res.json();
+
+      if (res.ok) {
+        alertEl.className = 'alert alert-success';
+        alertEl.textContent = `تم إضافة الوكيل ${name} بنجاح`;
+        document.getElementById('new-name').value = '';
+        document.getElementById('new-pin').value = '';
+        loadAgents();
+      } else {
+        alertEl.className = 'alert alert-error';
+        alertEl.textContent = data.detail || 'خطأ في الإضافة';
+      }
+    }
+
+    async function fireAgent(id, name) {
+      if (!confirm(`هل أنت متأكد من إيقاف الوكيل "${name}"؟ سيتم إعادة توزيع عملائه فوراً.`)) return;
+      const res = await fetch(`${API}/agents/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) loadAgents();
+    }
+
+    loadAgents();
+  </script>
+</body>
+</html>
