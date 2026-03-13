@@ -9,33 +9,34 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       font-family: 'Cairo', sans-serif;
-      background: #f0f4f8;
+      background: linear-gradient(135deg, #1a1a1a 0%, #2d1a1a 50%, #1a1a1a 100%);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
+      padding: 20px;
     }
     .card {
       background: white;
-      border-radius: 16px;
+      border-radius: 20px;
       padding: 40px 32px;
       width: 100%;
       max-width: 400px;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.4);
     }
     .logo {
       text-align: center;
       margin-bottom: 32px;
     }
-    .logo h1 {
-      font-size: 26px;
-      font-weight: 700;
-      color: #1a56db;
+    .logo img {
+      width: 200px;
+      max-width: 100%;
+      height: auto;
+      margin-bottom: 8px;
     }
     .logo p {
       color: #6b7280;
       font-size: 14px;
-      margin-top: 4px;
     }
     label {
       display: block;
@@ -55,14 +56,11 @@
       margin-bottom: 20px;
       transition: border 0.2s;
     }
-    input:focus {
-      outline: none;
-      border-color: #1a56db;
-    }
+    input:focus { outline: none; border-color: #e63329; }
     button {
       width: 100%;
       padding: 14px;
-      background: #1a56db;
+      background: #e63329;
       color: white;
       border: none;
       border-radius: 10px;
@@ -72,7 +70,7 @@
       cursor: pointer;
       transition: background 0.2s;
     }
-    button:hover { background: #1648c0; }
+    button:hover { background: #c82a22; }
     .error {
       background: #fef2f2;
       color: #dc2626;
@@ -88,7 +86,7 @@
 <body>
   <div class="card">
     <div class="logo">
-      <h1>مرزوق أكاديمي</h1>
+      <img src="/logo.png" alt="Centre Marzouk Academy" />
       <p>نظام إدارة العملاء المحتملين</p>
     </div>
     <div class="error" id="error-msg"></div>
@@ -107,7 +105,7 @@
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const name = document.getElementById('name').value.trim();
-      const pin = document.getElementById('pin').value.trim();
+      const pin  = document.getElementById('pin').value.trim();
       const errorEl = document.getElementById('error-msg');
       errorEl.style.display = 'none';
 
@@ -125,11 +123,7 @@
         localStorage.setItem('name', data.name);
         if (data.agent_id) localStorage.setItem('agent_id', data.agent_id);
 
-        if (data.role === 'admin') {
-          window.location.href = '/admin/dashboard.html';
-        } else {
-          window.location.href = '/agent/dashboard.html';
-        }
+        window.location.href = data.role === 'admin' ? '/admin/dashboard.html' : '/agent/dashboard.html';
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';
