@@ -218,6 +218,17 @@ def register_lead(lead_id: str, body: dict, agent=Depends(get_current_agent)):
     return {"message": "تم التسجيل بنجاح", "points": points}
 
 
+@router.patch("/{lead_id}/note")
+def update_lead_note(lead_id: str, body: dict, agent=Depends(get_current_agent)):
+    sb = get_client()
+    note = body.get("note", "").strip()
+    lead = sb.table("leads").select("id").eq("id", lead_id).execute()
+    if not lead.data:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    sb.table("leads").update({"note": note}).eq("id", lead_id).execute()
+    return {"message": "تم حفظ الملاحظة"}
+
+
 @router.get("/my")
 def get_my_leads(agent=Depends(get_current_agent)):
     sb = get_client()

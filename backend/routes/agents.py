@@ -110,6 +110,7 @@ def agent_stats(agent_id: str):
 
     stats["showed_up"] = showed_up
     stats["no_show"] = no_show
+    stats["total_rdv_booked"] = len(rdv_result.data)
 
     # Registered leads (by current_agent — includes swapped leads they registered)
     reg_result = sb.table("leads").select("status").eq("current_agent", agent_id).execute()

@@ -28,8 +28,12 @@ CREATE TABLE leads (
   locked           BOOLEAN DEFAULT true,
   is_blacklisted   BOOLEAN DEFAULT false,
   swap_eligible_at TIMESTAMP NULL,
-  source_date      DATE
+  source_date      DATE,
+  note             TEXT
 );
+
+-- Migration (run this if table already exists):
+-- ALTER TABLE leads ADD COLUMN IF NOT EXISTS note TEXT;
 
 -- LEAD HISTORY
 CREATE TABLE lead_history (

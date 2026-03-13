@@ -2,136 +2,321 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>لوحة تحكم الوكيل — مرزوق أكاديمي</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Cairo', sans-serif; background: #f5f5f5; min-height: 100vh; }
-    header { background: #1a1a1a; color: white; padding: 12px 20px; display: flex; justify-content: space-between; align-items: center; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; overscroll-behavior-y: none; }
+
+    /* ===== Header ===== */
+    header {
+      background: #1a1a1a; color: white;
+      padding: 12px 16px;
+      padding-top: max(12px, env(safe-area-inset-top));
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
     .header-left { display: flex; align-items: center; gap: 10px; }
-    .header-logo { height: 36px; width: auto; }
-    .header-greeting { font-size: 15px; font-weight: 600; }
+    .header-logo { height: 34px; width: auto; }
+    .header-greeting { font-size: 14px; font-weight: 600; }
     .header-right { display: flex; align-items: center; gap: 10px; }
-    .avatar-wrap { position: relative; cursor: pointer; }
-    .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #e63329; background: #333; display: flex; align-items: center; justify-content: center; font-size: 18px; overflow: hidden; }
+    .avatar-wrap { cursor: pointer; }
+    .avatar {
+      width: 38px; height: 38px; border-radius: 50%; border: 2px solid #e63329;
+      background: #333; display: flex; align-items: center; justify-content: center;
+      font-size: 16px; overflow: hidden;
+    }
     .avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .avatar-hint { font-size: 10px; color: #9ca3af; text-align: center; margin-top: 2px; }
-    header button { background: rgba(255,255,255,0.15); border: none; color: white; padding: 8px 14px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 14px; }
-    .container { padding: 20px; max-width: 800px; margin: 0 auto; }
+    .btn-logout {
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      color: white; padding: 7px 14px; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+
+    /* ===== Container ===== */
+    .container {
+      padding: 14px 14px;
+      padding-bottom: max(80px, calc(20px + env(safe-area-inset-bottom)));
+      max-width: 800px; margin: 0 auto;
+    }
 
     /* ===== Money Card ===== */
     .money-card {
       background: linear-gradient(135deg, #e63329 0%, #1a1a1a 100%);
-      border-radius: 24px;
-      padding: 28px 24px 22px;
-      text-align: center;
-      margin-bottom: 16px;
-      box-shadow: 0 8px 32px rgba(230,51,41,0.4);
-      position: relative;
-      overflow: hidden;
+      border-radius: 20px; padding: 24px 20px 18px;
+      text-align: center; margin-bottom: 12px;
+      box-shadow: 0 8px 28px rgba(230,51,41,0.35);
+      position: relative; overflow: hidden;
     }
-    .money-card::before { content: '💰'; position: absolute; top: -15px; left: -10px; font-size: 90px; opacity: 0.07; pointer-events: none; }
-    .money-card::after  { content: '💰'; position: absolute; bottom: -15px; right: -10px; font-size: 90px; opacity: 0.07; pointer-events: none; }
-    .money-label { color: rgba(255,255,255,0.7); font-size: 14px; margin-bottom: 4px; }
+    .money-card::before { content: '💰'; position: absolute; top: -15px; left: -10px; font-size: 80px; opacity: 0.07; pointer-events: none; }
+    .money-card::after  { content: '💰'; position: absolute; bottom: -15px; right: -10px; font-size: 80px; opacity: 0.07; pointer-events: none; }
+    .money-label { color: rgba(255,255,255,0.7); font-size: 13px; margin-bottom: 4px; }
     .money-amount-row { display: flex; align-items: baseline; justify-content: center; gap: 8px; margin-bottom: 4px; }
-    .money-amount { font-size: 56px; font-weight: 900; color: #fbbf24; line-height: 1; }
-    .money-currency { font-size: 24px; font-weight: 700; color: rgba(255,255,255,0.85); }
-    .inscre-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 12px; }
-    .inscre-badge { background: rgba(255,255,255,0.15); border-radius: 20px; padding: 5px 16px; color: white; font-size: 14px; font-weight: 600; }
-    .toggle-btn { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.25); color: white; padding: 5px 14px; border-radius: 20px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; }
+    .money-amount { font-size: 52px; font-weight: 900; color: #fbbf24; line-height: 1; }
+    .money-currency { font-size: 22px; font-weight: 700; color: rgba(255,255,255,0.85); }
+    .inscre-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; }
+    .inscre-badge { background: rgba(255,255,255,0.15); border-radius: 20px; padding: 4px 14px; color: white; font-size: 13px; font-weight: 600; }
+    .toggle-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); color: white; padding: 4px 12px; border-radius: 20px; font-family: 'Cairo', sans-serif; font-size: 12px; cursor: pointer; }
     .money-pulse { animation: pulseMoney 0.45s ease-out; }
     @keyframes pulseMoney { 0%{transform:scale(1)} 50%{transform:scale(1.18)} 100%{transform:scale(1)} }
 
     /* ===== Money Float ===== */
-    .money-float { position: fixed; font-size: 32px; pointer-events: none; z-index: 9999; animation: floatMoney 1.5s ease-out forwards; }
+    .money-float { position: fixed; font-size: 30px; pointer-events: none; z-index: 9999; animation: floatMoney 1.5s ease-out forwards; }
     @keyframes floatMoney {
-      0%   { transform: translateY(0)    scale(0.8) rotate(-10deg); opacity: 1; }
-      50%  { transform: translateY(-130px) scale(1.3) rotate(12deg);  opacity: 1; }
-      100% { transform: translateY(-240px) scale(0.9) rotate(-5deg);  opacity: 0; }
+      0%   { transform: translateY(0) scale(0.8) rotate(-10deg); opacity: 1; }
+      50%  { transform: translateY(-120px) scale(1.3) rotate(12deg); opacity: 1; }
+      100% { transform: translateY(-230px) scale(0.9) rotate(-5deg); opacity: 0; }
+    }
+
+    /* ===== Today's RDV Widget ===== */
+    .today-rdv-card {
+      background: white; border-radius: 16px; padding: 14px 16px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      border-right: 4px solid #10b981;
+    }
+    .today-rdv-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .today-rdv-title { font-size: 14px; font-weight: 700; color: #374151; }
+    .today-rdv-badge {
+      background: #10b981; color: white; border-radius: 20px;
+      padding: 2px 10px; font-size: 12px; font-weight: 700;
+    }
+    .today-rdv-item {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 0; border-bottom: 1px solid #f3f4f6;
+    }
+    .today-rdv-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .today-rdv-info { display: flex; flex-direction: column; }
+    .today-rdv-name { font-weight: 600; font-size: 14px; color: #1a1a1a; }
+    .today-rdv-time { font-size: 12px; color: #e63329; font-weight: 600; direction: ltr; text-align: right; }
+    .today-rdv-call {
+      background: #10b981; color: white; border: none; border-radius: 10px;
+      padding: 8px 16px; font-family: 'Cairo', sans-serif; font-size: 13px;
+      font-weight: 600; cursor: pointer; white-space: nowrap; min-height: 40px;
     }
 
     /* ===== Goal Card ===== */
-    .goal-card { background: white; border-radius: 16px; padding: 18px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
-    .goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
-    .goal-title { font-size: 15px; font-weight: 700; color: #374151; }
-    .btn-set-goal { background: #e63329; color: white; border: none; border-radius: 8px; padding: 7px 14px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; font-weight: 600; }
-    .btn-edit-goal { background: #f3f4f6; color: #374151; border: none; border-radius: 8px; padding: 7px 14px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; }
-    .no-goal-text { color: #9ca3af; text-align: center; font-size: 14px; padding: 8px 0; }
+    .goal-card { background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    .goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .goal-title { font-size: 14px; font-weight: 700; color: #374151; }
+    .btn-set-goal { background: #e63329; color: white; border: none; border-radius: 8px; padding: 6px 14px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; font-weight: 600; }
+    .btn-edit-goal { background: #f3f4f6; color: #374151; border: none; border-radius: 8px; padding: 6px 12px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; }
+    .no-goal-text { color: #9ca3af; text-align: center; font-size: 13px; padding: 6px 0; }
     .progress-wrap { margin-bottom: 8px; }
-    .progress-labels { display: flex; justify-content: space-between; font-size: 13px; color: #374151; margin-bottom: 6px; font-weight: 600; }
-    .progress-bar-bg { background: #e5e7eb; border-radius: 99px; height: 16px; overflow: hidden; }
+    .progress-labels { display: flex; justify-content: space-between; font-size: 12px; color: #374151; margin-bottom: 5px; font-weight: 600; }
+    .progress-bar-bg { background: #e5e7eb; border-radius: 99px; height: 14px; overflow: hidden; }
     .progress-bar-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
     .prog-green { background: linear-gradient(90deg, #10b981, #34d399); }
     .prog-red   { background: linear-gradient(90deg, #f59e0b, #ef4444); }
-    .track-badge { text-align: center; padding: 9px; border-radius: 10px; font-weight: 700; font-size: 14px; margin-top: 10px; }
+    .track-badge { text-align: center; padding: 8px; border-radius: 10px; font-weight: 700; font-size: 13px; margin-top: 8px; }
     .track-ahead  { background: #dcfce7; color: #166534; }
     .track-behind { background: #fef2f2; color: #dc2626; }
     .track-done   { background: #fff3cd; color: #856404; }
-    .goal-dates { font-size: 12px; color: #9ca3af; text-align: center; margin-top: 8px; }
-    .time-bar-wrap { margin-top: 8px; }
+    .goal-dates { font-size: 11px; color: #9ca3af; text-align: center; margin-top: 6px; }
+    .time-bar-wrap { margin-top: 6px; }
     .time-bar-label { font-size: 11px; color: #9ca3af; margin-bottom: 3px; }
-    .time-bar-bg { background: #e5e7eb; border-radius: 99px; height: 6px; overflow: hidden; }
+    .time-bar-bg { background: #e5e7eb; border-radius: 99px; height: 5px; overflow: hidden; }
     .time-bar-fill { height: 100%; border-radius: 99px; background: #f5c518; }
 
     /* ===== Stats Grid ===== */
-    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
-    .stat-card { background: white; border-radius: 12px; padding: 14px; text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); cursor: pointer; transition: box-shadow 0.15s, transform 0.15s; user-select: none; }
-    .stat-card:hover { box-shadow: 0 4px 16px rgba(230,51,41,0.15); transform: translateY(-2px); }
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
+    .stat-card {
+      background: white; border-radius: 14px; padding: 14px 10px;
+      text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      cursor: pointer; transition: all 0.15s; user-select: none;
+      min-height: 80px; display: flex; flex-direction: column; justify-content: center;
+    }
+    .stat-card:active { transform: scale(0.96); }
     .stat-card.active { box-shadow: 0 0 0 3px #e63329; background: #fff5f5; }
-    .stat-card .num { font-size: 28px; font-weight: 700; color: #e63329; }
-    .stat-card .label { font-size: 12px; color: #6b7280; margin-top: 3px; }
+    .stat-card .num { font-size: 30px; font-weight: 900; color: #e63329; line-height: 1; }
+    .stat-card .label { font-size: 12px; color: #6b7280; margin-top: 4px; }
 
-    /* ===== Buttons ===== */
-    .action-btn { display: block; width: 100%; padding: 16px; background: #e63329; color: white; border: none; border-radius: 12px; font-size: 18px; font-family: 'Cairo', sans-serif; font-weight: 700; cursor: pointer; margin-bottom: 12px; text-align: center; text-decoration: none; }
+    /* ===== Funnel Card ===== */
+    .funnel-card {
+      background: white; border-radius: 16px; padding: 14px 16px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .funnel-title { font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 12px; }
+    .funnel-stages { display: flex; align-items: flex-end; gap: 6px; }
+    .funnel-stage { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .funnel-bar-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; }
+    .funnel-bar { width: 100%; border-radius: 6px 6px 0 0; min-height: 8px; transition: height 0.6s ease; }
+    .funnel-num { font-size: 15px; font-weight: 900; color: #1a1a1a; }
+    .funnel-pct { font-size: 11px; color: #9ca3af; font-weight: 600; }
+    .funnel-lbl { font-size: 11px; color: #6b7280; font-weight: 600; text-align: center; margin-top: 2px; }
+    .funnel-arrow { color: #d1d5db; font-size: 18px; padding-bottom: 20px; align-self: center; flex: 0; }
+
+    /* ===== Action Buttons ===== */
+    .action-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .action-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 14px; background: #e63329; color: white; border: none;
+      border-radius: 14px; font-size: 15px; font-family: 'Cairo', sans-serif;
+      font-weight: 700; cursor: pointer; text-decoration: none;
+      min-height: 52px; text-align: center;
+    }
     .action-btn.secondary { background: #1a1a1a; }
+    .action-btn:active { opacity: 0.85; transform: scale(0.98); }
 
-    /* ===== Leads ===== */
-    .section-title { font-size: 16px; font-weight: 700; color: #374151; margin: 20px 0 12px; }
-    .search-input { width: 100%; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 10px; font-size: 15px; font-family: 'Cairo', sans-serif; margin-bottom: 12px; direction: rtl; }
+    /* ===== Leads Section ===== */
+    .section-header { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 10px; }
+    .section-title { font-size: 15px; font-weight: 700; color: #374151; }
+    .active-filter-label { font-size: 12px; color: #e63329; font-weight: 600; background: #fff5f5; padding: 3px 10px; border-radius: 20px; display: none; }
+    .active-filter-label.show { display: block; }
+    .search-wrap { position: relative; margin-bottom: 10px; }
+    .search-input {
+      width: 100%; padding: 12px 16px 12px 44px; border: 2px solid #e5e7eb;
+      border-radius: 12px; font-size: 15px; font-family: 'Cairo', sans-serif;
+      direction: rtl; background: white; transition: border-color 0.15s;
+    }
     .search-input:focus { outline: none; border-color: #e63329; }
-    .lead-row { background: white; border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06); cursor: pointer; transition: box-shadow 0.15s; }
-    .lead-row:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
-    .lead-detail { display: none; padding: 12px 0 4px; border-top: 1px solid #f3f4f6; margin-top: 10px; font-size: 13px; color: #374151; }
-    .lead-detail.open { display: block; }
-    .lead-detail-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
-    .lead-detail-label { color: #9ca3af; }
-    .lead-detail-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-    .status-select { flex: 1; padding: 8px 10px; border: 2px solid #e5e7eb; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 14px; background: white; cursor: pointer; min-width: 0; }
-    .status-select:focus { outline: none; border-color: #e63329; }
-    .btn-update-status { padding: 8px 14px; background: #e63329; color: white; border: none; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
-    .btn-update-status:disabled { background: #9ca3af; cursor: not-allowed; }
-    .btn-register { padding: 10px 18px; background: #10b981; color: white; border: none; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; white-space: nowrap; margin-top: 8px; width: 100%; }
-    .btn-register:disabled { background: #9ca3af; cursor: not-allowed; }
-    .lead-status { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #9ca3af; pointer-events: none; }
+
+    /* ===== Swipe Lead Rows ===== */
+    .lead-wrapper {
+      position: relative; border-radius: 12px; margin-bottom: 8px;
+      overflow: hidden;
+    }
+    .lead-swipe-actions {
+      position: absolute; inset: 0; left: 0;
+      width: 130px;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      background: linear-gradient(90deg, #1a1a1a, #2d2d2d);
+      border-radius: 12px;
+    }
+    .swa-btn {
+      width: 46px; height: 46px; border-radius: 12px; border: none;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-size: 18px; cursor: pointer; gap: 1px;
+    }
+    .swa-label { font-size: 9px; font-family: 'Cairo', sans-serif; font-weight: 600; }
+    .swa-call  { background: #10b981; color: white; }
+    .swa-note  { background: #3b82f6; color: white; }
+
+    .lead-row {
+      background: white; border-radius: 12px; padding: 13px 14px;
+      display: flex; justify-content: space-between; align-items: center;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
+      cursor: pointer; transition: transform 0.25s ease; will-change: transform;
+      position: relative; z-index: 1;
+    }
+    .lead-wrapper.swiped .lead-row {
+      transform: translateX(130px);
+      border-radius: 0 12px 12px 0;
+    }
+    .lead-row:active { background: #fafafa; }
+    .lead-main { flex: 1; min-width: 0; }
+    .lead-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .lead-name { font-weight: 700; font-size: 15px; color: #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lead-phone { font-size: 12px; color: #6b7280; direction: ltr; text-align: right; margin-top: 2px; }
+    .lead-note-preview { font-size: 11px; color: #3b82f6; margin-top: 3px; display: flex; align-items: center; gap: 3px; }
+    .lead-badges { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+    .lead-status { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
     .s-rdv { background: #E2EFDA; color: #2d6a4f; }
     .s-bv  { background: #FFF2CC; color: #7d6608; }
     .s-nr  { background: #FCE4D6; color: #9c2a10; }
     .s-pi  { background: #F2CEEF; color: #6d1f6b; }
     .s-av  { background: #DDEBF7; color: #154360; }
     .s-reg { background: #dcfce7; color: #166534; }
-    .call-btn { background: #10b981; color: white; border: none; border-radius: 8px; padding: 8px 12px; font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; }
+    .icon-btn {
+      width: 36px; height: 36px; border-radius: 10px; border: none;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 16px; cursor: pointer; flex-shrink: 0;
+    }
+    .icon-btn-green { background: #e6faf3; color: #10b981; }
+    .icon-btn-red   { background: #fff0ef; color: #e63329; }
+
+    /* ===== Lead Detail ===== */
+    .lead-detail { display: none; padding: 12px 0 4px; border-top: 1px solid #f3f4f6; margin-top: 10px; }
+    .lead-detail.open { display: block; }
+    .lead-detail-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; color: #374151; }
+    .lead-detail-label { color: #9ca3af; }
+    .lead-detail-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .status-select {
+      flex: 1; padding: 9px 10px; border: 2px solid #e5e7eb; border-radius: 10px;
+      font-family: 'Cairo', sans-serif; font-size: 14px; background: white; cursor: pointer; min-width: 0;
+    }
+    .status-select:focus { outline: none; border-color: #e63329; }
+    .btn-update-status {
+      padding: 9px 16px; background: #e63329; color: white; border: none;
+      border-radius: 10px; font-family: 'Cairo', sans-serif; font-size: 14px;
+      font-weight: 600; cursor: pointer; white-space: nowrap; min-height: 44px;
+    }
+    .btn-update-status:disabled { background: #9ca3af; cursor: not-allowed; }
+    .btn-register {
+      padding: 11px 18px; background: #10b981; color: white; border: none;
+      border-radius: 10px; font-family: 'Cairo', sans-serif; font-size: 14px;
+      font-weight: 700; cursor: pointer; white-space: nowrap; margin-top: 8px;
+      width: 100%; min-height: 48px;
+    }
+    .btn-register:disabled { background: #9ca3af; cursor: not-allowed; }
+
+    /* ===== Note Input ===== */
+    .note-section { margin-top: 10px; }
+    .note-label { font-size: 12px; color: #9ca3af; margin-bottom: 5px; display: flex; align-items: center; gap: 4px; }
+    .note-textarea {
+      width: 100%; padding: 10px 12px; border: 2px solid #e5e7eb; border-radius: 10px;
+      font-family: 'Cairo', sans-serif; font-size: 13px; resize: none; direction: rtl;
+      min-height: 72px; color: #374151; transition: border-color 0.15s;
+    }
+    .note-textarea:focus { outline: none; border-color: #3b82f6; }
+    .note-saved-hint { font-size: 11px; color: #10b981; margin-top: 4px; display: none; }
 
     /* ===== Popups ===== */
-    .call-popup { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 20px 20px 0 0; padding: 24px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15); z-index: 1000; }
-    .call-popup.show { display: block; }
-    .call-popup h3 { margin-bottom: 16px; color: #374151; font-size: 18px; }
-    .call-option { display: block; width: 100%; padding: 14px; margin-bottom: 10px; border: none; border-radius: 10px; font-size: 16px; font-family: 'Cairo', sans-serif; font-weight: 600; cursor: pointer; text-decoration: none; text-align: center; }
-    .call-normal { background: #ffe5e3; color: #a61c10; }
-    .call-wa     { background: #dcfce7; color: #166534; }
-    .call-cancel { background: #f3f4f6; color: #374151; }
-    .reg-logha   { background: #ffe5e3; color: #a61c10; }
-    .reg-takwin  { background: #fef3c7; color: #92400e; }
-    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 999; }
+    .popup-sheet {
+      display: none; position: fixed; bottom: 0; left: 0; right: 0;
+      background: white; border-radius: 24px 24px 0 0;
+      padding: 20px 20px max(20px, env(safe-area-inset-bottom));
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.18); z-index: 1001;
+      max-height: 90vh; overflow-y: auto;
+    }
+    .popup-sheet.show { display: block; animation: slideUp 0.3s ease; }
+    @keyframes slideUp { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    .popup-handle { width: 40px; height: 4px; background: #e5e7eb; border-radius: 2px; margin: 0 auto 16px; }
+    .popup-title { font-size: 17px; font-weight: 700; color: #1a1a1a; margin-bottom: 14px; }
+    .popup-subtitle { font-size: 13px; color: #6b7280; margin-bottom: 14px; margin-top: -8px; }
+    .popup-btn {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 14px; margin-bottom: 10px; border: none;
+      border-radius: 14px; font-size: 15px; font-family: 'Cairo', sans-serif;
+      font-weight: 600; cursor: pointer; text-decoration: none; text-align: center;
+      min-height: 52px;
+    }
+    .popup-btn:active { opacity: 0.85; }
+    .popup-btn-normal { background: #fff0ef; color: #a61c10; }
+    .popup-btn-wa     { background: #dcfce7; color: #166534; }
+    .popup-btn-cancel { background: #f3f4f6; color: #6b7280; }
+    .popup-btn-primary { background: #e63329; color: white; }
+    .popup-btn-green  { background: #10b981; color: white; }
+    .popup-btn-logha  { background: #fff0ef; color: #a61c10; }
+    .popup-btn-takwin { background: #fef3c7; color: #92400e; }
+    .popup-input {
+      width: 100%; padding: 12px 14px; border: 2px solid #e5e7eb; border-radius: 12px;
+      font-size: 15px; font-family: 'Cairo', sans-serif; margin-bottom: 14px;
+    }
+    .popup-input:focus { outline: none; border-color: #e63329; }
+    .overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.5); z-index: 1000; backdrop-filter: blur(2px);
+    }
     .overlay.show { display: block; }
 
     /* ===== Goal Popup Form ===== */
-    .goal-form-group { margin-bottom: 14px; }
-    .goal-form-label { font-size: 14px; font-weight: 600; color: #374151; display: block; margin-bottom: 6px; }
-    .goal-form-input { width: 100%; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 15px; font-family: 'Cairo', sans-serif; }
-    .goal-form-input:focus { outline: none; border-color: #e63329; }
-    .active-filter-label { font-size: 13px; color: #e63329; font-weight: 600; margin-bottom: 8px; display: none; }
-    .active-filter-label.show { display: block; }
+    .form-group { margin-bottom: 12px; }
+    .form-label { font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 5px; }
+
+    /* ===== Misc ===== */
+    .empty-state { color: #9ca3af; text-align: center; padding: 30px 20px; font-size: 14px; }
+    .swap-badge { font-size: 10px; background: #f3f4f6; color: #6b7280; border-radius: 10px; padding: 1px 6px; }
+
+    @media (max-width: 360px) {
+      .money-amount { font-size: 42px; }
+      .stats-grid { gap: 8px; }
+    }
   </style>
 </head>
 <body>
@@ -145,7 +330,7 @@
         <div class="avatar" id="avatar-circle">👤</div>
       </div>
       <input type="file" id="pic-input" accept="image/*" style="display:none" onchange="saveProfilePic(this)" />
-      <button onclick="logout()">خروج</button>
+      <button class="btn-logout" onclick="logout()">خروج</button>
     </div>
   </header>
 
@@ -164,6 +349,15 @@
       </div>
     </div>
 
+    <!-- Today's RDVs Widget -->
+    <div class="today-rdv-card" id="today-rdv-card" style="display:none">
+      <div class="today-rdv-header">
+        <span class="today-rdv-title">📅 مواعيد اليوم</span>
+        <span class="today-rdv-badge" id="today-rdv-count">0</span>
+      </div>
+      <div id="today-rdv-list"></div>
+    </div>
+
     <!-- Goal Card -->
     <div class="goal-card">
       <div class="goal-header">
@@ -173,75 +367,104 @@
       <div id="goal-body"></div>
     </div>
 
-    <!-- Stats -->
+    <!-- Stats Grid -->
     <div class="stats-grid">
-      <div class="stat-card" id="card-all" onclick="setFilter(null,'card-all')"><div class="num" id="total">0</div><div class="label">إجمالي العملاء</div></div>
-      <div class="stat-card" id="card-rdv" onclick="setFilter('RDV','card-rdv')"><div class="num" id="rdv-count">0</div><div class="label">RDV</div></div>
-      <div class="stat-card" id="card-bv"  onclick="setFilter('B.V','card-bv')"><div class="num" id="bv-count">0</div><div class="label">B.V</div></div>
-      <div class="stat-card" id="card-nr"  onclick="setFilter('N.R','card-nr')"><div class="num" id="nr-count">0</div><div class="label">N.R</div></div>
+      <div class="stat-card" id="card-all" onclick="setFilter(null,'card-all')">
+        <div class="num" id="total">0</div><div class="label">إجمالي العملاء</div>
+      </div>
+      <div class="stat-card" id="card-rdv" onclick="setFilter('RDV','card-rdv')">
+        <div class="num" id="rdv-count">0</div><div class="label">RDV</div>
+      </div>
+      <div class="stat-card" id="card-bv" onclick="setFilter('B.V','card-bv')">
+        <div class="num" id="bv-count">0</div><div class="label">B.V</div>
+      </div>
+      <div class="stat-card" id="card-nr" onclick="setFilter('N.R','card-nr')">
+        <div class="num" id="nr-count">0</div><div class="label">N.R</div>
+      </div>
     </div>
-    <div class="active-filter-label" id="filter-label"></div>
 
-    <a href="submit.html" class="action-btn">📸 إرسال قائمة اليوم</a>
-    <a href="rdv.html" class="action-btn secondary">📅 مواعيد RDV</a>
+    <!-- Conversion Funnel -->
+    <div class="funnel-card" id="funnel-card" style="display:none">
+      <div class="funnel-title">📊 قمع التحويل</div>
+      <div class="funnel-stages" id="funnel-stages"></div>
+    </div>
 
-    <div class="section-title">عملائي المحتملون</div>
-    <input class="search-input" id="search-input" placeholder="🔍 بحث بالاسم أو رقم الهاتف..." oninput="filterLeads()" />
+    <!-- CTA Buttons -->
+    <div class="action-btns">
+      <a href="submit.html" class="action-btn">📸 إرسال قائمة اليوم</a>
+      <a href="rdv.html" class="action-btn secondary">📅 مواعيد RDV</a>
+    </div>
+
+    <!-- Leads Section -->
+    <div class="section-header">
+      <div class="section-title">عملائي المحتملون</div>
+      <div class="active-filter-label" id="filter-label"></div>
+    </div>
+    <div class="search-wrap">
+      <input class="search-input" id="search-input" placeholder="بحث بالاسم أو رقم الهاتف..." oninput="filterLeads()" />
+      <span class="search-icon">🔍</span>
+    </div>
     <div id="leads-list"></div>
+
   </div>
 
   <div class="overlay" id="overlay" onclick="closeAllPopups()"></div>
 
   <!-- Call Popup -->
-  <div class="call-popup" id="call-popup">
-    <h3>اتصل بـ <span id="popup-name"></span></h3>
-    <a class="call-option call-normal" id="call-normal-btn">📱 مكالمة عادية</a>
-    <a class="call-option call-wa" id="call-wa-btn" target="_blank">💬 واتساب</a>
-    <button class="call-option call-cancel" onclick="closeAllPopups()">إلغاء</button>
+  <div class="popup-sheet" id="call-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-title">اتصل بـ <span id="popup-name"></span></div>
+    <a class="popup-btn popup-btn-normal" id="call-normal-btn">📱 مكالمة عادية</a>
+    <a class="popup-btn popup-btn-wa" id="call-wa-btn" target="_blank">💬 واتساب</a>
+    <button class="popup-btn popup-btn-cancel" onclick="closeAllPopups()">إلغاء</button>
   </div>
 
   <!-- RDV Popup -->
-  <div class="call-popup" id="rdv-popup">
-    <h3>حجز موعد RDV</h3>
-    <p style="color:#6b7280;font-size:13px;margin-bottom:12px" id="rdv-lead-name"></p>
-    <label style="display:block;font-size:14px;font-weight:600;color:#374151;margin-bottom:6px">تاريخ ووقت الموعد</label>
-    <input type="datetime-local" id="rdv-date-input" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-size:15px;margin-bottom:16px" />
-    <button class="call-option call-normal" onclick="confirmRdv()" style="display:block">✅ تأكيد الموعد</button>
-    <button class="call-option call-cancel" onclick="closeAllPopups()">إلغاء</button>
+  <div class="popup-sheet" id="rdv-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-title">حجز موعد RDV</div>
+    <div class="popup-subtitle" id="rdv-lead-name"></div>
+    <label class="form-label">تاريخ ووقت الموعد</label>
+    <input type="datetime-local" id="rdv-date-input" class="popup-input" />
+    <button class="popup-btn popup-btn-primary" onclick="confirmRdv()">✅ تأكيد الموعد</button>
+    <button class="popup-btn popup-btn-cancel" onclick="closeAllPopups()">إلغاء</button>
   </div>
 
   <!-- Register Popup -->
-  <div class="call-popup" id="register-popup">
-    <h3>تسجيل الطالب 🎓</h3>
-    <p style="color:#6b7280;font-size:13px;margin-bottom:16px" id="register-lead-name"></p>
-    <button class="call-option reg-logha" onclick="doRegister('logha')">
+  <div class="popup-sheet" id="register-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-title">تسجيل الطالب 🎓</div>
+    <div class="popup-subtitle" id="register-lead-name"></div>
+    <button class="popup-btn popup-btn-logha" onclick="doRegister('logha')">
       📚 اللغة فقط
-      <div style="font-size:13px;font-weight:400;margin-top:2px">يُحسب كـ 1 مسجل — 100 درهم</div>
+      <span style="font-size:12px;font-weight:400;display:block;margin-top:2px">1 مسجل — 100 درهم</span>
     </button>
-    <button class="call-option reg-takwin" onclick="doRegister('takwin')">
+    <button class="popup-btn popup-btn-takwin" onclick="doRegister('takwin')">
       🎓 تكوين أو كليهما
-      <div style="font-size:13px;font-weight:400;margin-top:2px">يُحسب كـ 2 مسجل — 200 درهم</div>
+      <span style="font-size:12px;font-weight:400;display:block;margin-top:2px">2 مسجل — 200 درهم</span>
     </button>
-    <button class="call-option call-cancel" onclick="closeAllPopups()">إلغاء</button>
+    <button class="popup-btn popup-btn-cancel" onclick="closeAllPopups()">إلغاء</button>
   </div>
 
   <!-- Goal Popup -->
-  <div class="call-popup" id="goal-popup">
-    <h3>تحديد الهدف 🎯</h3>
-    <div class="goal-form-group">
-      <label class="goal-form-label">تاريخ البداية</label>
-      <input type="date" id="goal-start" class="goal-form-input" />
+  <div class="popup-sheet" id="goal-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-title">تحديد الهدف 🎯</div>
+    <div class="form-group">
+      <label class="form-label">تاريخ البداية</label>
+      <input type="date" id="goal-start" class="popup-input" style="margin-bottom:0" />
     </div>
-    <div class="goal-form-group">
-      <label class="goal-form-label">تاريخ النهاية</label>
-      <input type="date" id="goal-end" class="goal-form-input" />
+    <div class="form-group">
+      <label class="form-label">تاريخ النهاية</label>
+      <input type="date" id="goal-end" class="popup-input" style="margin-bottom:0" />
     </div>
-    <div class="goal-form-group">
-      <label class="goal-form-label">الهدف (عدد المسجلين)</label>
-      <input type="number" id="goal-target" class="goal-form-input" placeholder="مثال: 20" min="1" />
+    <div class="form-group">
+      <label class="form-label">الهدف (عدد المسجلين)</label>
+      <input type="number" id="goal-target" class="popup-input" placeholder="مثال: 20" min="1" style="margin-bottom:0" />
     </div>
-    <button class="call-option call-normal" onclick="saveGoal()" style="display:block">✅ حفظ الهدف</button>
-    <button class="call-option call-cancel" onclick="closeAllPopups()">إلغاء</button>
+    <div style="height:14px"></div>
+    <button class="popup-btn popup-btn-primary" onclick="saveGoal()">✅ حفظ الهدف</button>
+    <button class="popup-btn popup-btn-cancel" onclick="closeAllPopups()">إلغاء</button>
   </div>
 
   <script>
@@ -262,10 +485,11 @@
     };
 
     const agentId = localStorage.getItem('agent_id');
-    const GOAL_KEY    = `agentGoal_${agentId}`;
-    const INSCRE_KEY  = `showInscre_${agentId}`;
+    const GOAL_KEY   = `agentGoal_${agentId}`;
+    const INSCRE_KEY = `showInscre_${agentId}`;
 
     let allLeads = [];
+    let allRdvs  = [];
     let currentStats = {};
     let showInscre = localStorage.getItem(INSCRE_KEY) === 'true';
     let currentRegisterLeadId = null;
@@ -273,6 +497,7 @@
     const registeringLeads = new Set();
     let activeFilter = null;
     let activeCardId = null;
+    let currentSwipedWrapper = null;
 
     // ===== Profile Picture =====
     function loadProfilePic() {
@@ -280,35 +505,35 @@
       const el = document.getElementById('avatar-circle');
       if (pic) el.innerHTML = `<img src="${pic}" />`;
     }
-
     function saveProfilePic(input) {
-      const file = input.files[0];
-      if (!file) return;
+      const file = input.files[0]; if (!file) return;
       const reader = new FileReader();
-      reader.onload = e => {
-        localStorage.setItem(`profilePic_${agentId}`, e.target.result);
-        loadProfilePic();
-      };
+      reader.onload = e => { localStorage.setItem(`profilePic_${agentId}`, e.target.result); loadProfilePic(); };
       reader.readAsDataURL(file);
     }
-
     loadProfilePic();
 
-    // ===== Load =====
+    // ===== Load Dashboard =====
     async function loadDashboard() {
-      const [statsRes, leadsRes] = await Promise.all([
+      const [statsRes, leadsRes, rdvRes] = await Promise.all([
         fetch(`${API}/agents/${agentId}/stats`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API}/leads/my`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${API}/leads/my`,               { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/rdv/my`,                 { headers: { Authorization: `Bearer ${token}` } })
       ]);
       currentStats = await statsRes.json();
-      allLeads = await leadsRes.json();
+      allLeads     = await leadsRes.json();
+      allRdvs      = await rdvRes.json();
 
       updateMoneyCard();
       renderGoal();
+      renderTodayRdvs();
+      renderFunnel();
+
       document.getElementById('total').textContent     = currentStats.total   || 0;
       document.getElementById('rdv-count').textContent = currentStats['RDV']  || 0;
       document.getElementById('bv-count').textContent  = currentStats['B.V']  || 0;
       document.getElementById('nr-count').textContent  = currentStats['N.R']  || 0;
+
       renderLeads(allLeads);
     }
 
@@ -319,16 +544,87 @@
       document.getElementById('inscre-count').textContent = inscre;
       applyInscreVisibility();
     }
-
     function applyInscreVisibility() {
       document.getElementById('inscre-badge').style.display = showInscre ? 'inline-block' : 'none';
       document.getElementById('toggle-btn').textContent = showInscre ? '🙈 إخفاء العدد' : '👁 إظهار العدد';
     }
-
     function toggleInscre() {
       showInscre = !showInscre;
       localStorage.setItem(INSCRE_KEY, showInscre);
       applyInscreVisibility();
+    }
+
+    // ===== Today's RDVs Widget =====
+    function renderTodayRdvs() {
+      const today = new Date().toDateString();
+      const todayRdvs = allRdvs.filter(r => {
+        if (r.status !== 'scheduled') return false;
+        return new Date(r.rdv_date).toDateString() === today;
+      });
+
+      const card = document.getElementById('today-rdv-card');
+      const list = document.getElementById('today-rdv-list');
+      document.getElementById('today-rdv-count').textContent = todayRdvs.length;
+
+      if (!todayRdvs.length) { card.style.display = 'none'; return; }
+      card.style.display = 'block';
+      list.innerHTML = '';
+
+      todayRdvs.forEach(rdv => {
+        const lead = allLeads.find(l => l.id === rdv.lead_id) || {};
+        const time = new Date(rdv.rdv_date).toLocaleTimeString('ar-MA', { hour: '2-digit', minute: '2-digit' });
+        const div = document.createElement('div');
+        div.className = 'today-rdv-item';
+        div.innerHTML = `
+          <div class="today-rdv-info">
+            <div class="today-rdv-name">${lead.name || '—'}</div>
+            <div class="today-rdv-time">${time}</div>
+          </div>
+          <button class="today-rdv-call" onclick="openCallPopup('${lead.phone}','${esc(lead.name)}')">📞 اتصال</button>
+        `;
+        list.appendChild(div);
+      });
+    }
+
+    // ===== Funnel Analytics =====
+    function renderFunnel() {
+      const total   = currentStats.total || 0;
+      const rdvBook = currentStats.total_rdv_booked || 0;
+      const showed  = currentStats.showed_up || 0;
+      const regs    = currentStats.registered_students || 0;
+
+      if (!total) { document.getElementById('funnel-card').style.display = 'none'; return; }
+      document.getElementById('funnel-card').style.display = 'block';
+
+      const MAX_H = 80;
+      const stages = [
+        { label: 'عملاء',   n: total,   pct: 100,                                           color: '#e63329' },
+        { label: 'RDV',     n: rdvBook, pct: total ? Math.round(rdvBook/total*100) : 0,     color: '#f59e0b' },
+        { label: 'حضروا',   n: showed,  pct: rdvBook ? Math.round(showed/rdvBook*100) : 0,  color: '#10b981' },
+        { label: 'مسجلين',  n: regs,    pct: showed ? Math.round(regs/showed*100) : 0,      color: '#3b82f6' },
+      ];
+
+      const maxN = Math.max(...stages.map(s => s.n)) || 1;
+      const container = document.getElementById('funnel-stages');
+      container.innerHTML = '';
+
+      stages.forEach((s, i) => {
+        const barH = Math.max(8, Math.round((s.n / maxN) * MAX_H));
+        const html = `
+          <div class="funnel-stage">
+            <div class="funnel-num">${s.n}</div>
+            <div class="funnel-pct">${i === 0 ? '100%' : s.pct + '%'}</div>
+            <div class="funnel-bar-wrap">
+              <div class="funnel-bar" style="height:${barH}px;background:${s.color};opacity:${0.6 + i*0.1}"></div>
+            </div>
+            <div class="funnel-lbl">${s.label}</div>
+          </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+        if (i < stages.length - 1) {
+          container.insertAdjacentHTML('beforeend', '<div class="funnel-arrow">‹</div>');
+        }
+      });
     }
 
     // ===== Goal =====
@@ -336,27 +632,22 @@
       const raw = localStorage.getItem(GOAL_KEY);
       return raw ? JSON.parse(raw) : null;
     }
-
     function renderGoal() {
       const goal = getGoal();
       const btns = document.getElementById('goal-btns');
       const body = document.getElementById('goal-body');
-
       if (!goal) {
         btns.innerHTML = `<button class="btn-set-goal" onclick="openGoalPopup()">+ تحديد هدف</button>`;
         body.innerHTML = `<div class="no-goal-text">لم تحدد هدفاً بعد. حدد هدفك الآن!</div>`;
         return;
       }
-
       btns.innerHTML = `<button class="btn-edit-goal" onclick="openGoalPopup()">✏️ تعديل</button>`;
-
       const now = new Date(); now.setHours(0,0,0,0);
       const start = new Date(goal.startDate);
       const end   = new Date(goal.endDate);
       const totalDays   = Math.max(1, Math.round((end - start) / 86400000));
       const elapsedDays = Math.max(0, Math.min(totalDays, Math.round((now - start) / 86400000)));
       const timeRatio   = elapsedDays / totalDays;
-
       const inscre  = currentStats.registered_inscre || 0;
       const target  = goal.targetStudents;
       const pct     = Math.min(100, Math.round((inscre / target) * 100));
@@ -366,7 +657,6 @@
       const isDone  = inscre >= target;
       const isOnTrack = gap >= 0;
       const daysLeft = Math.max(0, totalDays - elapsedDays);
-
       let trackHtml;
       if (isDone) {
         trackHtml = `<div class="track-badge track-done">🏆 أحسنت! لقد حققت هدفك!</div>`;
@@ -375,13 +665,9 @@
       } else {
         trackHtml = `<div class="track-badge track-behind">⚠️ أنت متأخر بـ ${Math.abs(gap)} مسجل عن الجدول</div>`;
       }
-
       body.innerHTML = `
         <div class="progress-wrap">
-          <div class="progress-labels">
-            <span>${inscre} من ${target} مسجل</span>
-            <span>${pct}%</span>
-          </div>
+          <div class="progress-labels"><span>${inscre} من ${target} مسجل</span><span>${pct}%</span></div>
           <div class="progress-bar-bg">
             <div class="progress-bar-fill ${isOnTrack || isDone ? 'prog-green' : 'prog-red'}" style="width:${pct}%"></div>
           </div>
@@ -394,49 +680,41 @@
         <div class="goal-dates">من ${goal.startDate} إلى ${goal.endDate} · ${daysLeft} يوم متبقٍ</div>
       `;
     }
-
     function openGoalPopup() {
       const goal = getGoal();
       const today = new Date().toISOString().slice(0,10);
       document.getElementById('goal-start').value  = goal ? goal.startDate      : today;
       document.getElementById('goal-end').value    = goal ? goal.endDate        : '';
       document.getElementById('goal-target').value = goal ? goal.targetStudents : '';
-      document.getElementById('goal-popup').classList.add('show');
-      document.getElementById('overlay').classList.add('show');
+      showPopup('goal-popup');
     }
-
     function saveGoal() {
-      const startDate     = document.getElementById('goal-start').value;
-      const endDate       = document.getElementById('goal-end').value;
+      const startDate      = document.getElementById('goal-start').value;
+      const endDate        = document.getElementById('goal-end').value;
       const targetStudents = parseInt(document.getElementById('goal-target').value);
       if (!startDate || !endDate || !targetStudents || targetStudents < 1) { alert('يرجى ملء جميع الحقول'); return; }
       if (endDate <= startDate) { alert('تاريخ النهاية يجب أن يكون بعد تاريخ البداية'); return; }
       localStorage.setItem(GOAL_KEY, JSON.stringify({ startDate, endDate, targetStudents }));
-      closeAllPopups();
-      renderGoal();
+      closeAllPopups(); renderGoal();
     }
 
-    // ===== Filter by card =====
+    // ===== Filter =====
     function setFilter(status, cardId) {
-      // Toggle off if already active
       if (activeFilter === status && activeCardId === cardId) {
-        activeFilter = null;
-        activeCardId = null;
+        activeFilter = null; activeCardId = null;
         document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
         document.getElementById('filter-label').classList.remove('show');
       } else {
-        activeFilter = status;
-        activeCardId = cardId;
+        activeFilter = status; activeCardId = cardId;
         document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
         document.getElementById(cardId).classList.add('active');
         const lbl = document.getElementById('filter-label');
-        lbl.textContent = status ? `🔎 تصفية: ${status}` : '🔎 جميع العملاء';
+        lbl.textContent = status ? `🔎 ${status}` : '🔎 الكل';
         lbl.classList.add('show');
       }
       document.getElementById('search-input').value = '';
       applyFilters();
     }
-
     function applyFilters() {
       const q = document.getElementById('search-input').value.trim().toLowerCase();
       let leads = allLeads;
@@ -444,57 +722,126 @@
       if (q) leads = leads.filter(l => (l.name||'').toLowerCase().includes(q) || (l.phone||'').includes(q));
       renderLeads(leads);
     }
+    function filterLeads() { applyFilters(); }
 
-    // ===== Leads =====
-    function filterLeads() {
-      applyFilters();
+    // ===== Swipe =====
+    function addSwipeHandlers(wrapper, leadId) {
+      let startX = 0, startY = 0, dragging = false;
+      const row = wrapper.querySelector('.lead-row');
+
+      wrapper.addEventListener('touchstart', e => {
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        dragging = false;
+      }, { passive: true });
+
+      wrapper.addEventListener('touchmove', e => {
+        const dx = e.touches[0].clientX - startX;
+        const dy = e.touches[0].clientY - startY;
+        if (!dragging && Math.abs(dy) > Math.abs(dx)) return; // vertical scroll
+        dragging = true;
+
+        if (dx > 60) { // swipe right → show actions on left
+          if (currentSwipedWrapper && currentSwipedWrapper !== wrapper) {
+            currentSwipedWrapper.classList.remove('swiped');
+          }
+          wrapper.classList.add('swiped');
+          currentSwipedWrapper = wrapper;
+        } else if (dx < -20) {
+          wrapper.classList.remove('swiped');
+          if (currentSwipedWrapper === wrapper) currentSwipedWrapper = null;
+        }
+      }, { passive: true });
+
+      wrapper.addEventListener('touchend', () => { dragging = false; }, { passive: true });
     }
 
+    function closeSwipes() {
+      document.querySelectorAll('.lead-wrapper.swiped').forEach(w => w.classList.remove('swiped'));
+      currentSwipedWrapper = null;
+    }
+
+    // ===== Leads Render =====
     function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
 
     function renderLeads(leads) {
       const list = document.getElementById('leads-list');
       list.innerHTML = '';
       if (!leads.length) {
-        list.innerHTML = '<p style="color:#9ca3af;text-align:center;padding:20px">لا يوجد عملاء</p>';
+        list.innerHTML = '<div class="empty-state">لا يوجد عملاء</div>';
         return;
       }
       leads.forEach(lead => {
         const isReg = lead.status === 'registered_logha' || lead.status === 'registered_takwin';
         const sc    = STATUS_CLASS[lead.status] || '';
         const label = STATUS_LABEL[lead.status] || lead.status;
-        const div   = document.createElement('div');
-        div.className = 'lead-row';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'lead-wrapper';
+
+        // Swipe action panel (left side, revealed on swipe right)
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'lead-swipe-actions';
+        actionsDiv.innerHTML = `
+          <button class="swa-btn swa-call" onclick="event.stopPropagation();openCallPopup('${lead.phone}','${esc(lead.name)}')">
+            📞<span class="swa-label">اتصال</span>
+          </button>
+          <button class="swa-btn swa-note" onclick="event.stopPropagation();focusNote('${lead.id}')">
+            📝<span class="swa-label">ملاحظة</span>
+          </button>
+        `;
+        wrapper.appendChild(actionsDiv);
 
         const rdvBtn = lead.status === 'RDV'
-          ? `<button class="call-btn" style="background:#e63329" onclick="event.stopPropagation();openRdvPopup('${lead.id}','${esc(lead.name)}')">📅</button>`
+          ? `<button class="icon-btn icon-btn-red" onclick="event.stopPropagation();openRdvPopup('${lead.id}','${esc(lead.name)}')" title="حجز RDV">📅</button>`
           : '';
 
-        div.innerHTML = `
-          <div style="flex:1">
-            <div style="display:flex;justify-content:space-between;align-items:center">
-              <div>
-                <div style="font-weight:600">${lead.name || '—'}</div>
-                <div style="font-size:13px;color:#6b7280;direction:ltr;text-align:right">${lead.phone}</div>
+        const notePreview = lead.note
+          ? `<div class="lead-note-preview">📝 ${lead.note.substring(0,40)}${lead.note.length>40?'…':''}</div>`
+          : '';
+
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'lead-row';
+        rowDiv.innerHTML = `
+          <div class="lead-main">
+            <div class="lead-top">
+              <div style="min-width:0;flex:1">
+                <div class="lead-name">${lead.name || '—'}</div>
+                <div class="lead-phone">${lead.phone}</div>
+                ${notePreview}
               </div>
-              <div style="display:flex;gap:8px;align-items:center">
+              <div class="lead-badges">
                 <span class="lead-status ${sc}">${label}</span>
                 ${rdvBtn}
-                <button class="call-btn" onclick="event.stopPropagation();openCallPopup('${lead.phone}','${esc(lead.name)}')">📞</button>
+                <button class="icon-btn icon-btn-green" onclick="event.stopPropagation();openCallPopup('${lead.phone}','${esc(lead.name)}')">📞</button>
               </div>
             </div>
             <div class="lead-detail" id="detail-${lead.id}">
               <div class="lead-detail-row"><span class="lead-detail-label">المستوى</span><span>${lead.level || '—'}</span></div>
               <div class="lead-detail-row"><span class="lead-detail-label">المدينة</span><span>${lead.city || '—'}</span></div>
               <div class="lead-detail-row"><span class="lead-detail-label">تاريخ الإرسال</span><span>${new Date(lead.submitted_at).toLocaleDateString('ar-MA')}</span></div>
-              <div class="lead-detail-row"><span class="lead-detail-label">عدد التبادلات</span><span>${lead.swap_count}/3</span></div>
+              <div class="lead-detail-row"><span class="lead-detail-label">عدد التبادلات</span><span class="swap-badge">${lead.swap_count}/3</span></div>
+
+              <!-- Notes -->
+              <div class="note-section">
+                <div class="note-label">📝 ملاحظة خاصة</div>
+                <textarea
+                  class="note-textarea"
+                  id="note-${lead.id}"
+                  placeholder="أضف ملاحظة خاصة عن هذا العميل..."
+                  onblur="saveNote('${lead.id}', this.value)"
+                  onclick="event.stopPropagation()"
+                >${lead.note || ''}</textarea>
+                <div class="note-saved-hint" id="note-hint-${lead.id}">✅ تم حفظ الملاحظة</div>
+              </div>
+
               ${!isReg ? `
               <div class="lead-detail-actions">
                 <select class="status-select" id="ss-${lead.id}" onclick="event.stopPropagation()" onchange="toggleCustom('${lead.id}',this.value)">
-                  <option value="RDV" ${lead.status==='RDV'?'selected':''}>RDV</option>
-                  <option value="B.V" ${lead.status==='B.V'?'selected':''}>B.V</option>
-                  <option value="N.R" ${lead.status==='N.R'?'selected':''}>N.R</option>
-                  <option value="P.I" ${lead.status==='P.I'?'selected':''}>P.I</option>
+                  <option value="RDV"         ${lead.status==='RDV'?'selected':''}>RDV</option>
+                  <option value="B.V"         ${lead.status==='B.V'?'selected':''}>B.V</option>
+                  <option value="N.R"         ${lead.status==='N.R'?'selected':''}>N.R</option>
+                  <option value="P.I"         ${lead.status==='P.I'?'selected':''}>P.I</option>
                   <option value="Autre ville" ${lead.status==='Autre ville'?'selected':''}>Autre ville</option>
                   <option value="__custom__">✏️ نص مخصص...</option>
                 </select>
@@ -504,15 +851,25 @@
                 <input type="text" id="cs-${lead.id}" class="status-select" style="width:100%" placeholder="اكتب الحالة..." onclick="event.stopPropagation()" />
               </div>
               <button class="btn-register" id="reg-btn-${lead.id}" onclick="event.stopPropagation();openRegisterPopup('${lead.id}','${esc(lead.name)}')">✅ تسجيل الطالب</button>
-              ` : `<div style="color:#10b981;font-size:14px;font-weight:600;margin-top:8px;text-align:center">✅ تم تسجيل هذا الطالب</div>`}
+              ` : `<div style="color:#10b981;font-size:14px;font-weight:700;margin-top:10px;text-align:center">✅ تم تسجيل هذا الطالب</div>`}
             </div>
           </div>
         `;
-        div.addEventListener('click', () => {
+
+        rowDiv.addEventListener('click', e => {
+          if (wrapper.classList.contains('swiped')) { closeSwipes(); return; }
           document.getElementById(`detail-${lead.id}`).classList.toggle('open');
         });
-        list.appendChild(div);
+
+        wrapper.appendChild(rowDiv);
+        addSwipeHandlers(wrapper, lead.id);
+        list.appendChild(wrapper);
       });
+
+      // Close swipes when tapping elsewhere
+      document.addEventListener('touchstart', e => {
+        if (!e.target.closest('.lead-wrapper')) closeSwipes();
+      }, { passive: true });
     }
 
     function toggleCustom(id, val) {
@@ -520,6 +877,38 @@
       if (w) w.style.display = val === '__custom__' ? 'block' : 'none';
     }
 
+    // ===== Note =====
+    function focusNote(leadId) {
+      closeSwipes();
+      // Open detail if not open
+      const detail = document.getElementById(`detail-${leadId}`);
+      if (detail && !detail.classList.contains('open')) detail.classList.add('open');
+      setTimeout(() => {
+        const textarea = document.getElementById(`note-${leadId}`);
+        if (textarea) { textarea.focus(); textarea.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      }, 100);
+    }
+
+    async function saveNote(leadId, value) {
+      const note = value.trim();
+      try {
+        await fetch(`${API}/leads/${leadId}/note`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ note })
+        });
+        const hint = document.getElementById(`note-hint-${leadId}`);
+        if (hint) {
+          hint.style.display = 'block';
+          setTimeout(() => { hint.style.display = 'none'; }, 2000);
+        }
+        // Update local lead note
+        const lead = allLeads.find(l => l.id === leadId);
+        if (lead) lead.note = note;
+      } catch(e) {}
+    }
+
+    // ===== Status Update =====
     async function updateStatus(leadId) {
       const sel = document.getElementById(`ss-${leadId}`);
       let newStatus = sel.value;
@@ -528,13 +917,13 @@
         if (!newStatus) return alert('يرجى كتابة الحالة');
       }
       const btn = document.getElementById(`upd-${leadId}`);
-      btn.disabled = true;
+      btn.disabled = true; btn.textContent = '...';
       const res = await fetch(`${API}/leads/${leadId}/status`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
-      btn.disabled = false;
+      btn.disabled = false; btn.textContent = 'تحديث';
       if (res.ok) loadDashboard();
       else { const d = await res.json(); alert(d.detail || 'خطأ في التحديث'); }
     }
@@ -544,37 +933,26 @@
       if (registeringLeads.has(leadId)) return;
       currentRegisterLeadId = leadId;
       document.getElementById('register-lead-name').textContent = name || '';
-      document.getElementById('register-popup').classList.add('show');
-      document.getElementById('overlay').classList.add('show');
+      showPopup('register-popup');
     }
-
     async function doRegister(type) {
       const leadId = currentRegisterLeadId;
       if (!leadId || registeringLeads.has(leadId)) return;
       registeringLeads.add(leadId);
       closeAllPopups();
-
       const res = await fetch(`${API}/leads/${leadId}/register`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ registration_type: type })
       });
-
       registeringLeads.delete(leadId);
-
       if (res.ok) {
         const data = await res.json();
-        playMoneySound();
-        spawnMoney(data.points);
+        playMoneySound(); spawnMoney(data.points);
         await loadDashboard();
         const el = document.getElementById('money-amount');
-        el.classList.remove('money-pulse');
-        void el.offsetWidth;
-        el.classList.add('money-pulse');
-      } else {
-        const d = await res.json();
-        alert(d.detail || 'خطأ في التسجيل');
-      }
+        el.classList.remove('money-pulse'); void el.offsetWidth; el.classList.add('money-pulse');
+      } else { const d = await res.json(); alert(d.detail || 'خطأ في التسجيل'); }
     }
 
     // ===== Money Effects =====
@@ -582,19 +960,16 @@
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         [[0, 880], [0.12, 1100], [0.24, 1320]].forEach(([delay, freq]) => {
-          const osc  = ctx.createOscillator();
-          const gain = ctx.createGain();
+          const osc = ctx.createOscillator(); const gain = ctx.createGain();
           osc.connect(gain); gain.connect(ctx.destination);
           osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
           osc.frequency.exponentialRampToValueAtTime(freq * 1.5, ctx.currentTime + delay + 0.09);
           gain.gain.setValueAtTime(0.28, ctx.currentTime + delay);
           gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.28);
-          osc.start(ctx.currentTime + delay);
-          osc.stop(ctx.currentTime + delay + 0.3);
+          osc.start(ctx.currentTime + delay); osc.stop(ctx.currentTime + delay + 0.3);
         });
       } catch(e) {}
     }
-
     function spawnMoney(points) {
       const pool = ['💰','💵','💸','🤑'];
       const count = Math.min(points * 5, 12);
@@ -617,8 +992,7 @@
       document.getElementById('call-normal-btn').href = `tel:${phone}`;
       const wa = phone.startsWith('0') ? '212' + phone.slice(1) : phone;
       document.getElementById('call-wa-btn').href = `https://wa.me/${wa}`;
-      document.getElementById('call-popup').classList.add('show');
-      document.getElementById('overlay').classList.add('show');
+      showPopup('call-popup');
     }
 
     // ===== RDV Popup =====
@@ -627,10 +1001,8 @@
       document.getElementById('rdv-lead-name').textContent = name;
       const t = new Date(); t.setDate(t.getDate()+1); t.setHours(10,0,0,0);
       document.getElementById('rdv-date-input').value = t.toISOString().slice(0,16);
-      document.getElementById('rdv-popup').classList.add('show');
-      document.getElementById('overlay').classList.add('show');
+      showPopup('rdv-popup');
     }
-
     async function confirmRdv() {
       const dateVal = document.getElementById('rdv-date-input').value;
       if (!dateVal) return alert('يرجى اختيار تاريخ الموعد');
@@ -643,6 +1015,12 @@
       else { const d = await res.json(); alert(d.detail || 'خطأ في حجز الموعد'); }
     }
 
+    // ===== Popup helpers =====
+    function showPopup(id) {
+      closeSwipes();
+      document.getElementById(id).classList.add('show');
+      document.getElementById('overlay').classList.add('show');
+    }
     function closeAllPopups() {
       ['call-popup','rdv-popup','register-popup','goal-popup'].forEach(id =>
         document.getElementById(id).classList.remove('show')
@@ -650,8 +1028,8 @@
       document.getElementById('overlay').classList.remove('show');
     }
 
+    // ===== Logout =====
     function logout() {
-      // Only clear auth keys — preserve per-agent preferences (goal, inscre toggle)
       ['token','role','name','agent_id'].forEach(k => localStorage.removeItem(k));
       window.location.href = '/index.html';
     }

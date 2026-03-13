@@ -66,11 +66,28 @@ def leaderboard(admin=Depends(require_admin)):
         rdv_count = sum(1 for l in leads.data if l["status"] == "RDV")
         rdv_pct = round((rdv_count / total * 100) if total else 0, 1)
 
+        rdvs = sb.table("rdv").select("status").eq("agent_id", agent["id"]).execute()
+        showed_up = sum(1 for r in rdvs.data if r["status"] == "showed_up")
+        total_rdv_booked = len(rdvs.data)
+
+        reg_leads = sb.table("leads").select("status").eq("current_agent", agent["id"]).execute()
+        reg_logha   = sum(1 for r in reg_leads.data if r["status"] == "registered_logha")
+        reg_takwin  = sum(1 for r in reg_leads.data if r["status"] == "registered_takwin")
+        registered_students = reg_logha + reg_takwin
+        registered_inscre   = reg_logha + reg_takwin * 2
+
         board.append({
             "name": agent["name"],
+            "total_leads": total,
+            "rdv_count": rdv_count,
+            "rdv_pct": rdv_pct,
+            "total_rdv_booked": total_rdv_booked,
+            "showed_up": showed_up,
+            "registered_students": registered_students,
+            "registered_inscre": registered_inscre,
+            # legacy keys kept for compatibility
             "total": total,
             "rdv": rdv_count,
-            "rdv_pct": rdv_pct
         })
 
     board.sort(key=lambda x: x["rdv"], reverse=True)

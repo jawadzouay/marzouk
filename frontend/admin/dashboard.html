@@ -2,107 +2,247 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>لوحة تحكم الإدارة — مرزوق أكاديمي</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Cairo', sans-serif; background: #f0f4f8; min-height: 100vh; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; }
+
     header {
-      background: #1a1a1a; color: white; padding: 16px 20px;
+      background: #1a1a1a; color: white;
+      padding: 14px 20px;
+      padding-top: max(14px, env(safe-area-inset-top));
       display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
-    header h1 { font-size: 20px; }
+    header h1 { font-size: 17px; font-weight: 700; }
     .logout-btn {
-      background: rgba(255,255,255,0.2); border: none; color: white;
-      padding: 8px 16px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer;
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      color: white; padding: 7px 14px; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px;
     }
+
     nav {
-      background: white; border-bottom: 1px solid #e5e7eb;
+      background: white; border-bottom: 2px solid #f0f2f5;
       display: flex; overflow-x: auto; padding: 0 12px;
+      -webkit-overflow-scrolling: touch;
     }
+    nav::-webkit-scrollbar { display: none; }
     nav a {
-      padding: 14px 16px; text-decoration: none; color: #6b7280;
-      font-size: 14px; font-weight: 600; white-space: nowrap; border-bottom: 3px solid transparent;
+      padding: 12px 14px; text-decoration: none; color: #6b7280;
+      font-size: 13px; font-weight: 600; white-space: nowrap;
+      border-bottom: 3px solid transparent; transition: all 0.15s;
     }
-    nav a.active, nav a:hover { color: #1a1a1a; border-bottom-color: #1a1a1a; }
-    .container { padding: 20px; max-width: 1000px; margin: 0 auto; }
-    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 24px; }
+    nav a.active, nav a:hover { color: #1a1a1a; border-bottom-color: #e63329; }
+
+    .container {
+      padding: 16px;
+      padding-bottom: max(24px, env(safe-area-inset-bottom));
+      max-width: 1000px; margin: 0 auto;
+    }
+
+    /* Stats Grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
     @media(min-width:600px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
-    .stat-card { background: white; border-radius: 12px; padding: 16px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
-    .stat-card .num { font-size: 28px; font-weight: 700; color: #1a1a1a; }
-    .stat-card .label { font-size: 12px; color: #6b7280; margin-top: 4px; }
-    .section-title { font-size: 16px; font-weight: 700; color: #374151; margin: 20px 0 12px; }
-    .agent-row {
-      background: white; border-radius: 10px; padding: 14px 16px;
+    .stat-card { background: white; border-radius: 14px; padding: 16px 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .stat-card .num { font-size: 30px; font-weight: 900; color: #1a1a1a; line-height: 1; }
+    .stat-card .label { font-size: 12px; color: #6b7280; margin-top: 5px; }
+
+    /* Funnel */
+    .funnel-card {
+      background: white; border-radius: 16px; padding: 16px;
+      margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .funnel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .funnel-title { font-size: 15px; font-weight: 700; color: #374151; }
+    .funnel-subtitle { font-size: 12px; color: #9ca3af; }
+    .funnel-stages { display: flex; align-items: flex-end; gap: 6px; }
+    .funnel-stage { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+    .funnel-bar { width: 100%; border-radius: 6px 6px 0 0; min-height: 8px; transition: height 0.6s; }
+    .funnel-num { font-size: 18px; font-weight: 900; color: #1a1a1a; }
+    .funnel-pct { font-size: 11px; color: #9ca3af; font-weight: 600; }
+    .funnel-lbl { font-size: 11px; color: #6b7280; font-weight: 600; text-align: center; margin-top: 4px; }
+    .funnel-arrow { color: #d1d5db; font-size: 20px; padding-bottom: 28px; align-self: center; flex: 0; }
+
+    /* Agent funnel table */
+    .funnel-agents { margin-top: 16px; border-top: 1px solid #f3f4f6; padding-top: 12px; }
+    .funnel-agents-title { font-size: 13px; font-weight: 700; color: #6b7280; margin-bottom: 8px; }
+    .funnel-agent-row {
+      display: grid; grid-template-columns: 1fr 60px 60px 60px 60px;
+      gap: 4px; padding: 8px 0; border-bottom: 1px solid #f9fafb;
+      font-size: 13px; align-items: center;
+    }
+    .funnel-agent-row.header { font-weight: 700; color: #6b7280; font-size: 11px; }
+    .funnel-agent-name { font-weight: 600; color: #1a1a1a; }
+    .funnel-agent-num { text-align: center; font-weight: 700; }
+    .fa-rdv   { color: #f59e0b; }
+    .fa-show  { color: #10b981; }
+    .fa-reg   { color: #3b82f6; }
+
+    /* Agents submission */
+    .section-title { font-size: 15px; font-weight: 700; color: #374151; margin: 0 0 12px; }
+    .agents-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    @media(min-width:600px) { .agents-grid { grid-template-columns: repeat(3, 1fr); } }
+    .agent-card {
+      background: white; border-radius: 12px; padding: 12px 14px;
       display: flex; justify-content: space-between; align-items: center;
-      margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
     }
-    .agent-name { font-weight: 700; }
-    .submitted-yes { color: #166534; font-weight: 700; }
-    .submitted-no { color: #dc2626; font-weight: 700; }
-    .nav-links { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .agent-name { font-weight: 700; font-size: 13px; }
+    .submitted-yes { color: #166534; font-weight: 700; font-size: 12px; }
+    .submitted-no  { color: #dc2626; font-weight: 700; font-size: 12px; }
+
+    /* Nav links */
+    .nav-links { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; overflow-x: auto; }
     .nav-link {
-      padding: 10px 16px; background: #1a1a1a; color: white; border-radius: 8px;
-      text-decoration: none; font-size: 14px; font-weight: 600;
+      padding: 10px 16px; background: #1a1a1a; color: white; border-radius: 10px;
+      text-decoration: none; font-size: 13px; font-weight: 600; white-space: nowrap;
     }
-    .nav-link.light { background: #e0e7ff; color: #1a1a1a; }
+    .nav-link.light { background: #f3f4f6; color: #374151; }
+    .nav-link:active { opacity: 0.8; }
   </style>
 </head>
 <body>
   <header>
-    <h1>لوحة تحكم الإدارة</h1>
+    <h1>🏛️ لوحة تحكم الإدارة</h1>
     <button class="logout-btn" onclick="logout()">خروج</button>
   </header>
 
   <div class="container">
+
     <div class="nav-links">
-      <a href="agents.html" class="nav-link">👥 إدارة الوكلاء</a>
+      <a href="agents.html"      class="nav-link">👥 الوكلاء</a>
       <a href="leaderboard.html" class="nav-link light">🏆 الترتيب</a>
-      <a href="calendar.html" class="nav-link light">📅 تقويم RDV</a>
-      <a href="swap.html" class="nav-link light">🔄 قائمة التبادل</a>
-      <a href="blacklist.html" class="nav-link light">🚫 القائمة السوداء</a>
+      <a href="calendar.html"    class="nav-link light">📅 تقويم RDV</a>
+      <a href="swap.html"        class="nav-link light">🔄 التبادل</a>
+      <a href="blacklist.html"   class="nav-link light">🚫 القائمة السوداء</a>
     </div>
 
+    <!-- Stats -->
     <div class="stats-grid">
       <div class="stat-card"><div class="num" id="total-leads">—</div><div class="label">إجمالي العملاء</div></div>
-      <div class="stat-card"><div class="num" id="total-rdv">—</div><div class="label">RDV</div></div>
+      <div class="stat-card"><div class="num" id="total-rdv">—</div><div class="label">مواعيد RDV</div></div>
       <div class="stat-card"><div class="num" id="swap-pool">—</div><div class="label">قائمة التبادل</div></div>
       <div class="stat-card"><div class="num" id="active-agents">—</div><div class="label">وكلاء نشطون</div></div>
     </div>
 
+    <!-- Conversion Funnel -->
+    <div class="funnel-card" id="funnel-card" style="display:none">
+      <div class="funnel-header">
+        <div>
+          <div class="funnel-title">📊 قمع التحويل — الفريق كامل</div>
+          <div class="funnel-subtitle">من العميل إلى التسجيل</div>
+        </div>
+      </div>
+      <div class="funnel-stages" id="funnel-stages"></div>
+      <div class="funnel-agents" id="funnel-agents"></div>
+    </div>
+
+    <!-- Submission Status -->
     <div class="section-title">إرسال اليوم</div>
-    <div id="agents-list"></div>
+    <div class="agents-grid" id="agents-list"></div>
+
   </div>
 
   <script>
     const API = window.location.origin;
     const token = localStorage.getItem('token');
-    const role = localStorage.getItem('role');
+    const role  = localStorage.getItem('role');
     if (!token || role !== 'admin') window.location.href = '/index.html';
 
     async function loadDashboard() {
-      const res = await fetch(`${API}/admin/dashboard`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
+      const [dashRes, leaderRes] = await Promise.all([
+        fetch(`${API}/admin/dashboard`,   { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API}/admin/leaderboard`, { headers: { Authorization: `Bearer ${token}` } })
+      ]);
+      const data   = await dashRes.json();
+      const leaders = leaderRes.ok ? await leaderRes.json() : [];
 
-      document.getElementById('total-leads').textContent = data.total_leads ?? '—';
-      document.getElementById('total-rdv').textContent = data.total_rdv ?? '—';
-      document.getElementById('swap-pool').textContent = data.swap_pool_count ?? '—';
+      document.getElementById('total-leads').textContent   = data.total_leads ?? '—';
+      document.getElementById('total-rdv').textContent     = data.total_rdv   ?? '—';
+      document.getElementById('swap-pool').textContent     = data.swap_pool_count ?? '—';
       document.getElementById('active-agents').textContent = data.agents?.length ?? '—';
 
+      // Submission list
       const list = document.getElementById('agents-list');
       list.innerHTML = '';
       (data.agents || []).forEach(agent => {
         const div = document.createElement('div');
-        div.className = 'agent-row';
+        div.className = 'agent-card';
         div.innerHTML = `
           <span class="agent-name">${agent.name}</span>
           <span class="${agent.submitted_today ? 'submitted-yes' : 'submitted-no'}">
-            ${agent.submitted_today ? '✅ أرسل' : '❌ لم يرسل'}
+            ${agent.submitted_today ? '✅' : '❌'}
           </span>
         `;
         list.appendChild(div);
       });
+
+      // Funnel
+      renderFunnel(data, leaders);
+    }
+
+    function renderFunnel(data, leaders) {
+      const total  = data.total_leads || 0;
+      const rdvs   = data.total_rdv   || 0;
+      // Approximate showed_up and registered from leaderboard data
+      const showedUp = leaders.reduce((s, a) => s + (a.showed_up          || 0), 0);
+      const regs     = leaders.reduce((s, a) => s + (a.registered_students || 0), 0);
+      const rdvBook  = leaders.reduce((s, a) => s + (a.total_rdv_booked   || 0), 0);
+
+      if (!total) return;
+      document.getElementById('funnel-card').style.display = 'block';
+
+      const MAX_H = 100;
+      const stages = [
+        { label: 'عملاء',  n: total,    pct: 100,                                           color: '#e63329' },
+        { label: 'RDV',    n: rdvBook,  pct: total   ? Math.round(rdvBook/total*100)  : 0,  color: '#f59e0b' },
+        { label: 'حضروا',  n: showedUp, pct: rdvBook ? Math.round(showedUp/rdvBook*100): 0, color: '#10b981' },
+        { label: 'مسجلين', n: regs,     pct: showedUp? Math.round(regs/showedUp*100)  : 0,  color: '#3b82f6' },
+      ];
+      const maxN = Math.max(...stages.map(s => s.n)) || 1;
+      const container = document.getElementById('funnel-stages');
+      container.innerHTML = '';
+      stages.forEach((s, i) => {
+        const barH = Math.max(8, Math.round((s.n / maxN) * MAX_H));
+        container.insertAdjacentHTML('beforeend', `
+          <div class="funnel-stage">
+            <div class="funnel-num">${s.n}</div>
+            <div class="funnel-pct">${i === 0 ? '100%' : s.pct + '%'}</div>
+            <div style="width:100%">
+              <div class="funnel-bar" style="height:${barH}px;background:${s.color}"></div>
+            </div>
+            <div class="funnel-lbl">${s.label}</div>
+          </div>
+        `);
+        if (i < stages.length - 1) container.insertAdjacentHTML('beforeend', '<div class="funnel-arrow">‹</div>');
+      });
+
+      // Per-agent breakdown
+      if (leaders.length) {
+        const agentsEl = document.getElementById('funnel-agents');
+        agentsEl.innerHTML = `
+          <div class="funnel-agents-title">أداء الوكلاء</div>
+          <div class="funnel-agent-row header">
+            <span>الوكيل</span>
+            <span style="text-align:center">عملاء</span>
+            <span style="text-align:center" class="fa-rdv">RDV</span>
+            <span style="text-align:center" class="fa-show">حضر</span>
+            <span style="text-align:center" class="fa-reg">مسجل</span>
+          </div>
+          ${leaders.slice(0, 10).map(a => `
+            <div class="funnel-agent-row">
+              <span class="funnel-agent-name">${a.name}</span>
+              <span class="funnel-agent-num">${a.total_leads || 0}</span>
+              <span class="funnel-agent-num fa-rdv">${a.rdv_count || 0}</span>
+              <span class="funnel-agent-num fa-show">${a.showed_up || 0}</span>
+              <span class="funnel-agent-num fa-reg">${a.registered_students || 0}</span>
+            </div>
+          `).join('')}
+        `;
+      }
     }
 
     function logout() {
