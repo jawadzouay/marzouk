@@ -8,43 +8,46 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Cairo', sans-serif; background: #f0f4f8; min-height: 100vh; }
-    header {
-      background: #1a56db; color: white; padding: 16px 20px;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .back-btn {
-      background: rgba(255,255,255,0.2); border: none; color: white;
-      padding: 8px 16px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer;
-    }
+    header { background: #1a56db; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
+    .back-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer; }
     .container { padding: 20px; max-width: 800px; margin: 0 auto; }
-    .rdv-card {
-      background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-    }
+    .rdv-card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
     .rdv-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
     .rdv-name { font-weight: 700; font-size: 16px; }
     .rdv-phone { font-size: 13px; color: #6b7280; }
     .rdv-date { font-size: 13px; color: #1a56db; font-weight: 600; }
-    .rdv-actions { display: flex; gap: 8px; margin-top: 12px; }
-    .btn-show { background: #dcfce7; color: #166534; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex: 1; }
-    .btn-noshow { background: #fef2f2; color: #dc2626; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex: 1; }
-    .btn-registered { background: #ede9fe; color: #6d28d9; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex: 1; }
+    .rdv-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .btn-show       { background: #dcfce7; color: #166534; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex: 1; }
+    .btn-noshow     { background: #fef2f2; color: #dc2626; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex: 1; }
+    .btn-registered { background: #10b981; color: white; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; flex: 1; }
+    .btn-registered:disabled { background: #9ca3af; cursor: not-allowed; }
     .btn-call { background: #e0f2fe; color: #0369a1; border: none; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; font-size: 14px; cursor: pointer; }
     .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
-    .s-scheduled { background: #E2EFDA; color: #2d6a4f; }
-    .s-showed { background: #dcfce7; color: #166534; }
-    .s-noshow { background: #fef2f2; color: #dc2626; }
+    .s-scheduled  { background: #E2EFDA; color: #2d6a4f; }
+    .s-showed     { background: #dcfce7; color: #166534; }
+    .s-noshow     { background: #fef2f2; color: #dc2626; }
     .s-registered { background: #ede9fe; color: #6d28d9; }
     .empty { text-align: center; color: #9ca3af; padding: 40px; }
 
-    .call-popup { display:none; position:fixed; bottom:0; left:0; right:0; background:white; border-radius:20px 20px 0 0; padding:24px; box-shadow:0 -4px 20px rgba(0,0,0,0.15); z-index:1000; }
-    .call-popup.show { display:block; }
-    .overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:999; }
-    .overlay.show { display:block; }
-    .call-option { display:block; width:100%; padding:14px; margin-bottom:10px; border:none; border-radius:10px; font-size:16px; font-family:'Cairo',sans-serif; font-weight:600; cursor:pointer; text-decoration:none; text-align:center; }
-    .call-normal { background:#dbeafe; color:#1e40af; }
-    .call-wa { background:#dcfce7; color:#166534; }
-    .call-cancel { background:#f3f4f6; color:#374151; }
+    .call-popup { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 20px 20px 0 0; padding: 24px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15); z-index: 1000; }
+    .call-popup.show { display: block; }
+    .call-popup h3 { margin-bottom: 16px; color: #374151; font-size: 18px; }
+    .call-option { display: block; width: 100%; padding: 14px; margin-bottom: 10px; border: none; border-radius: 10px; font-size: 16px; font-family: 'Cairo', sans-serif; font-weight: 600; cursor: pointer; text-decoration: none; text-align: center; }
+    .call-normal  { background: #dbeafe; color: #1e40af; }
+    .call-wa      { background: #dcfce7; color: #166534; }
+    .call-cancel  { background: #f3f4f6; color: #374151; }
+    .reg-logha    { background: #dbeafe; color: #1e40af; }
+    .reg-takwin   { background: #fef3c7; color: #92400e; }
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 999; }
+    .overlay.show { display: block; }
+
+    /* Money float */
+    .money-float { position: fixed; font-size: 32px; pointer-events: none; z-index: 9999; animation: floatMoney 1.5s ease-out forwards; }
+    @keyframes floatMoney {
+      0%   { transform: translateY(0) scale(0.8) rotate(-10deg); opacity: 1; }
+      50%  { transform: translateY(-130px) scale(1.3) rotate(12deg); opacity: 1; }
+      100% { transform: translateY(-240px) scale(0.9) rotate(-5deg); opacity: 0; }
+    }
   </style>
 </head>
 <body>
@@ -57,18 +60,38 @@
     <div id="rdv-list"></div>
   </div>
 
-  <div class="overlay" id="overlay" onclick="closeCallPopup()"></div>
+  <div class="overlay" id="overlay" onclick="closeAllPopups()"></div>
+
+  <!-- Call Popup -->
   <div class="call-popup" id="call-popup">
     <h3>اتصل بـ <span id="popup-name"></span></h3>
     <a class="call-option call-normal" id="call-normal-btn">📱 مكالمة عادية</a>
     <a class="call-option call-wa" id="call-wa-btn" target="_blank">💬 واتساب</a>
-    <button class="call-option call-cancel" onclick="closeCallPopup()">إلغاء</button>
+    <button class="call-option call-cancel" onclick="closeAllPopups()">إلغاء</button>
+  </div>
+
+  <!-- Register Popup -->
+  <div class="call-popup" id="register-popup">
+    <h3>تسجيل الطالب 🎓</h3>
+    <p style="color:#6b7280;font-size:13px;margin-bottom:16px" id="register-lead-name"></p>
+    <button class="call-option reg-logha" onclick="doRegister('logha')">
+      📚 اللغة فقط
+      <div style="font-size:13px;font-weight:400;margin-top:2px">يُحسب كـ 1 مسجل — 100 درهم</div>
+    </button>
+    <button class="call-option reg-takwin" onclick="doRegister('takwin')">
+      🎓 تكوين أو كليهما
+      <div style="font-size:13px;font-weight:400;margin-top:2px">يُحسب كـ 2 مسجل — 200 درهم</div>
+    </button>
+    <button class="call-option call-cancel" onclick="closeAllPopups()">إلغاء</button>
   </div>
 
   <script>
     const API = window.location.origin;
     const token = localStorage.getItem('token');
     if (!token) window.location.href = '/index.html';
+
+    let currentRegisterLeadId = null;
+    const registeringLeads = new Set();
 
     async function loadRdvs() {
       const res = await fetch(`${API}/rdv/my`, { headers: { Authorization: `Bearer ${token}` } });
@@ -80,11 +103,13 @@
         return;
       }
 
+      list.innerHTML = '';
       rdvs.forEach(rdv => {
-        const lead = rdv.leads || {};
-        const date = new Date(rdv.rdv_date).toLocaleString('ar-MA', { dateStyle: 'medium', timeStyle: 'short' });
-        const sc = rdv.status === 'showed_up' ? 's-showed' : rdv.status === 'no_show' ? 's-noshow' : rdv.status === 'registered' ? 's-registered' : 's-scheduled';
-        const label = rdv.status === 'showed_up' ? 'حضر ✅' : rdv.status === 'no_show' ? 'لم يحضر ❌' : rdv.status === 'registered' ? 'مسجل ⭐' : 'مجدول';
+        const lead  = rdv.leads || {};
+        const date  = new Date(rdv.rdv_date).toLocaleString('ar-MA', { dateStyle: 'medium', timeStyle: 'short' });
+        const isRegistered = lead.status === 'registered_logha' || lead.status === 'registered_takwin';
+        const sc    = rdv.status === 'showed_up' ? 's-showed' : rdv.status === 'no_show' ? 's-noshow' : isRegistered ? 's-registered' : 's-scheduled';
+        const label = rdv.status === 'showed_up' ? 'حضر ✅' : rdv.status === 'no_show' ? 'لم يحضر ❌' : isRegistered ? 'مسجل ⭐' : 'مجدول';
 
         const card = document.createElement('div');
         card.className = 'rdv-card';
@@ -97,13 +122,13 @@
             </div>
             <span class="status-badge ${sc}">${label}</span>
           </div>
-          ${rdv.status === 'scheduled' || rdv.status === 'showed_up' ? `
+          ${!isRegistered ? `
           <div class="rdv-actions">
             ${rdv.status === 'scheduled' ? `<button class="btn-show" onclick="updateRdv('${rdv.id}', 'showed_up')">✅ حضر</button>` : ''}
             ${rdv.status === 'scheduled' ? `<button class="btn-noshow" onclick="updateRdv('${rdv.id}', 'no_show')">❌ لم يحضر</button>` : ''}
-            <button class="btn-registered" onclick="updateRdv('${rdv.id}', 'registered')">⭐ تسجل</button>
-            <button class="btn-call" onclick="openCallPopup('${lead.phone}','${lead.name||''}')">📞</button>
-          </div>` : ''}
+            <button class="btn-registered" id="reg-btn-${rdv.lead_id}" onclick="openRegisterPopup('${rdv.lead_id}','${esc(lead.name)}')">⭐ تسجيل</button>
+            <button class="btn-call" onclick="openCallPopup('${lead.phone}','${esc(lead.name)}')">📞</button>
+          </div>` : `<div style="color:#10b981;font-weight:600;font-size:14px;margin-top:8px">⭐ تم تسجيل هذا الطالب</div>`}
         `;
         list.appendChild(card);
       });
@@ -118,6 +143,41 @@
       if (res.ok) loadRdvs();
     }
 
+    function openRegisterPopup(leadId, name) {
+      if (registeringLeads.has(leadId)) return;
+      currentRegisterLeadId = leadId;
+      document.getElementById('register-lead-name').textContent = name || '';
+      document.getElementById('register-popup').classList.add('show');
+      document.getElementById('overlay').classList.add('show');
+    }
+
+    async function doRegister(type) {
+      const leadId = currentRegisterLeadId;
+      if (!leadId || registeringLeads.has(leadId)) return;
+      registeringLeads.add(leadId);
+      closeAllPopups();
+
+      const res = await fetch(`${API}/leads/${leadId}/register`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ registration_type: type })
+      });
+
+      registeringLeads.delete(leadId);
+
+      if (res.ok) {
+        const data = await res.json();
+        playMoneySound();
+        spawnMoney(data.points);
+        loadRdvs();
+      } else {
+        const d = await res.json();
+        alert(d.detail || 'خطأ في التسجيل');
+      }
+    }
+
+    function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
+
     function openCallPopup(phone, name) {
       document.getElementById('popup-name').textContent = name || phone;
       document.getElementById('call-normal-btn').href = `tel:${phone}`;
@@ -127,9 +187,39 @@
       document.getElementById('overlay').classList.add('show');
     }
 
-    function closeCallPopup() {
-      document.getElementById('call-popup').classList.remove('show');
+    function closeAllPopups() {
+      ['call-popup','register-popup'].forEach(id => document.getElementById(id).classList.remove('show'));
       document.getElementById('overlay').classList.remove('show');
+    }
+
+    function playMoneySound() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [[0, 880], [0.12, 1100], [0.24, 1320]].forEach(([delay, freq]) => {
+          const osc = ctx.createOscillator(), gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
+          osc.frequency.exponentialRampToValueAtTime(freq * 1.5, ctx.currentTime + delay + 0.09);
+          gain.gain.setValueAtTime(0.28, ctx.currentTime + delay);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.28);
+          osc.start(ctx.currentTime + delay); osc.stop(ctx.currentTime + delay + 0.3);
+        });
+      } catch(e) {}
+    }
+
+    function spawnMoney(points) {
+      const pool = ['💰','💵','💸','🤑'];
+      for (let i = 0; i < Math.min(points * 5, 12); i++) {
+        setTimeout(() => {
+          const el = document.createElement('div');
+          el.className = 'money-float';
+          el.textContent = pool[Math.floor(Math.random() * pool.length)];
+          el.style.left = (10 + Math.random() * 80) + '%';
+          el.style.top  = (25 + Math.random() * 45) + '%';
+          document.body.appendChild(el);
+          setTimeout(() => el.remove(), 1600);
+        }, i * 90);
+      }
     }
 
     loadRdvs();

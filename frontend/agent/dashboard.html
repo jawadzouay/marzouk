@@ -240,16 +240,19 @@
       'registered_takwin': '✅ مسجل - تكوين'
     };
 
+    const agentId = localStorage.getItem('agent_id');
+    const GOAL_KEY    = `agentGoal_${agentId}`;
+    const INSCRE_KEY  = `showInscre_${agentId}`;
+
     let allLeads = [];
     let currentStats = {};
-    let showInscre = localStorage.getItem('showInscre') === 'true';
+    let showInscre = localStorage.getItem(INSCRE_KEY) === 'true';
     let currentRegisterLeadId = null;
     let currentRdvLeadId = null;
     const registeringLeads = new Set();
 
     // ===== Load =====
     async function loadDashboard() {
-      const agentId = localStorage.getItem('agent_id');
       const [statsRes, leadsRes] = await Promise.all([
         fetch(`${API}/agents/${agentId}/stats`, { headers: { Authorization: `Bearer ${token}` } }),
         fetch(`${API}/leads/my`, { headers: { Authorization: `Bearer ${token}` } })
@@ -281,13 +284,13 @@
 
     function toggleInscre() {
       showInscre = !showInscre;
-      localStorage.setItem('showInscre', showInscre);
+      localStorage.setItem(INSCRE_KEY, showInscre);
       applyInscreVisibility();
     }
 
     // ===== Goal =====
     function getGoal() {
-      const raw = localStorage.getItem('agentGoal');
+      const raw = localStorage.getItem(GOAL_KEY);
       return raw ? JSON.parse(raw) : null;
     }
 
@@ -365,7 +368,7 @@
       const targetStudents = parseInt(document.getElementById('goal-target').value);
       if (!startDate || !endDate || !targetStudents || targetStudents < 1) { alert('يرجى ملء جميع الحقول'); return; }
       if (endDate <= startDate) { alert('تاريخ النهاية يجب أن يكون بعد تاريخ البداية'); return; }
-      localStorage.setItem('agentGoal', JSON.stringify({ startDate, endDate, targetStudents }));
+      localStorage.setItem(GOAL_KEY, JSON.stringify({ startDate, endDate, targetStudents }));
       closeAllPopups();
       renderGoal();
     }
@@ -576,7 +579,11 @@
       document.getElementById('overlay').classList.remove('show');
     }
 
-    function logout() { localStorage.clear(); window.location.href = '/index.html'; }
+    function logout() {
+      // Only clear auth keys — preserve per-agent preferences (goal, inscre toggle)
+      ['token','role','name','agent_id'].forEach(k => localStorage.removeItem(k));
+      window.location.href = '/index.html';
+    }
 
     loadDashboard();
   </script>
