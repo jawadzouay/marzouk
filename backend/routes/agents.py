@@ -111,4 +111,13 @@ def agent_stats(agent_id: str):
     stats["showed_up"] = showed_up
     stats["no_show"] = no_show
 
+    # Registered leads (by current_agent — includes swapped leads they registered)
+    reg_result = sb.table("leads").select("status").eq("current_agent", agent_id).execute()
+    reg_logha = sum(1 for r in reg_result.data if r["status"] == "registered_logha")
+    reg_takwin = sum(1 for r in reg_result.data if r["status"] == "registered_takwin")
+    stats["registered_logha"] = reg_logha
+    stats["registered_takwin"] = reg_takwin
+    stats["registered_inscre"] = reg_logha * 1 + reg_takwin * 2
+    stats["registered_students"] = reg_logha + reg_takwin
+
     return stats

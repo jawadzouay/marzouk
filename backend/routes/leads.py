@@ -180,6 +180,44 @@ def update_lead_status(lead_id: str, body: dict, agent=Depends(get_current_agent
     return {"message": "تم تحديث الحالة"}
 
 
+@router.patch("/{lead_id}/register")
+def register_lead(lead_id: str, body: dict, agent=Depends(get_current_agent)):
+    sb = get_client()
+    agent_id = agent["sub"]
+    reg_type = body.get("registration_type")
+
+    if reg_type not in ("logha", "takwin"):
+        raise HTTPException(status_code=400, detail="نوع التسجيل غير صحيح")
+
+    lead = sb.table("leads").select("*").eq("id", lead_id).execute()
+    if not lead.data:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    lead_row = lead.data[0]
+    if lead_row["status"] in ("registered_logha", "registered_takwin"):
+        raise HTTPException(status_code=400, detail="هذا الطالب مسجل مسبقاً")
+
+    old_status = lead_row["status"]
+    new_status = "registered_logha" if reg_type == "logha" else "registered_takwin"
+    points = 1 if reg_type == "logha" else 2
+
+    sb.table("leads").update({
+        "status": new_status,
+        "swap_eligible_at": None
+    }).eq("id", lead_id).execute()
+
+    sb.table("lead_history").insert({
+        "lead_id": lead_id,
+        "agent_id": agent_id,
+        "action": "registered",
+        "status_before": old_status,
+        "status_after": new_status,
+        "note": f"reg_type:{reg_type} points:{points}"
+    }).execute()
+
+    return {"message": "تم التسجيل بنجاح", "points": points}
+
+
 @router.get("/my")
 def get_my_leads(agent=Depends(get_current_agent)):
     sb = get_client()
