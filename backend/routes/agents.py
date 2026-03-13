@@ -68,10 +68,27 @@ def fire_agent(agent_id: str, admin=Depends(require_admin)):
         "fired_at": datetime.utcnow().isoformat()
     }).eq("id", agent_id).execute()
 
-    # Redistribute leads
     redistribute_agent_leads(agent_id)
 
     return {"message": "تم إيقاف الوكيل وإعادة توزيع العملاء المحتملين"}
+
+
+@router.delete("/{agent_id}/wipe")
+def fire_and_wipe_agent(agent_id: str, admin=Depends(require_admin)):
+    sb = get_client()
+
+    from datetime import datetime
+    # Free up the name by renaming to a non-conflicting placeholder
+    placeholder = f"محذوف_{agent_id[:8]}"
+    sb.table("agents").update({
+        "is_active": False,
+        "fired_at": datetime.utcnow().isoformat(),
+        "name": placeholder
+    }).eq("id", agent_id).execute()
+
+    redistribute_agent_leads(agent_id)
+
+    return {"message": "تم إيقاف الوكيل ومسح اسمه وإعادة توزيع العملاء المحتملين"}
 
 
 @router.get("/{agent_id}/stats")

@@ -21,6 +21,8 @@
     .agent-name { font-weight: 700; }
     .agent-date { font-size: 12px; color: #9ca3af; }
     .btn-fire { background: #fef2f2; color: #dc2626; border: 2px solid #fecaca; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; }
+    .btn-wipe { background: #1e3a8a; color: white; border: 2px solid #1e3a8a; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; margin-right: 6px; }
+    .agent-actions { display: flex; gap: 6px; }
     .badge-inactive { background: #f3f4f6; color: #6b7280; padding: 4px 10px; border-radius: 20px; font-size: 12px; }
     .alert { padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 14px; }
     .alert-success { background: #dcfce7; color: #166534; }
@@ -68,7 +70,10 @@
             <div class="agent-name">${agent.name}</div>
             <div class="agent-date">تاريخ الإضافة: ${new Date(agent.created_at).toLocaleDateString('ar-MA')}</div>
           </div>
-          <button class="btn-fire" onclick="fireAgent('${agent.id}', '${agent.name}')">🔴 إيقاف</button>
+          <div class="agent-actions">
+            <button class="btn-fire" onclick="fireAgent('${agent.id}', '${agent.name}')">🔴 إيقاف</button>
+            <button class="btn-wipe" onclick="fireAndWipe('${agent.id}', '${agent.name}')">🗑️ إيقاف ومسح الاسم</button>
+          </div>
         `;
         list.appendChild(div);
       });
@@ -111,6 +116,19 @@
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) loadAgents();
+    }
+
+    async function fireAndWipe(id, name) {
+      if (!confirm(`هل أنت متأكد من إيقاف ومسح اسم الوكيل "${name}"؟\nسيتم حذف الاسم نهائياً حتى يمكن إعادة استخدامه.`)) return;
+      const res = await fetch(`${API}/agents/${id}/wipe`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        document.getElementById('alert').className = 'alert alert-success';
+        document.getElementById('alert').textContent = `تم إيقاف ومسح اسم الوكيل "${name}" بنجاح`;
+        loadAgents();
+      }
     }
 
     loadAgents();
