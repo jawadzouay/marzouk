@@ -100,11 +100,12 @@
     <div class="card">
       <div class="card-title">📸 ارفع لقطة تقرير Facebook Ads</div>
       <div class="upload-zone" id="upload-zone">
-        <input type="file" id="file-input" accept="image/*" onchange="onFileChange(event)">
+        <input type="file" id="file-input" accept="image/*" multiple onchange="onFileChange(event)">
         <div class="upload-icon">📊</div>
         <div class="upload-text">اضغط أو اسحب لقطة شاشة التقرير هنا<br><strong>JPEG / PNG / WEBP</strong></div>
       </div>
       <img id="preview-img" alt="preview">
+      <div id="spend-previews" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
       <div class="period-row" style="margin-top:14px">
         <label>الفترة:</label>
         <input type="date" class="date-inp" id="period-from">
@@ -165,6 +166,7 @@
 
   let agentsList = [];
   let extractedRows = [];
+  let selectedSpendFiles = [];
 
   // Default dates: this week
   const today = new Date();
@@ -184,27 +186,49 @@
   }
 
   function onFileChange(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const img = document.getElementById('preview-img');
-    img.src = URL.createObjectURL(file);
-    img.style.display = 'block';
-    document.getElementById('extract-btn').disabled = false;
+    selectedSpendFiles = Array.from(e.target.files);
+    renderSpendPreviews();
+    document.getElementById('extract-btn').disabled = selectedSpendFiles.length === 0;
+  }
+
+  function renderSpendPreviews() {
+    const row = document.getElementById('spend-previews');
+    if (!row) return;
+    // Hide old single preview
+    document.getElementById('preview-img').style.display = 'none';
+    row.innerHTML = selectedSpendFiles.map((f,i) =>
+      `<div style="position:relative;width:70px;height:70px;border-radius:8px;overflow:hidden;border:2px solid #e5e7eb">
+        <img src="${URL.createObjectURL(f)}" style="width:100%;height:100%;object-fit:cover">
+        <div style="position:absolute;bottom:0;left:0;right:0;background:rgba(0,0,0,0.6);color:white;font-size:9px;text-align:center;padding:2px" id="spend-img-st-${i}">انتظار</div>
+      </div>`
+    ).join('');
   }
 
   async function extractSpend() {
-    const file = document.getElementById('file-input').files[0];
-    if (!file) return;
+    if (!selectedSpendFiles.length) return;
     const btn = document.getElementById('extract-btn');
     btn.disabled = true; btn.textContent = '⏳ جاري الاستخراج...';
     try {
-      const fd = new FormData(); fd.append('file', file);
-      const res = await fetch(`${API}/spend/extract`, {
-        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd
-      });
-      const data = await res.json();
-      agentsList    = data.agents || [];
-      extractedRows = data.rows  || [];
+      let allRows = [];
+      const h = { Authorization: `Bearer ${token}` };
+      let agents = [];
+      for (let i = 0; i < selectedSpendFiles.length; i++) {
+        const statusEl = document.getElementById(`spend-img-st-${i}`);
+        if (statusEl) statusEl.textContent = '⏳';
+        const fd = new FormData(); fd.append('file', selectedSpendFiles[i]);
+        const res = await fetch(`${API}/spend/extract`, { method: 'POST', headers: h, body: fd });
+        const data = await res.json();
+        if (res.ok) {
+          if (i === 0) { agents = data.agents || []; }
+          const rows = (data.rows || []).map(r => ({ ...r, _src: i+1 }));
+          allRows.push(...rows);
+          if (statusEl) statusEl.textContent = `✅${rows.length}`;
+        } else {
+          if (statusEl) statusEl.textContent = '❌';
+        }
+      }
+      agentsList    = agents;
+      extractedRows = allRows;
       renderResultsTable();
       document.getElementById('results-card').style.display = 'block';
     } catch(e) {

@@ -112,3 +112,8 @@ CREATE TABLE IF NOT EXISTS agent_ad_names (
 
 CREATE INDEX IF NOT EXISTS idx_ad_spend_agent ON ad_spend(agent_id);
 CREATE INDEX IF NOT EXISTS idx_ad_spend_period ON ad_spend(period_start, period_end);
+
+-- Profile & Goals persistence
+-- Run these in Supabase SQL editor:
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS goals JSONB DEFAULT '[]'::jsonb;

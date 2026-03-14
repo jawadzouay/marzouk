@@ -144,6 +144,35 @@ def my_rank(user=Depends(get_current_user)):
     return {"rank": rank, "total": len(board), "gap_message": gap_msg}
 
 
+@router.get("/me")
+def get_my_profile(user=Depends(get_current_user)):
+    sb = get_client()
+    agent_id = user["sub"]
+    if agent_id == "admin":
+        raise HTTPException(400, "Admin has no profile")
+    res = sb.table("agents").select("id, name, avatar_url, goals").eq("id", agent_id).execute()
+    if not res.data:
+        raise HTTPException(404, "Not found")
+    return res.data[0]
+
+
+@router.patch("/me")
+def update_my_profile(body: dict, user=Depends(get_current_user)):
+    sb = get_client()
+    agent_id = user["sub"]
+    if agent_id == "admin":
+        raise HTTPException(400, "Admin has no profile")
+    updates = {}
+    if "avatar_url" in body:
+        updates["avatar_url"] = body["avatar_url"]
+    if "goals" in body:
+        updates["goals"] = body["goals"]
+    if not updates:
+        raise HTTPException(400, "Nothing to update")
+    sb.table("agents").update(updates).eq("id", agent_id).execute()
+    return {"message": "تم التحديث"}
+
+
 @router.get("/{agent_id}/stats")
 def agent_stats(agent_id: str):
     sb = get_client()
