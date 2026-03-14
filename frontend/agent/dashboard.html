@@ -451,15 +451,8 @@
       </div>
     </div>
 
-    <!-- Rank Card -->
-    <div class="rank-card" id="rank-card" style="display:none">
-      <div class="rank-badge-big rank-other" id="rank-badge">—</div>
-      <div class="rank-info">
-        <div class="rank-title">ترتيبك في الفريق</div>
-        <div class="rank-pos" id="rank-pos">—</div>
-        <div class="rank-gap" id="rank-gap"></div>
-      </div>
-    </div>
+    <!-- Rank Card (hidden from agents) -->
+    <!-- rank card intentionally hidden -->
 
     <!-- Today / Tomorrow RDV Widget -->
     <div class="today-rdv-card" id="today-rdv-card" style="display:none">
@@ -769,7 +762,7 @@
       renderTodayRdvWidget();
       renderCallQueue();
       renderDonutChart();
-      renderRankCard();
+      // rank card hidden from agents
       renderMorningBriefing();
       applyFilters();
     }
@@ -830,13 +823,16 @@
       });
 
       const chips = [];
-      if (!submitted) chips.push({ label: '⚠️ لم ترسل عملاءك اليوم', cls: 'red' });
-      if (callQueue.length) chips.push({ label: `📞 ${callQueue.length} اتصال للمتابعة`, cls: 'gold' });
-      if (todayRdv) chips.push({ label: `📅 ${todayRdv} موعد اليوم`, cls: 'green' });
-      if (!chips.length) chips.push({ label: '✅ يوم رائع — لا توجد مهام عاجلة', cls: 'green' });
+      if (!submitted) chips.push({ label: '⚠️ لم ترسل عملاءك اليوم', cls: 'red', target: 'action-btns' });
+      if (callQueue.length) chips.push({ label: `📞 ${callQueue.length} اتصال للمتابعة`, cls: 'gold', target: 'call-queue-card' });
+      if (todayRdv) chips.push({ label: `📅 ${todayRdv} موعد اليوم`, cls: 'green', target: 'today-rdv-card' });
+      if (!chips.length) chips.push({ label: '✅ يوم رائع — لا توجد مهام عاجلة', cls: 'green', target: null });
 
       document.getElementById('morning-chips').innerHTML =
-        chips.map(c => `<div class="morning-chip ${c.cls}">${c.label}</div>`).join('');
+        chips.map(c => c.target
+          ? `<div class="morning-chip ${c.cls}" style="cursor:pointer" onclick="dismissMorning();document.getElementById('${c.target}').scrollIntoView({behavior:'smooth',block:'start'})">${c.label}</div>`
+          : `<div class="morning-chip ${c.cls}">${c.label}</div>`
+        ).join('');
       document.getElementById('morning-card').style.display = 'block';
     }
     function dismissMorning() {
@@ -1457,19 +1453,43 @@
       } else { const d = await res.json(); alert(d.detail || 'خطأ في التسجيل'); }
     }
 
-    // ===== Money Effects =====
+    // ===== Money Effects (Shopify-style ka-ching) =====
     function playMoneySound() {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        [[0, 880], [0.12, 1100], [0.24, 1320]].forEach(([delay, freq]) => {
+        const now = ctx.currentTime;
+
+        // Percussive "ka" click
+        const bufLen = Math.floor(ctx.sampleRate * 0.04);
+        const buf = ctx.createBuffer(1, bufLen, ctx.sampleRate);
+        const data = buf.getChannelData(0);
+        for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufLen, 6);
+        const click = ctx.createBufferSource();
+        const clickGain = ctx.createGain();
+        click.buffer = buf; click.connect(clickGain); clickGain.connect(ctx.destination);
+        clickGain.gain.setValueAtTime(0.5, now);
+        click.start(now);
+
+        // Metallic "ching" ring — three harmonic overtones
+        [[1480, 0.45], [2200, 0.32], [3100, 0.18]].forEach(([freq, gainVal], i) => {
           const osc = ctx.createOscillator(); const gain = ctx.createGain();
+          osc.type = 'sine';
           osc.connect(gain); gain.connect(ctx.destination);
-          osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
-          osc.frequency.exponentialRampToValueAtTime(freq * 1.5, ctx.currentTime + delay + 0.09);
-          gain.gain.setValueAtTime(0.28, ctx.currentTime + delay);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.28);
-          osc.start(ctx.currentTime + delay); osc.stop(ctx.currentTime + delay + 0.3);
+          osc.frequency.setValueAtTime(freq, now + 0.02);
+          gain.gain.setValueAtTime(gainVal, now + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02 + 0.6 + i * 0.1);
+          osc.start(now + 0.02); osc.stop(now + 0.02 + 0.7 + i * 0.1);
         });
+
+        // Low resonant "dong" tail
+        const osc2 = ctx.createOscillator(); const gain2 = ctx.createGain();
+        osc2.type = 'triangle';
+        osc2.connect(gain2); gain2.connect(ctx.destination);
+        osc2.frequency.setValueAtTime(420, now + 0.05);
+        osc2.frequency.exponentialRampToValueAtTime(300, now + 0.4);
+        gain2.gain.setValueAtTime(0.22, now + 0.05);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.55);
+        osc2.start(now + 0.05); osc2.stop(now + 0.6);
       } catch(e) {}
     }
     function spawnMoney(points) {
