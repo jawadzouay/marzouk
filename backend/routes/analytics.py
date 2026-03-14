@@ -24,6 +24,14 @@ def require_admin(creds: HTTPAuthorizationCredentials = Depends(security)):
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
+def get_current_user(creds: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        payload = jwt.decode(creds.credentials, JWT_SECRET, algorithms=[ALGORITHM])
+        return payload
+    except Exception:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 def fetch_all(sb, date_from, date_to):
     agents = sb.table("agents").select("id,name").eq("is_active", True).execute().data
 
@@ -77,6 +85,71 @@ def analytics_warnings(
     metrics  = compute_metrics(agents, leads, rdvs, spend)
     warnings = compute_warnings(metrics)
     return {"warnings": warnings, "period": {"from": date_from, "to": date_to}}
+
+
+@router.post("/my-coach")
+async def my_coach(user=Depends(get_current_user)):
+    """AI coaching for agent — accessible to agents and admin."""
+    sb = get_client()
+    agent_id = user["sub"]
+    if agent_id == "admin":
+        raise HTTPException(400, "Use /ai-analysis for admin")
+
+    agent_row = sb.table("agents").select("id,name").eq("id", agent_id).execute().data
+    if not agent_row:
+        raise HTTPException(404, "Agent not found")
+
+    leads  = sb.table("leads").select("status,submitted_at").eq("original_agent", agent_id).execute().data
+    rdvs   = sb.table("rdv").select("status").eq("agent_id", agent_id).execute().data
+    reg_l  = sb.table("leads").select("status").eq("current_agent", agent_id).execute().data
+
+    total      = len(leads)
+    rdv_c      = sum(1 for l in leads if l["status"] == "RDV")
+    bv_c       = sum(1 for l in leads if l["status"] == "B.V")
+    nr_c       = sum(1 for l in leads if l["status"] == "N.R")
+    pi_c       = sum(1 for l in leads if l["status"] == "P.I")
+    av_c       = sum(1 for l in leads if l["status"] == "Autre ville")
+    showed     = sum(1 for r in rdvs if r["status"] == "showed_up")
+    rdv_booked = len(rdvs)
+    registered = sum(1 for r in reg_l if r["status"] in ("registered_logha", "registered_takwin"))
+
+    rdv_rate  = round(rdv_c / total * 100, 1) if total else 0
+    show_rate = round(showed / rdv_booked * 100, 1) if rdv_booked else 0
+    reg_rate  = round(registered / showed * 100, 1) if showed else 0
+
+    # Team averages (lightweight — just rates)
+    all_agents = sb.table("agents").select("id").eq("is_active", True).execute().data
+    t_rdv, t_show, t_reg = [], [], []
+    for a in all_agents:
+        al = sb.table("leads").select("status").eq("original_agent", a["id"]).execute().data
+        at = len(al)
+        ar = sum(1 for l in al if l["status"] == "RDV")
+        av = sb.table("rdv").select("status").eq("agent_id", a["id"]).execute().data
+        ash = sum(1 for r in av if r["status"] == "showed_up")
+        arb = len(av)
+        arl = sb.table("leads").select("status").eq("current_agent", a["id"]).execute().data
+        areg = sum(1 for r in arl if r["status"] in ("registered_logha", "registered_takwin"))
+        if at: t_rdv.append(ar / at * 100)
+        if arb: t_show.append(ash / arb * 100)
+        if ash: t_reg.append(areg / ash * 100)
+
+    team_avg = {
+        "rdv_rate":  sum(t_rdv) / len(t_rdv)   if t_rdv  else 0,
+        "show_rate": sum(t_show) / len(t_show) if t_show else 0,
+        "reg_rate":  sum(t_reg) / len(t_reg)   if t_reg  else 0,
+    }
+
+    agent_metrics = {
+        "agent_name": agent_row[0]["name"],
+        "total_leads": total, "rdv_count": rdv_c,
+        "bv_count": bv_c, "nr_count": nr_c, "pi_count": pi_c, "av_count": av_c,
+        "rdv_booked": rdv_booked, "showed_up": showed, "registered": registered,
+        "rdv_rate": rdv_rate, "show_rate": show_rate, "reg_rate": reg_rate,
+        "cpl": 0, "cost_per_registration": 0,
+    }
+
+    text = await ai_analyze_agent(agent_metrics, team_avg)
+    return {"analysis": text, "agent_name": agent_row[0]["name"]}
 
 
 @router.post("/ai-analysis")

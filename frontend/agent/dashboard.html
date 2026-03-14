@@ -7,6 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <title>لوحة تحكم الوكيل — مرزوق أكاديمي</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     html { scroll-behavior: smooth; }
@@ -317,6 +318,100 @@
       .money-amount { font-size: 42px; }
       .stats-grid { gap: 8px; }
     }
+
+    /* ===== Morning Briefing ===== */
+    .morning-card {
+      background: linear-gradient(135deg, #1a1a1a 0%, #2d1f1f 100%);
+      border-radius: 16px; padding: 16px 18px; margin-bottom: 12px;
+      color: white; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      position: relative; overflow: hidden;
+    }
+    .morning-card::before { content:'☀️'; position:absolute; left:-10px; top:-10px; font-size:70px; opacity:0.08; }
+    .morning-dismiss { position:absolute; top:10px; left:12px; background:rgba(255,255,255,0.1); border:none; color:rgba(255,255,255,0.6); border-radius:6px; padding:3px 8px; font-size:11px; cursor:pointer; }
+    .morning-greeting { font-size:15px; font-weight:700; margin-bottom:10px; }
+    .morning-chips { display:flex; gap:7px; flex-wrap:wrap; }
+    .morning-chip { background:rgba(255,255,255,0.12); border-radius:20px; padding:5px 12px; font-size:12px; font-weight:600; white-space:nowrap; }
+    .morning-chip.red   { background:rgba(230,51,41,0.35); }
+    .morning-chip.green { background:rgba(16,185,129,0.3); }
+    .morning-chip.gold  { background:rgba(245,158,11,0.3); }
+
+    /* ===== Rank Card ===== */
+    .rank-card {
+      background: white; border-radius: 14px; padding: 12px 16px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      display: flex; align-items: center; gap: 14px;
+    }
+    .rank-badge-big {
+      width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; font-weight: 900;
+    }
+    .rank-1st { background: #fef3c7; color: #92400e; }
+    .rank-2nd { background: #e2e8f0; color: #334155; }
+    .rank-3rd { background: #fef0e7; color: #c2410c; }
+    .rank-other { background: #f3f4f6; color: #6b7280; }
+    .rank-info { flex: 1; min-width: 0; }
+    .rank-title { font-size: 13px; color: #9ca3af; font-weight: 600; }
+    .rank-pos { font-size: 20px; font-weight: 900; color: #1a1a1a; line-height: 1.2; }
+    .rank-gap { font-size: 11px; color: #e63329; font-weight: 600; margin-top: 2px; }
+
+    /* ===== Call Queue ===== */
+    .call-queue-card {
+      background: white; border-radius: 16px; padding: 14px 16px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      border-right: 4px solid #f59e0b;
+    }
+    .cq-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .cq-title { font-size:14px; font-weight:700; color:#374151; }
+    .cq-badge { background:#f59e0b; color:white; border-radius:20px; padding:2px 10px; font-size:12px; font-weight:700; }
+    .cq-item { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f3f4f6; }
+    .cq-item:last-child { border-bottom:none; padding-bottom:0; }
+    .cq-info { flex:1; min-width:0; }
+    .cq-name { font-size:13px; font-weight:700; color:#1a1a1a; }
+    .cq-meta { font-size:11px; color:#9ca3af; margin-top:1px; }
+    .cq-age { font-size:11px; font-weight:700; border-radius:6px; padding:2px 7px; }
+    .cq-age-urgent { background:#fef2f2; color:#dc2626; }
+    .cq-age-warn   { background:#fffbeb; color:#d97706; }
+    .cq-call-btn { background:#10b981; color:white; border:none; border-radius:8px; padding:7px 12px; font-family:'Cairo',sans-serif; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; min-height:36px; margin-right:6px; }
+
+    /* ===== Lead Age Badge ===== */
+    .lead-age-badge { display:inline-block; border-radius:5px; padding:1px 6px; font-size:10px; font-weight:700; margin-right:4px; vertical-align:middle; }
+    .age-hot   { background:#fef2f2; color:#dc2626; }
+    .age-warm  { background:#fffbeb; color:#d97706; }
+    .age-cool  { background:#f0fdf4; color:#16a34a; }
+
+    /* ===== RDV Tabs ===== */
+    .rdv-tabs { display:flex; gap:4px; margin-bottom:10px; }
+    .rdv-tab { flex:1; padding:6px; border:none; border-radius:8px; font-family:'Cairo',sans-serif; font-size:12px; font-weight:700; cursor:pointer; background:#f3f4f6; color:#6b7280; }
+    .rdv-tab.active { background:#10b981; color:white; }
+    .rdv-outcome-btns { display:flex; gap:6px; margin-top:4px; }
+    .rdv-show-btn  { flex:1; padding:6px; background:#10b981; color:white; border:none; border-radius:8px; font-family:'Cairo',sans-serif; font-size:12px; font-weight:700; cursor:pointer; }
+    .rdv-noshow-btn{ flex:1; padding:6px; background:#ef4444; color:white; border:none; border-radius:8px; font-family:'Cairo',sans-serif; font-size:12px; font-weight:700; cursor:pointer; }
+
+    /* ===== Status Donut Chart ===== */
+    .donut-card {
+      background: white; border-radius: 16px; padding: 14px 16px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .donut-title { font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 10px; }
+    .donut-wrap { display: flex; align-items: center; gap: 14px; }
+    .donut-canvas-wrap { width: 120px; flex-shrink: 0; }
+    .donut-legend { flex: 1; display: flex; flex-direction: column; gap: 5px; }
+    .donut-leg-item { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+    .donut-leg-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-left: 5px; flex-shrink: 0; }
+    .donut-leg-label { flex: 1; color: #374151; font-weight: 600; }
+    .donut-leg-val { font-weight: 900; color: #1a1a1a; }
+
+    /* ===== AI Coach ===== */
+    .coach-card {
+      background: white; border-radius: 16px; padding: 14px 16px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .coach-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .coach-title { font-size:14px; font-weight:700; color:#374151; }
+    .coach-btn { background:linear-gradient(135deg,#e63329,#1a1a1a); color:white; border:none; border-radius:10px; padding:10px 16px; font-family:'Cairo',sans-serif; font-size:13px; font-weight:700; cursor:pointer; width:100%; }
+    .coach-btn:disabled { opacity:0.5; cursor:not-allowed; }
+    .coach-result { margin-top:12px; padding:12px; background:#f8fafc; border-radius:10px; font-size:13px; color:#374151; line-height:2; white-space:pre-wrap; border-right:3px solid #e63329; }
   </style>
 </head>
 <body>
@@ -336,6 +431,13 @@
 
   <div class="container">
 
+    <!-- Morning Briefing (hidden by default, shown via JS) -->
+    <div class="morning-card" id="morning-card" style="display:none">
+      <button class="morning-dismiss" onclick="dismissMorning()">✕</button>
+      <div class="morning-greeting" id="morning-greeting">صباح الخير 👋</div>
+      <div class="morning-chips" id="morning-chips"></div>
+    </div>
+
     <!-- Money Score Card -->
     <div class="money-card">
       <div class="money-label">إجمالي أرباحك 💵</div>
@@ -349,13 +451,37 @@
       </div>
     </div>
 
-    <!-- Today's RDVs Widget -->
+    <!-- Rank Card -->
+    <div class="rank-card" id="rank-card" style="display:none">
+      <div class="rank-badge-big rank-other" id="rank-badge">—</div>
+      <div class="rank-info">
+        <div class="rank-title">ترتيبك في الفريق</div>
+        <div class="rank-pos" id="rank-pos">—</div>
+        <div class="rank-gap" id="rank-gap"></div>
+      </div>
+    </div>
+
+    <!-- Today / Tomorrow RDV Widget -->
     <div class="today-rdv-card" id="today-rdv-card" style="display:none">
       <div class="today-rdv-header">
-        <span class="today-rdv-title">📅 مواعيد اليوم</span>
-        <span class="today-rdv-badge" id="today-rdv-count">0</span>
+        <div class="today-rdv-title">📅 المواعيد</div>
+        <span class="today-rdv-badge" id="rdv-count-badge">0</span>
       </div>
-      <div id="today-rdv-list"></div>
+      <div class="rdv-tabs">
+        <button class="rdv-tab active" onclick="setRdvTab('today')">اليوم</button>
+        <button class="rdv-tab" onclick="setRdvTab('tomorrow')">غداً</button>
+        <button class="rdv-tab" onclick="setRdvTab('week')">هذا الأسبوع</button>
+      </div>
+      <div id="rdv-tab-content"></div>
+    </div>
+
+    <!-- Daily Call Queue -->
+    <div class="call-queue-card" id="call-queue-card" style="display:none">
+      <div class="cq-header">
+        <div class="cq-title">📞 قائمة الاتصال اليوم</div>
+        <span class="cq-badge" id="cq-badge">0</span>
+      </div>
+      <div id="cq-list"></div>
     </div>
 
     <!-- Goal Card -->
@@ -387,6 +513,24 @@
     <div class="funnel-card" id="funnel-card" style="display:none">
       <div class="funnel-title">📊 قمع التحويل</div>
       <div class="funnel-stages" id="funnel-stages"></div>
+    </div>
+
+    <!-- Status Breakdown Donut -->
+    <div class="donut-card" id="donut-card" style="display:none">
+      <div class="donut-title">🥧 توزيع العملاء حسب الحالة</div>
+      <div class="donut-wrap">
+        <div class="donut-canvas-wrap"><canvas id="donut-chart" width="120" height="120"></canvas></div>
+        <div class="donut-legend" id="donut-legend"></div>
+      </div>
+    </div>
+
+    <!-- AI Personal Coach -->
+    <div class="coach-card">
+      <div class="coach-header">
+        <div class="coach-title">🤖 مدربي الشخصي</div>
+      </div>
+      <button class="coach-btn" id="coach-btn" onclick="runCoach()">✨ ما الذي يجب أن أحسّنه؟</button>
+      <div class="coach-result" id="coach-result" style="display:none"></div>
     </div>
 
     <!-- CTA Buttons -->
@@ -498,6 +642,9 @@
     let activeFilter = null;
     let activeCardId = null;
     let currentSwipedWrapper = null;
+    let rdvTab  = 'today';
+    let donutChart = null;
+    let rankData = null;
 
     // ===== Profile Picture =====
     function loadProfilePic() {
@@ -515,26 +662,56 @@
 
     // ===== Load Dashboard =====
     async function loadDashboard() {
-      const [statsRes, leadsRes, rdvRes] = await Promise.all([
-        fetch(`${API}/agents/${agentId}/stats`, { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API}/leads/my`,               { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API}/rdv/my`,                 { headers: { Authorization: `Bearer ${token}` } })
+      const h = { Authorization: `Bearer ${token}` };
+      const [leadsRes, rdvsRes, rankRes] = await Promise.all([
+        fetch(`${API}/leads/my`, { headers: h }),
+        fetch(`${API}/rdv/my`, { headers: h }),
+        fetch(`${API}/agents/my-rank`, { headers: h }),
       ]);
-      currentStats = await statsRes.json();
-      allLeads     = await leadsRes.json();
-      allRdvs      = await rdvRes.json();
+
+      if (!leadsRes.ok) { logout(); return; }
+      allLeads = await leadsRes.json();
+      allRdvs  = rdvsRes.ok ? await rdvsRes.json() : [];
+      rankData = rankRes.ok ? await rankRes.json() : null;
+
+      // Stats
+      currentStats = {};
+      const total = allLeads.length;
+      currentStats.total        = total;
+      currentStats.RDV          = allLeads.filter(l=>l.status==='RDV').length;
+      currentStats['B.V']       = allLeads.filter(l=>l.status==='B.V').length;
+      currentStats['N.R']       = allLeads.filter(l=>l.status==='N.R').length;
+      currentStats['P.I']       = allLeads.filter(l=>l.status==='P.I').length;
+      currentStats['Autre ville'] = allLeads.filter(l=>l.status==='Autre ville').length;
+
+      const myRdvs   = allRdvs;
+      const rdvTotal = myRdvs.length;
+      const showed   = myRdvs.filter(r=>r.status==='showed_up').length;
+      const regLeads = allLeads.filter(l=>l.status==='registered_logha'||l.status==='registered_takwin');
+      currentStats.showed_up          = showed;
+      currentStats.total_rdv_booked   = rdvTotal;
+      currentStats.registered_students = regLeads.length;
+      currentStats.registered_inscre  = regLeads.filter(l=>l.status==='registered_logha').length
+                                       + regLeads.filter(l=>l.status==='registered_takwin').length * 2;
 
       updateMoneyCard();
-      renderGoal();
-      renderTodayRdvs();
+      renderStats();
       renderFunnel();
+      renderGoal();
+      renderTodayRdvWidget();
+      renderCallQueue();
+      renderDonutChart();
+      renderRankCard();
+      renderMorningBriefing();
+      applyFilters();
+    }
 
+    // ===== Render Stats =====
+    function renderStats() {
       document.getElementById('total').textContent     = currentStats.total   || 0;
       document.getElementById('rdv-count').textContent = currentStats['RDV']  || 0;
       document.getElementById('bv-count').textContent  = currentStats['B.V']  || 0;
       document.getElementById('nr-count').textContent  = currentStats['N.R']  || 0;
-
-      renderLeads(allLeads);
     }
 
     // ===== Money Card =====
@@ -554,36 +731,230 @@
       applyInscreVisibility();
     }
 
-    // ===== Today's RDVs Widget =====
-    function renderTodayRdvs() {
-      const today = new Date().toDateString();
-      const todayRdvs = allRdvs.filter(r => {
-        if (r.status !== 'scheduled') return false;
-        return new Date(r.rdv_date).toDateString() === today;
+    // ===== Rank Card =====
+    function renderRankCard() {
+      if (!rankData || !rankData.rank) return;
+      const card = document.getElementById('rank-card');
+      card.style.display = 'flex';
+      const r = rankData.rank;
+      const badge = document.getElementById('rank-badge');
+      badge.textContent = r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : '#'+r;
+      badge.className = `rank-badge-big ${r===1?'rank-1st':r===2?'rank-2nd':r===3?'rank-3rd':'rank-other'}`;
+      document.getElementById('rank-pos').textContent = `المرتبة #${r} من ${rankData.total}`;
+      document.getElementById('rank-gap').textContent = rankData.gap_message || '';
+    }
+
+    // ===== Morning Briefing =====
+    function renderMorningBriefing() {
+      const hour = new Date().getHours();
+      if (hour < 6 || hour >= 14) return; // only show 6am–2pm
+      if (sessionStorage.getItem('morning_dismissed')) return;
+
+      const greet = hour < 12 ? 'صباح الخير' : 'مساء الخير';
+      const name  = localStorage.getItem('name') || '';
+      document.getElementById('morning-greeting').textContent = `${greet} ${name} 👋`;
+
+      const callQueue = buildCallQueue();
+      const todayRdv  = getTodayRdvs().length;
+      const submitted = allLeads.some(l => {
+        const d = new Date(l.submitted_at);
+        return d.toDateString() === new Date().toDateString();
       });
 
+      const chips = [];
+      if (!submitted) chips.push({ label: '⚠️ لم ترسل عملاءك اليوم', cls: 'red' });
+      if (callQueue.length) chips.push({ label: `📞 ${callQueue.length} اتصال للمتابعة`, cls: 'gold' });
+      if (todayRdv) chips.push({ label: `📅 ${todayRdv} موعد اليوم`, cls: 'green' });
+      if (!chips.length) chips.push({ label: '✅ يوم رائع — لا توجد مهام عاجلة', cls: 'green' });
+
+      document.getElementById('morning-chips').innerHTML =
+        chips.map(c => `<div class="morning-chip ${c.cls}">${c.label}</div>`).join('');
+      document.getElementById('morning-card').style.display = 'block';
+    }
+    function dismissMorning() {
+      sessionStorage.setItem('morning_dismissed', '1');
+      document.getElementById('morning-card').style.display = 'none';
+    }
+
+    // ===== RDV Tabs =====
+    function setRdvTab(tab) {
+      rdvTab = tab;
+      document.querySelectorAll('.rdv-tab').forEach((b,i) =>
+        b.classList.toggle('active', ['today','tomorrow','week'][i] === tab));
+      renderTodayRdvWidget();
+    }
+
+    function getTodayRdvs() {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const todayEnd = new Date(today); todayEnd.setHours(23,59,59,999);
+      return allRdvs.filter(r => {
+        const d = new Date(r.rdv_date);
+        return d >= today && d <= todayEnd;
+      });
+    }
+
+    function renderTodayRdvWidget() {
       const card = document.getElementById('today-rdv-card');
-      const list = document.getElementById('today-rdv-list');
-      document.getElementById('today-rdv-count').textContent = todayRdvs.length;
+      const now  = new Date(); now.setHours(0,0,0,0);
+      const tomorrow = new Date(now); tomorrow.setDate(now.getDate()+1);
+      const weekEnd  = new Date(now); weekEnd.setDate(now.getDate()+7);
 
-      if (!todayRdvs.length) { card.style.display = 'none'; return; }
+      let filtered = [];
+      if (rdvTab === 'today') {
+        const end = new Date(now); end.setHours(23,59,59,999);
+        filtered = allRdvs.filter(r => { const d=new Date(r.rdv_date); return d>=now && d<=end; });
+      } else if (rdvTab === 'tomorrow') {
+        const tEnd = new Date(tomorrow); tEnd.setHours(23,59,59,999);
+        filtered = allRdvs.filter(r => { const d=new Date(r.rdv_date); return d>=tomorrow && d<=tEnd; });
+      } else {
+        filtered = allRdvs.filter(r => { const d=new Date(r.rdv_date); return d>=now && d<=weekEnd; });
+      }
+
+      document.getElementById('rdv-count-badge').textContent = filtered.length;
+      if (!filtered.length && !allRdvs.length) { card.style.display = 'none'; return; }
       card.style.display = 'block';
-      list.innerHTML = '';
 
-      todayRdvs.forEach(rdv => {
-        const lead = allLeads.find(l => l.id === rdv.lead_id) || {};
-        const time = new Date(rdv.rdv_date).toLocaleTimeString('ar-MA', { hour: '2-digit', minute: '2-digit' });
-        const div = document.createElement('div');
-        div.className = 'today-rdv-item';
-        div.innerHTML = `
-          <div class="today-rdv-info">
-            <div class="today-rdv-name">${lead.name || '—'}</div>
-            <div class="today-rdv-time">${time}</div>
-          </div>
-          <button class="today-rdv-call" onclick="openCallPopup('${lead.phone}','${esc(lead.name)}')">📞 اتصال</button>
-        `;
-        list.appendChild(div);
+      const nowFull = new Date();
+      const content = document.getElementById('rdv-tab-content');
+      if (!filtered.length) {
+        content.innerHTML = `<div style="text-align:center;color:#9ca3af;padding:12px;font-size:13px">لا توجد مواعيد</div>`;
+        return;
+      }
+      content.innerHTML = filtered.map(rdv => {
+        const lead = rdv.leads || {};
+        const isPast = new Date(rdv.rdv_date) < nowFull;
+        const timeStr = new Date(rdv.rdv_date).toLocaleTimeString('ar-MA', {hour:'2-digit',minute:'2-digit'});
+        const dateStr = rdvTab !== 'today' ? new Date(rdv.rdv_date).toLocaleDateString('ar-MA') : '';
+        const outcomeButtons = isPast && rdv.status === 'scheduled' ? `
+          <div class="rdv-outcome-btns">
+            <button class="rdv-show-btn" onclick="markRdv('${rdv.id}','showed_up')">✅ حضر</button>
+            <button class="rdv-noshow-btn" onclick="markRdv('${rdv.id}','no_show')">❌ لم يحضر</button>
+          </div>` : '';
+        const statusBadge = rdv.status === 'showed_up' ? '<span style="color:#10b981;font-size:11px;font-weight:700">✅ حضر</span>'
+          : rdv.status === 'no_show' ? '<span style="color:#ef4444;font-size:11px;font-weight:700">❌ لم يحضر</span>' : '';
+        return `
+          <div class="today-rdv-item">
+            <div class="today-rdv-info">
+              <div class="today-rdv-name">${lead.name || '—'} ${statusBadge}</div>
+              <div class="today-rdv-time">${dateStr ? dateStr+' — ':''} ${timeStr}</div>
+              ${outcomeButtons}
+            </div>
+            <button class="today-rdv-call" onclick="openCallPopup('${lead.phone||''}','${(lead.name||'').replace(/'/g,"\\'")}')">📞</button>
+          </div>`;
+      }).join('');
+    }
+
+    async function markRdv(rdvId, status) {
+      const res = await fetch(`${API}/rdv/${rdvId}`, {
+        method: 'PATCH',
+        headers: { Authorization:`Bearer ${token}`, 'Content-Type':'application/json' },
+        body: JSON.stringify({ status })
       });
+      if (res.ok) loadDashboard();
+      else alert('خطأ في تحديث الموعد');
+    }
+
+    // ===== Call Queue =====
+    function buildCallQueue() {
+      const now = new Date();
+      const queue = [];
+      allLeads.forEach(lead => {
+        if (lead.status !== 'B.V' && lead.status !== 'N.R') return;
+        const age = Math.floor((now - new Date(lead.submitted_at)) / 86400000);
+        const threshold = lead.status === 'B.V' ? 2 : 4;
+        if (age >= threshold) queue.push({ ...lead, ageDays: age });
+      });
+      queue.sort((a,b) => b.ageDays - a.ageDays);
+      return queue;
+    }
+
+    function renderCallQueue() {
+      const queue = buildCallQueue();
+      const card  = document.getElementById('call-queue-card');
+      document.getElementById('cq-badge').textContent = queue.length;
+      if (!queue.length) { card.style.display = 'none'; return; }
+      card.style.display = 'block';
+      const list = document.getElementById('cq-list');
+      list.innerHTML = queue.slice(0, 8).map(lead => {
+        const ageClass = lead.ageDays >= 4 ? 'cq-age-urgent' : 'cq-age-warn';
+        return `
+          <div class="cq-item">
+            <div class="cq-info">
+              <div class="cq-name">${lead.name || lead.phone}</div>
+              <div class="cq-meta">${lead.status} · ${lead.city || '—'}</div>
+            </div>
+            <span class="cq-age ${ageClass}">${lead.ageDays} أيام</span>
+            <button class="cq-call-btn" onclick="openCallPopup('${lead.phone}','${(lead.name||'').replace(/'/g,"\\'")}')">📞</button>
+          </div>`;
+      }).join('');
+      if (queue.length > 8) {
+        list.insertAdjacentHTML('beforeend',`<div style="text-align:center;color:#9ca3af;font-size:12px;padding:8px 0">+${queue.length-8} آخرون...</div>`);
+      }
+    }
+
+    // ===== Lead Age Badge =====
+    function getAgeTag(lead) {
+      if (lead.status !== 'B.V' && lead.status !== 'N.R') return '';
+      const ageDays = Math.floor((new Date() - new Date(lead.submitted_at)) / 86400000);
+      if (ageDays < 1) return '';
+      const cls = ageDays >= 3 ? 'age-hot' : ageDays >= 2 ? 'age-warm' : 'age-cool';
+      return `<span class="lead-age-badge ${cls}">${ageDays}d</span>`;
+    }
+
+    // ===== Status Donut Chart =====
+    function renderDonutChart() {
+      const counts = {
+        'RDV': allLeads.filter(l=>l.status==='RDV').length,
+        'B.V': allLeads.filter(l=>l.status==='B.V').length,
+        'N.R': allLeads.filter(l=>l.status==='N.R').length,
+        'P.I': allLeads.filter(l=>l.status==='P.I').length,
+        'Autre ville': allLeads.filter(l=>l.status==='Autre ville').length,
+        'مسجل': allLeads.filter(l=>l.status==='registered_logha'||l.status==='registered_takwin').length,
+      };
+      const total = Object.values(counts).reduce((s,v)=>s+v,0);
+      if (!total) return;
+      document.getElementById('donut-card').style.display = 'block';
+
+      const colors = ['#f59e0b','#8b5cf6','#ef4444','#6b7280','#06b6d4','#10b981'];
+      const labels = Object.keys(counts);
+      const data   = Object.values(counts);
+
+      if (donutChart) donutChart.destroy();
+      donutChart = new Chart(document.getElementById('donut-chart'), {
+        type: 'doughnut',
+        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2 }] },
+        options: {
+          responsive: false, plugins: { legend: { display: false } },
+          cutout: '65%'
+        }
+      });
+
+      document.getElementById('donut-legend').innerHTML = labels.map((l,i) => `
+        <div class="donut-leg-item">
+          <span class="donut-leg-dot" style="background:${colors[i]}"></span>
+          <span class="donut-leg-label">${l}</span>
+          <span class="donut-leg-val">${data[i]}</span>
+        </div>`).join('');
+    }
+
+    // ===== AI Coach =====
+    async function runCoach() {
+      const btn = document.getElementById('coach-btn');
+      btn.disabled = true; btn.textContent = '⏳ جاري التحليل...';
+      try {
+        const res = await fetch(`${API}/analytics/my-coach`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        const data = await res.json();
+        const el = document.getElementById('coach-result');
+        el.style.display = 'block';
+        el.textContent   = data.analysis || 'لا توجد بيانات كافية للتحليل.';
+      } catch(e) { alert('فشل الاتصال بالمدرب الذكي'); }
+      finally {
+        btn.disabled = false; btn.textContent = '✨ ما الذي يجب أن أحسّنه؟';
+      }
     }
 
     // ===== Funnel Analytics =====
@@ -806,7 +1177,7 @@
           <div class="lead-main">
             <div class="lead-top">
               <div style="min-width:0;flex:1">
-                <div class="lead-name">${lead.name || '—'}</div>
+                <div class="lead-name">${lead.name || '—'} ${getAgeTag(lead)}</div>
                 <div class="lead-phone">${lead.phone}</div>
                 ${notePreview}
               </div>

@@ -27,6 +27,14 @@ def require_admin(credentials: HTTPAuthorizationCredentials = Depends(security))
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    try:
+        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[ALGORITHM])
+        return payload
+    except Exception:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 class AgentCreate(BaseModel):
     name: str
     pin: str
@@ -89,6 +97,51 @@ def fire_and_wipe_agent(agent_id: str, admin=Depends(require_admin)):
     redistribute_agent_leads(agent_id)
 
     return {"message": "تم إيقاف الوكيل ومسح اسمه وإعادة توزيع العملاء المحتملين"}
+
+
+@router.get("/my-rank")
+def my_rank(user=Depends(get_current_user)):
+    """Returns agent rank position — NO other agents' names or sensitive data."""
+    sb = get_client()
+    agent_id = user["sub"]
+    if agent_id == "admin":
+        raise HTTPException(400, "Admin has no rank")
+
+    agents = sb.table("agents").select("id").eq("is_active", True).execute().data
+
+    board = []
+    for a in agents:
+        # registered students (primary sort)
+        reg = sb.table("leads").select("status").eq("current_agent", a["id"]).execute().data
+        registered = sum(1 for r in reg if r["status"] in ("registered_logha", "registered_takwin"))
+        # rdv booked (secondary)
+        rdvs = sb.table("rdv").select("id", count="exact").eq("agent_id", a["id"]).execute()
+        board.append({"id": a["id"], "registered": registered, "rdv": rdvs.count or 0})
+
+    board.sort(key=lambda x: (x["registered"], x["rdv"]), reverse=True)
+
+    idx = next((i for i, b in enumerate(board) if b["id"] == agent_id), None)
+    if idx is None:
+        return {"rank": None, "total": len(board), "gap_message": ""}
+
+    rank = idx + 1
+    my = board[idx]
+
+    gap_msg = ""
+    if rank == 1:
+        gap_msg = "أنت في المرتبة الأولى 🏆"
+    else:
+        above = board[idx - 1]
+        reg_gap = above["registered"] - my["registered"]
+        rdv_gap = above["rdv"] - my["rdv"]
+        if reg_gap > 0:
+            gap_msg = f"تحتاج {reg_gap} تسجيل للوصول إلى المرتبة #{rank-1}"
+        elif rdv_gap > 0:
+            gap_msg = f"تحتاج {rdv_gap} RDV للوصول إلى المرتبة #{rank-1}"
+        else:
+            gap_msg = f"تعادل مع المرتبة #{rank-1} — استمر!"
+
+    return {"rank": rank, "total": len(board), "gap_message": gap_msg}
 
 
 @router.get("/{agent_id}/stats")
