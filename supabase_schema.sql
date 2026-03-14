@@ -87,3 +87,28 @@ CREATE INDEX idx_leads_swap_eligible ON leads(swap_eligible_at);
 CREATE INDEX idx_rdv_agent ON rdv(agent_id);
 CREATE INDEX idx_rdv_date ON rdv(rdv_date);
 CREATE INDEX idx_submissions_agent_date ON submissions(agent_id, submission_date);
+
+-- AD SPEND (one record per agent per upload)
+CREATE TABLE IF NOT EXISTS ad_spend (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  agent_id        UUID REFERENCES agents(id),
+  spend           NUMERIC(10,2) NOT NULL DEFAULT 0,
+  ad_results      INT DEFAULT 0,
+  cost_per_result NUMERIC(10,2) DEFAULT 0,
+  period_start    DATE NOT NULL,
+  period_end      DATE NOT NULL,
+  raw_name        TEXT,
+  created_at      TIMESTAMP DEFAULT now()
+);
+
+-- AGENT AD NAMES (Facebook name aliases per agent, one row per alias)
+CREATE TABLE IF NOT EXISTS agent_ad_names (
+  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  agent_id   UUID REFERENCES agents(id),
+  ad_name    TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT now(),
+  UNIQUE(agent_id, ad_name)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ad_spend_agent ON ad_spend(agent_id);
+CREATE INDEX IF NOT EXISTS idx_ad_spend_period ON ad_spend(period_start, period_end);

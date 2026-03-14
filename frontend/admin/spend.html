@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>تتبع الإنفاق الإعلاني — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; }
+    header {
+      background: #1a1a1a; color: white; padding: 13px 16px;
+      padding-top: max(13px, env(safe-area-inset-top));
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+    }
+    header h1 { font-size: 16px; font-weight: 700; }
+    .back-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 7px 13px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; text-decoration: none; }
+    .container { padding: 14px; padding-bottom: max(24px, env(safe-area-inset-bottom)); max-width: 900px; margin: 0 auto; }
+    .card { background: white; border-radius: 14px; padding: 16px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .card-title { font-size: 15px; font-weight: 700; color: #374151; margin-bottom: 14px; }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 2px dashed #e5e7eb; border-radius: 12px; padding: 32px 16px;
+      text-align: center; cursor: pointer; transition: all 0.2s; position: relative;
+    }
+    .upload-zone:hover, .upload-zone.drag { border-color: #e63329; background: #fff8f8; }
+    .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .upload-icon { font-size: 36px; margin-bottom: 8px; }
+    .upload-text { font-size: 14px; color: #6b7280; }
+    .upload-text strong { color: #e63329; }
+    #preview-img { max-width: 100%; border-radius: 8px; margin-top: 12px; display: none; }
+
+    /* Period row */
+    .period-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; align-items: center; }
+    .period-row label { font-size: 12px; color: #6b7280; font-weight: 600; }
+    .date-inp { padding: 8px 10px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; flex: 1; min-width: 130px; }
+
+    /* Extract btn */
+    .extract-btn {
+      width: 100%; padding: 13px; background: #e63329; color: white; border: none;
+      border-radius: 10px; font-family: 'Cairo', sans-serif; font-size: 15px;
+      font-weight: 700; cursor: pointer; margin-top: 8px; transition: opacity 0.15s;
+    }
+    .extract-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Extracted table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 600px; }
+    th { font-size: 11px; color: #9ca3af; font-weight: 700; padding: 0 8px 10px; text-align: right; white-space: nowrap; }
+    td { font-size: 13px; padding: 8px; border-top: 1px solid #f3f4f6; vertical-align: middle; }
+    .raw-name { font-size: 12px; color: #9ca3af; }
+    select.agent-sel { padding: 6px 8px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 12px; width: 140px; }
+    .unmatched { background: #fff8f8; }
+    input.num-inp { width: 90px; padding: 6px 8px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; text-align: center; }
+    .del-row { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 16px; padding: 4px; }
+
+    /* Confirm btn */
+    .confirm-btn { width: 100%; padding: 13px; background: #1a1a1a; color: white; border: none; border-radius: 10px; font-family: 'Cairo', sans-serif; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 12px; }
+    .confirm-btn:disabled { opacity: 0.5; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 4px; margin-bottom: 14px; }
+    .tab-btn { padding: 8px 16px; border-radius: 8px; border: none; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; background: #f3f4f6; color: #6b7280; cursor: pointer; }
+    .tab-btn.active { background: #1a1a1a; color: white; }
+
+    /* History */
+    .history-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+    .history-row:last-child { border-bottom: none; }
+
+    /* Alias manager */
+    .alias-agent { margin-bottom: 16px; }
+    .alias-name { font-size: 14px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; }
+    .alias-list { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+    .alias-chip { background: #f3f4f6; border-radius: 20px; padding: 4px 10px; font-size: 12px; display: flex; align-items: center; gap: 4px; }
+    .alias-chip button { background: none; border: none; color: #9ca3af; cursor: pointer; font-size: 12px; }
+    .alias-add { display: flex; gap: 6px; }
+    .alias-inp { flex: 1; padding: 7px 10px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 12px; }
+    .alias-add-btn { padding: 7px 14px; background: #e63329; color: white; border: none; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+    .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: white; padding: 10px 20px; border-radius: 10px; font-size: 13px; z-index: 999; display: none; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>💰 الإنفاق الإعلاني</h1>
+  <a href="dashboard.html" class="back-btn">← الرئيسية</a>
+</header>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab-btn active" onclick="showTab('upload')">📤 رفع تقرير</button>
+    <button class="tab-btn" onclick="showTab('history')">📋 السجل</button>
+    <button class="tab-btn" onclick="showTab('aliases')">✏️ أسماء الإعلانات</button>
+  </div>
+
+  <!-- UPLOAD TAB -->
+  <div id="tab-upload">
+    <div class="card">
+      <div class="card-title">📸 ارفع لقطة تقرير Facebook Ads</div>
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="file-input" accept="image/*" onchange="onFileChange(event)">
+        <div class="upload-icon">📊</div>
+        <div class="upload-text">اضغط أو اسحب لقطة شاشة التقرير هنا<br><strong>JPEG / PNG / WEBP</strong></div>
+      </div>
+      <img id="preview-img" alt="preview">
+      <div class="period-row" style="margin-top:14px">
+        <label>الفترة:</label>
+        <input type="date" class="date-inp" id="period-from">
+        <span style="color:#9ca3af;font-size:12px">→</span>
+        <input type="date" class="date-inp" id="period-to">
+      </div>
+      <button class="extract-btn" id="extract-btn" onclick="extractSpend()" disabled>
+        🤖 استخرج البيانات بالذكاء الاصطناعي
+      </button>
+    </div>
+
+    <div class="card" id="results-card" style="display:none">
+      <div class="card-title">✏️ راجع وعدّل البيانات المستخرجة</div>
+      <div class="table-wrap">
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th>اسم الإعلان</th>
+              <th>الوكيل</th>
+              <th>الإنفاق (دم)</th>
+              <th>النتائج</th>
+              <th>تكلفة/نتيجة</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="results-tbody"></tbody>
+        </table>
+      </div>
+      <button class="confirm-btn" onclick="confirmSpend()">✅ تأكيد وحفظ</button>
+    </div>
+  </div>
+
+  <!-- HISTORY TAB -->
+  <div id="tab-history" style="display:none">
+    <div class="card">
+      <div class="card-title">📋 سجل الإنفاق المحفوظ</div>
+      <div id="history-list"><div style="text-align:center;color:#9ca3af;padding:20px">جاري التحميل...</div></div>
+    </div>
+  </div>
+
+  <!-- ALIASES TAB -->
+  <div id="tab-aliases" style="display:none">
+    <div class="card">
+      <div class="card-title">✏️ أسماء الوكلاء في الإعلانات</div>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:14px">أضف الأسماء كما تظهر في تقارير Facebook حتى يتم التعرف عليها تلقائياً</p>
+      <div id="aliases-list">جاري التحميل...</div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const API   = window.location.origin;
+  const token = localStorage.getItem('token');
+  const role  = localStorage.getItem('role');
+  if (!token || role !== 'admin') window.location.href = '/index.html';
+
+  let agentsList = [];
+  let extractedRows = [];
+
+  // Default dates: this week
+  const today = new Date();
+  const monday = new Date(today); monday.setDate(today.getDate() - today.getDay() + 1);
+  document.getElementById('period-from').value = monday.toISOString().split('T')[0];
+  document.getElementById('period-to').value   = today.toISOString().split('T')[0];
+
+  function showTab(tab) {
+    ['upload','history','aliases'].forEach(t => {
+      document.getElementById('tab-'+t).style.display = t === tab ? 'block' : 'none';
+    });
+    document.querySelectorAll('.tab-btn').forEach((b,i) => {
+      b.classList.toggle('active', ['upload','history','aliases'][i] === tab);
+    });
+    if (tab === 'history')  loadHistory();
+    if (tab === 'aliases')  loadAliases();
+  }
+
+  function onFileChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const img = document.getElementById('preview-img');
+    img.src = URL.createObjectURL(file);
+    img.style.display = 'block';
+    document.getElementById('extract-btn').disabled = false;
+  }
+
+  async function extractSpend() {
+    const file = document.getElementById('file-input').files[0];
+    if (!file) return;
+    const btn = document.getElementById('extract-btn');
+    btn.disabled = true; btn.textContent = '⏳ جاري الاستخراج...';
+    try {
+      const fd = new FormData(); fd.append('file', file);
+      const res = await fetch(`${API}/spend/extract`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd
+      });
+      const data = await res.json();
+      agentsList    = data.agents || [];
+      extractedRows = data.rows  || [];
+      renderResultsTable();
+      document.getElementById('results-card').style.display = 'block';
+    } catch(e) {
+      alert('فشل الاستخراج: ' + e.message);
+    } finally {
+      btn.disabled = false; btn.textContent = '🤖 استخرج البيانات بالذكاء الاصطناعي';
+    }
+  }
+
+  function renderResultsTable() {
+    const tbody = document.getElementById('results-tbody');
+    tbody.innerHTML = '';
+    extractedRows.forEach((row, i) => {
+      const matched = row.matched_agent_id ? '' : 'unmatched';
+      const opts = agentsList.map(a =>
+        `<option value="${a.id}" ${a.id === row.matched_agent_id ? 'selected' : ''}>${a.name}</option>`
+      ).join('');
+      tbody.insertAdjacentHTML('beforeend', `
+        <tr class="${matched}" id="row-${i}">
+          <td><div class="raw-name">${row.name}</div></td>
+          <td><select class="agent-sel" onchange="updateRow(${i},'matched_agent_id',this.value)">
+            <option value="">— اختر وكيل —</option>${opts}
+          </select></td>
+          <td><input class="num-inp" type="number" value="${row.spend}" onchange="updateRow(${i},'spend',+this.value)"></td>
+          <td><input class="num-inp" type="number" value="${row.results}" onchange="updateRow(${i},'ad_results',+this.value)"></td>
+          <td><input class="num-inp" type="number" value="${row.cost_per_result}" onchange="updateRow(${i},'cost_per_result',+this.value)"></td>
+          <td><button class="del-row" onclick="deleteRow(${i})">🗑</button></td>
+        </tr>`);
+    });
+  }
+
+  function updateRow(i, key, val) { extractedRows[i][key] = val; }
+  function deleteRow(i) {
+    extractedRows.splice(i, 1);
+    renderResultsTable();
+  }
+
+  async function confirmSpend() {
+    const from = document.getElementById('period-from').value;
+    const to   = document.getElementById('period-to').value;
+    if (!from || !to) { alert('حدد الفترة الزمنية'); return; }
+    const rows = extractedRows
+      .filter(r => r.matched_agent_id)
+      .map(r => ({
+        agent_id: r.matched_agent_id, spend: r.spend,
+        ad_results: r.ad_results || r.results || 0,
+        cost_per_result: r.cost_per_result, raw_name: r.name
+      }));
+    if (!rows.length) { alert('لا توجد بيانات مرتبطة بوكلاء'); return; }
+    const res = await fetch(`${API}/spend/confirm`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ period_start: from, period_end: to, rows })
+    });
+    const d = await res.json();
+    showToast(`✅ تم حفظ ${d.saved} سجل`);
+    document.getElementById('results-card').style.display = 'none';
+  }
+
+  async function loadHistory() {
+    const res  = await fetch(`${API}/spend/history`, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await res.json();
+    const el   = document.getElementById('history-list');
+    if (!data.length) { el.innerHTML = '<div style="text-align:center;color:#9ca3af;padding:20px">لا توجد سجلات</div>'; return; }
+    el.innerHTML = data.map(r => `
+      <div class="history-row">
+        <div>
+          <strong>${r.agents?.name || '—'}</strong>
+          <span style="font-size:11px;color:#9ca3af;margin-right:8px">${r.period_start} → ${r.period_end}</span>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center">
+          <span style="color:#e63329;font-weight:700">${r.spend} دم</span>
+          <span style="color:#6b7280;font-size:12px">${r.ad_results} رسالة</span>
+          <button onclick="deleteSpend('${r.id}')" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:14px">🗑</button>
+        </div>
+      </div>`).join('');
+  }
+
+  async function deleteSpend(id) {
+    if (!confirm('حذف هذا السجل؟')) return;
+    await fetch(`${API}/spend/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+    loadHistory();
+  }
+
+  async function loadAliases() {
+    const res   = await fetch(`${API}/spend/agent-names`, { headers: { Authorization: `Bearer ${token}` } });
+    const agents = await res.json();
+    const el    = document.getElementById('aliases-list');
+    el.innerHTML = agents.map(a => `
+      <div class="alias-agent">
+        <div class="alias-name">${a.name}</div>
+        <div class="alias-list" id="chips-${a.id}">
+          ${(a.aliases||[]).map(al => `
+            <div class="alias-chip">
+              ${al.name}
+              <button onclick="deleteAlias('${al.id}','${a.id}')">✕</button>
+            </div>`).join('') || '<span style="font-size:12px;color:#9ca3af">لا يوجد أسماء</span>'}
+        </div>
+        <div class="alias-add">
+          <input class="alias-inp" id="alias-inp-${a.id}" placeholder="اسم الإعلان في Facebook...">
+          <button class="alias-add-btn" onclick="addAlias('${a.id}')">+ إضافة</button>
+        </div>
+      </div>`).join('');
+  }
+
+  async function addAlias(agentId) {
+    const inp  = document.getElementById(`alias-inp-${agentId}`);
+    const name = inp.value.trim();
+    if (!name) return;
+    await fetch(`${API}/spend/agent-names/${agentId}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ad_name: name })
+    });
+    inp.value = '';
+    loadAliases();
+  }
+
+  async function deleteAlias(aliasId) {
+    await fetch(`${API}/spend/agent-names/alias/${aliasId}`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${token}` }
+    });
+    loadAliases();
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.style.display = 'block';
+    setTimeout(() => t.style.display = 'none', 3000);
+  }
+</script>
+</body>
+</html>

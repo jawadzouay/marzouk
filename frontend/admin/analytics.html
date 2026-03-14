@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>تحليل الأداء — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; }
+    header { background: #1a1a1a; color: white; padding: 13px 16px; padding-top: max(13px, env(safe-area-inset-top)); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+    header h1 { font-size: 16px; font-weight: 700; }
+    .back-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 7px 13px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; text-decoration: none; }
+    .container { padding: 14px; padding-bottom: max(24px, env(safe-area-inset-bottom)); max-width: 1100px; margin: 0 auto; }
+    .card { background: white; border-radius: 14px; padding: 14px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .card-title { font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 12px; }
+
+    /* Filter bar */
+    .filter-bar { background: white; border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .period-tab { padding: 7px 12px; border-radius: 8px; border: none; font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700; background: #f3f4f6; color: #6b7280; cursor: pointer; white-space: nowrap; }
+    .period-tab.active { background: #1a1a1a; color: white; }
+    .agent-sel { padding: 8px 10px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; flex: 1; min-width: 140px; }
+    .date-row { display: flex; gap: 6px; margin-top: 8px; align-items: center; flex-wrap: wrap; }
+    .date-inp { padding: 7px 10px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; flex: 1; }
+    .apply-btn { padding: 7px 16px; background: #e63329; color: white; border: none; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+    /* Metrics grid */
+    .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+    @media(min-width:600px){ .metrics-grid { grid-template-columns: repeat(6, 1fr); } }
+    .metric-card { background: white; border-radius: 12px; padding: 12px 8px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .metric-val { font-size: 20px; font-weight: 900; color: #1a1a1a; line-height: 1; }
+    .metric-lbl { font-size: 10px; color: #9ca3af; margin-top: 3px; }
+
+    /* Charts grid */
+    .charts-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 14px; }
+    @media(min-width:700px){ .charts-grid { grid-template-columns: 1fr 1fr; } }
+
+    /* Agent table */
+    .agent-table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; min-width: 580px; }
+    th { font-size: 11px; color: #9ca3af; font-weight: 700; padding: 0 8px 10px; text-align: center; white-space: nowrap; }
+    th:first-child { text-align: right; }
+    td { font-size: 12px; padding: 8px; border-top: 1px solid #f3f4f6; text-align: center; font-weight: 600; cursor: pointer; }
+    td:first-child { text-align: right; font-weight: 700; }
+    tr:hover td { background: #f9fafb; }
+
+    /* AI Analysis */
+    .ai-btn { width: 100%; padding: 13px; background: linear-gradient(135deg, #1a1a1a, #374151); color: white; border: none; border-radius: 10px; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 700; cursor: pointer; }
+    .ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ai-result { margin-top: 14px; padding: 14px; background: #f8fafc; border-radius: 10px; font-size: 13px; color: #374151; line-height: 2; white-space: pre-wrap; border-right: 3px solid #e63329; }
+
+    /* Agent selector pills */
+    .agent-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .agent-pill { padding: 6px 14px; border-radius: 20px; border: 1.5px solid #e5e7eb; font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700; background: white; color: #6b7280; cursor: pointer; }
+    .agent-pill.active { background: #e63329; color: white; border-color: #e63329; }
+    .agent-pill.all { background: #1a1a1a; color: white; border-color: #1a1a1a; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>📊 تحليل الأداء</h1>
+  <a href="dashboard.html" class="back-btn">← الرئيسية</a>
+</header>
+
+<div class="container">
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="filter-row">
+      <button class="period-tab active" onclick="setPeriod('today')">اليوم</button>
+      <button class="period-tab" onclick="setPeriod('week')">أسبوع</button>
+      <button class="period-tab" onclick="setPeriod('month')">شهر</button>
+      <button class="period-tab" onclick="setPeriod('custom')">مخصص</button>
+    </div>
+    <div class="date-row" id="date-row" style="display:none">
+      <input type="date" class="date-inp" id="date-from">
+      <span style="color:#9ca3af;font-size:12px">→</span>
+      <input type="date" class="date-inp" id="date-to">
+      <button class="apply-btn" onclick="load()">تطبيق</button>
+    </div>
+  </div>
+
+  <!-- Agent pills -->
+  <div class="agent-pills" id="agent-pills"></div>
+
+  <!-- Metrics cards -->
+  <div class="metrics-grid" id="metrics-grid">
+    <div class="metric-card"><div class="metric-val" id="m-spend">—</div><div class="metric-lbl">الإنفاق (دم)</div></div>
+    <div class="metric-card"><div class="metric-val" id="m-cpl">—</div><div class="metric-lbl">تكلفة عميل</div></div>
+    <div class="metric-card"><div class="metric-val" id="m-cpr">—</div><div class="metric-lbl">تكلفة رسالة</div></div>
+    <div class="metric-card"><div class="metric-val" id="m-cprdv">—</div><div class="metric-lbl">تكلفة RDV</div></div>
+    <div class="metric-card"><div class="metric-val" id="m-cpshow">—</div><div class="metric-lbl">تكلفة حضور</div></div>
+    <div class="metric-card"><div class="metric-val" id="m-cpreg">—</div><div class="metric-lbl">تكلفة تسجيل</div></div>
+  </div>
+
+  <!-- Charts -->
+  <div class="charts-grid">
+    <div class="card">
+      <div class="card-title">🎯 معدلات التحويل (%)</div>
+      <canvas id="chart-rates" height="220"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">💰 التكلفة بكل مرحلة (درهم)</div>
+      <canvas id="chart-costs" height="220"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">📊 مقارنة الوكلاء — العملاء vs RDV</div>
+      <canvas id="chart-compare" height="220"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">💸 الإنفاق والنتائج لكل وكيل</div>
+      <canvas id="chart-spend" height="220"></canvas>
+    </div>
+  </div>
+
+  <!-- Agent breakdown table -->
+  <div class="card">
+    <div class="card-title">📋 جدول مقارنة الوكلاء</div>
+    <div class="agent-table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>الوكيل</th>
+            <th>العملاء</th>
+            <th>RDV%</th>
+            <th>حضور%</th>
+            <th>تسجيل%</th>
+            <th>الإنفاق</th>
+            <th>تكلفة عميل</th>
+            <th>تكلفة تسجيل</th>
+          </tr>
+        </thead>
+        <tbody id="agent-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- AI Analysis -->
+  <div class="card">
+    <div class="card-title">🤖 تحليل الذكاء الاصطناعي — خبير الأداء</div>
+    <p style="font-size:12px;color:#9ca3af;margin-bottom:12px">يستخدم Claude Haiku لتحليل البيانات وتقديم توصيات مخصصة لكل وكيل وللفريق</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="ai-btn" style="flex:1" onclick="runAI(null)">🧠 تحليل الفريق كامل</button>
+      <button class="ai-btn" style="flex:1;background:#e63329" id="ai-agent-btn" onclick="runAIAgent()" disabled>👤 تحليل الوكيل المحدد</button>
+    </div>
+    <div id="ai-result" style="display:none" class="ai-result"></div>
+  </div>
+
+</div>
+
+<script>
+  const API   = window.location.origin;
+  const token = localStorage.getItem('token');
+  if (!token || localStorage.getItem('role') !== 'admin') window.location.href = '/index.html';
+
+  let allMetrics   = [];
+  let selectedAgent = null;
+  let period       = 'week';
+  let charts       = {};
+
+  function getPeriodDates() {
+    const today = new Date(); const fmt = d => d.toISOString().split('T')[0];
+    if (period === 'today')  return { from: fmt(today), to: fmt(today) };
+    if (period === 'week')   { const s = new Date(today); s.setDate(today.getDate()-6); return { from: fmt(s), to: fmt(today) }; }
+    if (period === 'month')  { const s = new Date(today.getFullYear(), today.getMonth(), 1); return { from: fmt(s), to: fmt(today) }; }
+    return { from: document.getElementById('date-from').value, to: document.getElementById('date-to').value };
+  }
+
+  function setPeriod(p) {
+    period = p;
+    document.querySelectorAll('.period-tab').forEach((b,i) => b.classList.toggle('active', ['today','week','month','custom'][i]===p));
+    document.getElementById('date-row').style.display = p === 'custom' ? 'flex' : 'none';
+    if (p !== 'custom') load();
+  }
+
+  async function load() {
+    const { from, to } = getPeriodDates();
+    const p = new URLSearchParams();
+    if (from) p.set('date_from', from);
+    if (to)   p.set('date_to', to);
+    const res = await fetch(`${API}/analytics/metrics?${p}`, { headers: { Authorization: `Bearer ${token}` } });
+    allMetrics = await res.json();
+    renderAgentPills();
+    renderAll();
+  }
+
+  function getDisplayData() {
+    if (selectedAgent) return allMetrics.filter(a => a.agent_id === selectedAgent);
+    return allMetrics;
+  }
+
+  function renderAgentPills() {
+    const el = document.getElementById('agent-pills');
+    el.innerHTML = `<button class="agent-pill all ${!selectedAgent?'active':''}" onclick="selectAgent(null)">👥 الكل</button>` +
+      allMetrics.map(a => `<button class="agent-pill ${selectedAgent===a.agent_id?'active':''}" onclick="selectAgent('${a.agent_id}')">${a.agent_name}</button>`).join('');
+  }
+
+  function selectAgent(id) {
+    selectedAgent = id;
+    document.getElementById('ai-agent-btn').disabled = !id;
+    renderAgentPills();
+    renderAll();
+  }
+
+  function renderAll() {
+    const data = getDisplayData();
+    renderSummaryMetrics(data);
+    renderCharts(data);
+    renderTable();
+  }
+
+  function renderSummaryMetrics(data) {
+    const sum = (key) => data.reduce((s,a)=>s+(a[key]||0),0);
+    const avg = (key) => { const vals = data.filter(a=>a[key]>0); return vals.length ? vals.reduce((s,a)=>s+a[key],0)/vals.length : 0; };
+    document.getElementById('m-spend').textContent  = sum('spend').toFixed(0);
+    document.getElementById('m-cpl').textContent    = avg('cpl').toFixed(0) || '—';
+    document.getElementById('m-cpr').textContent    = avg('cost_per_result').toFixed(0) || '—';
+    document.getElementById('m-cprdv').textContent  = avg('cost_per_rdv').toFixed(0) || '—';
+    document.getElementById('m-cpshow').textContent = avg('cost_per_show').toFixed(0) || '—';
+    document.getElementById('m-cpreg').textContent  = avg('cost_per_registration').toFixed(0) || '—';
+  }
+
+  function renderCharts(data) {
+    const labels = data.map(a => a.agent_name);
+    const RED = '#e63329'; const GOLD = '#f59e0b'; const GREEN = '#10b981'; const BLUE = '#3b82f6'; const GRAY = '#9ca3af';
+
+    // Chart 1: Conversion rates
+    destroyChart('chart-rates');
+    charts['chart-rates'] = new Chart(document.getElementById('chart-rates'), {
+      type: 'bar',
+      data: { labels,
+        datasets: [
+          { label: 'RDV%',    data: data.map(a=>a.rdv_rate),  backgroundColor: GOLD  },
+          { label: 'حضور%',   data: data.map(a=>a.show_rate), backgroundColor: GREEN },
+          { label: 'تسجيل%',  data: data.map(a=>a.reg_rate),  backgroundColor: BLUE  },
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { labels: { font:{ family:'Cairo' } } } }, scales: { x:{ ticks:{ font:{family:'Cairo',size:11} } }, y:{ max:100, ticks:{callback:v=>v+'%'} } } }
+    });
+
+    // Chart 2: Cost per stage
+    destroyChart('chart-costs');
+    charts['chart-costs'] = new Chart(document.getElementById('chart-costs'), {
+      type: 'bar',
+      data: { labels,
+        datasets: [
+          { label: 'تكلفة عميل', data: data.map(a=>a.cpl), backgroundColor: RED },
+          { label: 'تكلفة RDV',  data: data.map(a=>a.cost_per_rdv), backgroundColor: GOLD },
+          { label: 'تكلفة تسجيل', data: data.map(a=>a.cost_per_registration), backgroundColor: BLUE },
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { labels: { font:{ family:'Cairo' } } } }, scales: { x:{ ticks:{ font:{family:'Cairo',size:11} } } } }
+    });
+
+    // Chart 3: Leads vs RDV
+    destroyChart('chart-compare');
+    charts['chart-compare'] = new Chart(document.getElementById('chart-compare'), {
+      type: 'bar',
+      data: { labels,
+        datasets: [
+          { label: 'العملاء', data: data.map(a=>a.total_leads),  backgroundColor: GRAY  },
+          { label: 'RDV',     data: data.map(a=>a.rdv_count),    backgroundColor: GOLD  },
+          { label: 'حضروا',   data: data.map(a=>a.showed_up),    backgroundColor: GREEN },
+          { label: 'مسجلين',  data: data.map(a=>a.registered),   backgroundColor: BLUE  },
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { labels: { font:{ family:'Cairo' } } } }, scales: { x:{ ticks:{ font:{family:'Cairo',size:11} } } } }
+    });
+
+    // Chart 4: Spend vs results
+    destroyChart('chart-spend');
+    charts['chart-spend'] = new Chart(document.getElementById('chart-spend'), {
+      type: 'bar',
+      data: { labels,
+        datasets: [
+          { label: 'الإنفاق (دم)', data: data.map(a=>a.spend),      backgroundColor: RED,  yAxisID: 'y' },
+          { label: 'النتائج',      data: data.map(a=>a.ad_results), backgroundColor: GREEN, yAxisID: 'y2', type: 'line', tension: 0.3 },
+        ]
+      },
+      options: { responsive: true, plugins: { legend: { labels: { font:{ family:'Cairo' } } } },
+        scales: {
+          x:  { ticks:{ font:{family:'Cairo',size:11} } },
+          y:  { position:'right', ticks:{ callback:v=>v+'دم' } },
+          y2: { position:'left',  grid:{ drawOnChartArea:false } }
+        }
+      }
+    });
+  }
+
+  function destroyChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+
+  function renderTable() {
+    const data = [...allMetrics].sort((a,b)=>(b.spend||0)-(a.spend||0));
+    const tbody = document.getElementById('agent-tbody');
+    tbody.innerHTML = data.map(a => `
+      <tr onclick="selectAgent('${a.agent_id}')">
+        <td>${a.agent_name}</td>
+        <td>${a.total_leads}</td>
+        <td style="color:#f59e0b">${a.rdv_rate}%</td>
+        <td style="color:#10b981">${a.show_rate}%</td>
+        <td style="color:#3b82f6">${a.reg_rate}%</td>
+        <td style="color:#e63329;font-weight:900">${a.spend ? a.spend.toFixed(0)+'دم' : '—'}</td>
+        <td>${a.cpl || '—'}</td>
+        <td>${a.cost_per_registration || '—'}</td>
+      </tr>`).join('');
+  }
+
+  async function runAI(agentId) {
+    const btns = document.querySelectorAll('.ai-btn');
+    btns.forEach(b => { b.disabled = true; });
+    const teamBtn  = btns[0];
+    const agentBtn = document.getElementById('ai-agent-btn');
+    if (agentId) {
+      agentBtn.textContent = '⏳ جاري التحليل...';
+    } else {
+      teamBtn.textContent = '⏳ جاري التحليل...';
+    }
+    const { from, to } = getPeriodDates();
+    const p = new URLSearchParams();
+    if (from) p.set('date_from', from);
+    if (to)   p.set('date_to', to);
+    try {
+      const res = await fetch(`${API}/analytics/ai-analysis?${p}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: agentId })
+      });
+      const data = await res.json();
+      const el = document.getElementById('ai-result');
+      el.style.display = 'block';
+      el.textContent = data.analysis;
+    } catch(e) { alert('فشل التحليل'); }
+    finally {
+      teamBtn.disabled  = false;
+      teamBtn.textContent = '🧠 تحليل الفريق كامل';
+      agentBtn.disabled = !selectedAgent;
+      agentBtn.textContent = '👤 تحليل الوكيل المحدد';
+    }
+  }
+  function runAIAgent() { runAI(selectedAgent); }
+
+  setPeriod('week');
+</script>
+</body>
+</html>
