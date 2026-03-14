@@ -3,254 +3,786 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>لوحة تحكم الإدارة — مرزوق أكاديمي</title>
+  <title>لوحة الإدارة — مرزوق أكاديمي</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; }
 
+    /* ── Header ── */
     header {
       background: #1a1a1a; color: white;
-      padding: 14px 20px;
-      padding-top: max(14px, env(safe-area-inset-top));
+      padding: 13px 16px;
+      padding-top: max(13px, env(safe-area-inset-top));
       display: flex; justify-content: space-between; align-items: center;
-      position: sticky; top: 0; z-index: 100;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      position: sticky; top: 0; z-index: 200;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
     }
-    header h1 { font-size: 17px; font-weight: 700; }
+    header h1 { font-size: 16px; font-weight: 700; }
     .logout-btn {
-      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
-      color: white; padding: 7px 14px; border-radius: 8px;
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      color: white; padding: 7px 13px; border-radius: 8px;
       font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px;
     }
 
-    nav {
+    /* ── Sub-nav ── */
+    .subnav {
       background: white; border-bottom: 2px solid #f0f2f5;
-      display: flex; overflow-x: auto; padding: 0 12px;
-      -webkit-overflow-scrolling: touch;
+      display: flex; overflow-x: auto; padding: 0 10px;
+      -webkit-overflow-scrolling: touch; position: sticky; top: 52px; z-index: 100;
     }
-    nav::-webkit-scrollbar { display: none; }
-    nav a {
-      padding: 12px 14px; text-decoration: none; color: #6b7280;
-      font-size: 13px; font-weight: 600; white-space: nowrap;
+    .subnav::-webkit-scrollbar { display: none; }
+    .subnav a {
+      padding: 11px 13px; text-decoration: none; color: #6b7280;
+      font-size: 12px; font-weight: 600; white-space: nowrap;
       border-bottom: 3px solid transparent; transition: all 0.15s;
     }
-    nav a.active, nav a:hover { color: #1a1a1a; border-bottom-color: #e63329; }
+    .subnav a:hover, .subnav a.active { color: #1a1a1a; border-bottom-color: #e63329; }
 
     .container {
-      padding: 16px;
+      padding: 12px;
       padding-bottom: max(24px, env(safe-area-inset-bottom));
-      max-width: 1000px; margin: 0 auto;
+      max-width: 1100px; margin: 0 auto;
     }
 
-    /* Stats Grid */
-    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 20px; }
+    /* ── Filter bar ── */
+    .filter-bar {
+      background: white; border-radius: 14px; padding: 12px 14px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .period-tabs { display: flex; gap: 4px; }
+    .period-tab {
+      padding: 7px 12px; border-radius: 8px; border: none;
+      font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700;
+      background: #f3f4f6; color: #6b7280; cursor: pointer; transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .period-tab.active { background: #1a1a1a; color: white; }
+    .search-box {
+      flex: 1; min-width: 130px; padding: 8px 12px;
+      border: 1.5px solid #e5e7eb; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; font-size: 13px; outline: none;
+    }
+    .search-box:focus { border-color: #e63329; }
+    .date-range-row {
+      display: flex; gap: 6px; margin-top: 8px;
+      align-items: center; flex-wrap: wrap;
+    }
+    .date-inp {
+      padding: 7px 10px; border: 1.5px solid #e5e7eb; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; font-size: 13px; flex: 1;
+    }
+    .apply-btn {
+      padding: 7px 16px; background: #e63329; color: white; border: none;
+      border-radius: 8px; font-family: 'Cairo', sans-serif;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+
+    /* ── Summary stats ── */
+    .stats-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 8px; margin-bottom: 12px;
+    }
     @media(min-width:600px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
-    .stat-card { background: white; border-radius: 14px; padding: 16px 12px; text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
-    .stat-card .num { font-size: 30px; font-weight: 900; color: #1a1a1a; line-height: 1; }
-    .stat-card .label { font-size: 12px; color: #6b7280; margin-top: 5px; }
+    .stat-card {
+      background: white; border-radius: 14px; padding: 14px 10px;
+      text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .stat-card .num { font-size: 28px; font-weight: 900; color: #1a1a1a; line-height: 1; }
+    .stat-card .lbl { font-size: 11px; color: #6b7280; margin-top: 4px; }
 
-    /* Funnel */
+    /* ── Sort bar ── */
+    .sort-row {
+      display: flex; align-items: center; gap: 6px;
+      margin-bottom: 10px; overflow-x: auto; padding-bottom: 2px;
+    }
+    .sort-row::-webkit-scrollbar { display: none; }
+    .sort-lbl { font-size: 11px; color: #9ca3af; font-weight: 600; white-space: nowrap; }
+    .sort-btn {
+      padding: 6px 12px; border-radius: 20px; border: 1.5px solid #e5e7eb;
+      font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700;
+      background: white; color: #6b7280; cursor: pointer; white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .sort-btn.active { background: #1a1a1a; color: white; border-color: #1a1a1a; }
+
+    /* ── Agent performance cards ── */
+    .perf-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 8px; margin-bottom: 12px;
+    }
+    @media(min-width:540px) { .perf-grid { grid-template-columns: repeat(3, 1fr); } }
+    @media(min-width:800px) { .perf-grid { grid-template-columns: repeat(4, 1fr); } }
+
+    .perf-card {
+      background: white; border-radius: 14px; padding: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06); cursor: pointer;
+      transition: all 0.2s; border: 2px solid transparent; position: relative;
+    }
+    .perf-card.selected { border-color: #e63329; background: #fff7f7; }
+    .perf-card:active { transform: scale(0.97); }
+
+    .rank-badge {
+      position: absolute; top: 9px; left: 9px;
+      width: 22px; height: 22px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 900;
+    }
+    .r1 { background: #fef3c7; color: #92400e; }
+    .r2 { background: #e2e8f0; color: #475569; }
+    .r3 { background: #fef0e7; color: #c2410c; }
+    .rx { background: #f3f4f6; color: #9ca3af; }
+
+    .perf-name { font-size: 13px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; padding-left: 26px; }
+    .perf-main-val { font-size: 26px; font-weight: 900; color: #e63329; line-height: 1; }
+    .perf-main-lbl { font-size: 10px; color: #9ca3af; margin-bottom: 6px; }
+    .perf-chips { display: flex; gap: 4px; flex-wrap: wrap; }
+    .chip {
+      border-radius: 5px; padding: 2px 6px;
+      font-size: 10px; font-weight: 700; background: #f3f4f6; color: #374151;
+    }
+
+    /* ── Agent detail panel ── */
+    .detail-panel {
+      background: white; border-radius: 14px; padding: 14px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      border-right: 4px solid #e63329;
+    }
+    .detail-hdr {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+    }
+    .detail-name { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+    .close-btn {
+      background: #f3f4f6; border: none; border-radius: 8px;
+      padding: 6px 12px; cursor: pointer; font-family: 'Cairo', sans-serif;
+      font-size: 12px; color: #6b7280;
+    }
+    .detail-stats {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+      gap: 6px; margin-bottom: 14px;
+    }
+    @media(max-width:380px) { .detail-stats { grid-template-columns: repeat(2, 1fr); } }
+    .detail-stat { text-align: center; }
+    .detail-stat .n { font-size: 20px; font-weight: 900; }
+    .detail-stat .l { font-size: 10px; color: #9ca3af; }
+    .detail-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media(max-width:400px) { .detail-charts { grid-template-columns: 1fr; } }
+
+    /* ── Bar chart ── */
+    .chart-card {
+      background: white; border-radius: 14px; padding: 14px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .chart-hdr {
+      display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
+    }
+    .chart-title { font-size: 14px; font-weight: 700; color: #374151; }
+
+    /* ── Funnel ── */
     .funnel-card {
-      background: white; border-radius: 16px; padding: 16px;
-      margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      background: white; border-radius: 14px; padding: 14px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    .funnel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .funnel-title { font-size: 15px; font-weight: 700; color: #374151; }
-    .funnel-subtitle { font-size: 12px; color: #9ca3af; }
-    .funnel-stages { display: flex; align-items: flex-end; gap: 6px; }
-    .funnel-stage { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; }
-    .funnel-bar { width: 100%; border-radius: 6px 6px 0 0; min-height: 8px; transition: height 0.6s; }
-    .funnel-num { font-size: 18px; font-weight: 900; color: #1a1a1a; }
-    .funnel-pct { font-size: 11px; color: #9ca3af; font-weight: 600; }
-    .funnel-lbl { font-size: 11px; color: #6b7280; font-weight: 600; text-align: center; margin-top: 4px; }
-    .funnel-arrow { color: #d1d5db; font-size: 20px; padding-bottom: 28px; align-self: center; flex: 0; }
+    .funnel-title { font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 12px; }
+    .funnel-row { display: flex; align-items: flex-end; gap: 5px; }
+    .funnel-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+    .f-bar { width: 100%; border-radius: 6px 6px 0 0; min-height: 6px; }
+    .f-num { font-size: 16px; font-weight: 900; color: #1a1a1a; }
+    .f-pct { font-size: 10px; color: #9ca3af; font-weight: 600; }
+    .f-lbl { font-size: 10px; color: #6b7280; font-weight: 600; text-align: center; margin-top: 3px; }
+    .f-arrow { color: #d1d5db; font-size: 16px; padding-bottom: 22px; align-self: center; flex: 0; }
 
-    /* Agent funnel table */
-    .funnel-agents { margin-top: 16px; border-top: 1px solid #f3f4f6; padding-top: 12px; }
-    .funnel-agents-title { font-size: 13px; font-weight: 700; color: #6b7280; margin-bottom: 8px; }
-    .funnel-agent-row {
-      display: grid; grid-template-columns: 1fr 60px 60px 60px 60px;
-      gap: 4px; padding: 8px 0; border-bottom: 1px solid #f9fafb;
-      font-size: 13px; align-items: center;
+    /* ── Today submissions ── */
+    .section-title { font-size: 13px; font-weight: 700; color: #6b7280; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .subs-grid {
+      display: grid; grid-template-columns: repeat(2, 1fr);
+      gap: 6px; margin-bottom: 12px;
     }
-    .funnel-agent-row.header { font-weight: 700; color: #6b7280; font-size: 11px; }
-    .funnel-agent-name { font-weight: 600; color: #1a1a1a; }
-    .funnel-agent-num { text-align: center; font-weight: 700; }
-    .fa-rdv   { color: #f59e0b; }
-    .fa-show  { color: #10b981; }
-    .fa-reg   { color: #3b82f6; }
-
-    /* Agents submission */
-    .section-title { font-size: 15px; font-weight: 700; color: #374151; margin: 0 0 12px; }
-    .agents-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
-    @media(min-width:600px) { .agents-grid { grid-template-columns: repeat(3, 1fr); } }
-    .agent-card {
-      background: white; border-radius: 12px; padding: 12px 14px;
+    @media(min-width:500px) { .subs-grid { grid-template-columns: repeat(3, 1fr); } }
+    .sub-card {
+      background: white; border-radius: 10px; padding: 10px 12px;
       display: flex; justify-content: space-between; align-items: center;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05); font-size: 12px;
     }
-    .agent-name { font-weight: 700; font-size: 13px; }
-    .submitted-yes { color: #166534; font-weight: 700; font-size: 12px; }
-    .submitted-no  { color: #dc2626; font-weight: 700; font-size: 12px; }
+    .sub-name { font-weight: 700; }
+    .sub-yes { color: #16a34a; font-weight: 700; }
+    .sub-no  { color: #dc2626; font-weight: 700; }
 
-    /* Nav links */
-    .nav-links { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; overflow-x: auto; }
-    .nav-link {
-      padding: 10px 16px; background: #1a1a1a; color: white; border-radius: 10px;
-      text-decoration: none; font-size: 13px; font-weight: 600; white-space: nowrap;
+    /* ── Ethics section ── */
+    .ethics-wrap {
+      background: white; border-radius: 14px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden;
     }
-    .nav-link.light { background: #f3f4f6; color: #374151; }
-    .nav-link:active { opacity: 0.8; }
+    .ethics-hdr {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 14px; cursor: pointer; user-select: none;
+    }
+    .ethics-hdr-left { display: flex; align-items: center; gap: 8px; }
+    .ethics-ttl { font-size: 14px; font-weight: 700; color: #374151; }
+    .ethics-badge {
+      padding: 3px 10px; border-radius: 20px;
+      font-size: 11px; font-weight: 700;
+    }
+    .badge-ok  { background: #f0fdf4; color: #16a34a; }
+    .badge-bad { background: #fef2f2; color: #dc2626; }
+    .toggle-chevron { font-size: 12px; color: #9ca3af; transition: transform 0.2s; }
+    .toggle-chevron.open { transform: rotate(180deg); }
+    .ethics-body { padding: 0 14px 14px; border-top: 1px solid #f3f4f6; }
+
+    .flag-card {
+      border-radius: 10px; padding: 12px; margin-bottom: 8px;
+    }
+    .flag-high   { background: #fef2f2; border-right: 3px solid #dc2626; }
+    .flag-medium { background: #fffbeb; border-right: 3px solid #f59e0b; }
+    .flag-agent  { font-size: 14px; font-weight: 700; margin-bottom: 6px; color: #1a1a1a; }
+    .flag-sub    { font-size: 11px; color: #9ca3af; }
+    .flag-item   { font-size: 12px; color: #374151; padding: 2px 0; }
+    .no-flags    { text-align: center; padding: 20px; color: #9ca3af; font-size: 13px; }
+    .ethics-tips {
+      margin-top: 14px; padding: 12px; background: #f8fafc;
+      border-radius: 10px; font-size: 12px; color: #64748b; line-height: 1.9;
+    }
+    .ethics-tips strong { display: block; margin-bottom: 4px; color: #374151; font-size: 13px; }
+
+    /* ── Agent leaderboard table ── */
+    .lb-table-wrap {
+      background: white; border-radius: 14px; padding: 14px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      overflow-x: auto;
+    }
+    .lb-table { width: 100%; border-collapse: collapse; min-width: 520px; }
+    .lb-table th {
+      font-size: 11px; color: #9ca3af; font-weight: 700; padding: 0 8px 10px;
+      text-align: center; white-space: nowrap;
+    }
+    .lb-table th:first-child { text-align: right; }
+    .lb-table td {
+      font-size: 13px; padding: 8px; border-top: 1px solid #f3f4f6;
+      text-align: center; font-weight: 600;
+    }
+    .lb-table td:first-child { text-align: right; }
+    .lb-table tr.top-1 td { background: #fffbeb; }
+    .lb-table tr.top-2 td { background: #f8fafc; }
+    .lb-table tr.top-3 td { background: #fff8f4; }
+    .rank-cell { font-weight: 900; color: #6b7280; }
+
+    .spinner {
+      display: flex; align-items: center; justify-content: center;
+      padding: 30px; color: #9ca3af; font-size: 13px;
+    }
   </style>
 </head>
 <body>
-  <header>
-    <h1>🏛️ لوحة تحكم الإدارة</h1>
-    <button class="logout-btn" onclick="logout()">خروج</button>
-  </header>
 
-  <div class="container">
+<header>
+  <h1>🏛️ لوحة الإدارة</h1>
+  <button class="logout-btn" onclick="logout()">خروج</button>
+</header>
 
-    <div class="nav-links">
-      <a href="agents.html"      class="nav-link">👥 الوكلاء</a>
-      <a href="leaderboard.html" class="nav-link light">🏆 الترتيب</a>
-      <a href="calendar.html"    class="nav-link light">📅 تقويم RDV</a>
-      <a href="swap.html"        class="nav-link light">🔄 التبادل</a>
-      <a href="blacklist.html"   class="nav-link light">🚫 القائمة السوداء</a>
-    </div>
+<div class="subnav">
+  <a href="agents.html">👥 الوكلاء</a>
+  <a href="leaderboard.html">🏆 الترتيب</a>
+  <a href="calendar.html">📅 تقويم RDV</a>
+  <a href="swap.html">🔄 التبادل</a>
+  <a href="blacklist.html">🚫 القائمة السوداء</a>
+</div>
 
-    <!-- Stats -->
-    <div class="stats-grid">
-      <div class="stat-card"><div class="num" id="total-leads">—</div><div class="label">إجمالي العملاء</div></div>
-      <div class="stat-card"><div class="num" id="total-rdv">—</div><div class="label">مواعيد RDV</div></div>
-      <div class="stat-card"><div class="num" id="swap-pool">—</div><div class="label">قائمة التبادل</div></div>
-      <div class="stat-card"><div class="num" id="active-agents">—</div><div class="label">وكلاء نشطون</div></div>
-    </div>
+<div class="container">
 
-    <!-- Conversion Funnel -->
-    <div class="funnel-card" id="funnel-card" style="display:none">
-      <div class="funnel-header">
-        <div>
-          <div class="funnel-title">📊 قمع التحويل — الفريق كامل</div>
-          <div class="funnel-subtitle">من العميل إلى التسجيل</div>
-        </div>
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="filter-row">
+      <div class="period-tabs">
+        <button class="period-tab active" data-period="today"  onclick="setPeriod('today')">اليوم</button>
+        <button class="period-tab"         data-period="week"   onclick="setPeriod('week')">أسبوع</button>
+        <button class="period-tab"         data-period="month"  onclick="setPeriod('month')">شهر</button>
+        <button class="period-tab"         data-period="custom" onclick="setPeriod('custom')">مخصص ▾</button>
       </div>
-      <div class="funnel-stages" id="funnel-stages"></div>
-      <div class="funnel-agents" id="funnel-agents"></div>
+      <input type="text" class="search-box" id="search-box" placeholder="🔍 بحث عن وكيل..." oninput="onSearch()">
     </div>
-
-    <!-- Submission Status -->
-    <div class="section-title">إرسال اليوم</div>
-    <div class="agents-grid" id="agents-list"></div>
-
+    <div class="date-range-row" id="date-range-row" style="display:none">
+      <input type="date" class="date-inp" id="date-from">
+      <span style="color:#9ca3af;font-size:12px">→</span>
+      <input type="date" class="date-inp" id="date-to">
+      <button class="apply-btn" onclick="applyCustom()">تطبيق</button>
+    </div>
   </div>
 
-  <script>
-    const API = window.location.origin;
-    const token = localStorage.getItem('token');
-    const role  = localStorage.getItem('role');
-    if (!token || role !== 'admin') window.location.href = '/index.html';
+  <!-- Summary stats -->
+  <div class="stats-grid">
+    <div class="stat-card"><div class="num" id="s-leads">—</div><div class="lbl">إجمالي العملاء</div></div>
+    <div class="stat-card"><div class="num" id="s-rdv">—</div><div class="lbl">مواعيد RDV</div></div>
+    <div class="stat-card"><div class="num" id="s-showed">—</div><div class="lbl">حضروا</div></div>
+    <div class="stat-card"><div class="num" id="s-reg">—</div><div class="lbl">مسجلين</div></div>
+  </div>
 
-    async function loadDashboard() {
-      const [dashRes, leaderRes] = await Promise.all([
-        fetch(`${API}/admin/dashboard`,   { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`${API}/admin/leaderboard`, { headers: { Authorization: `Bearer ${token}` } })
-      ]);
-      const data   = await dashRes.json();
-      const leaders = leaderRes.ok ? await leaderRes.json() : [];
+  <!-- Sort bar -->
+  <div class="sort-row">
+    <span class="sort-lbl">ترتيب حسب:</span>
+    <button class="sort-btn active" data-sort="rdv_count"           onclick="setSort(this,'rdv_count')">RDV</button>
+    <button class="sort-btn"         data-sort="total_leads"         onclick="setSort(this,'total_leads')">العملاء</button>
+    <button class="sort-btn"         data-sort="registered_students" onclick="setSort(this,'registered_students')">مسجلين</button>
+    <button class="sort-btn"         data-sort="showed_up"           onclick="setSort(this,'showed_up')">حضروا</button>
+    <button class="sort-btn"         data-sort="bv_count"            onclick="setSort(this,'bv_count')">B.V</button>
+    <button class="sort-btn"         data-sort="nr_count"            onclick="setSort(this,'nr_count')">N.R</button>
+  </div>
 
-      document.getElementById('total-leads').textContent   = data.total_leads ?? '—';
-      document.getElementById('total-rdv').textContent     = data.total_rdv   ?? '—';
-      document.getElementById('swap-pool').textContent     = data.swap_pool_count ?? '—';
-      document.getElementById('active-agents').textContent = data.agents?.length ?? '—';
+  <!-- Agent performance cards -->
+  <div class="perf-grid" id="perf-grid"></div>
 
-      // Submission list
-      const list = document.getElementById('agents-list');
-      list.innerHTML = '';
-      (data.agents || []).forEach(agent => {
-        const div = document.createElement('div');
-        div.className = 'agent-card';
-        div.innerHTML = `
-          <span class="agent-name">${agent.name}</span>
-          <span class="${agent.submitted_today ? 'submitted-yes' : 'submitted-no'}">
-            ${agent.submitted_today ? '✅' : '❌'}
-          </span>
-        `;
-        list.appendChild(div);
-      });
+  <!-- Agent detail panel -->
+  <div class="detail-panel" id="detail-panel" style="display:none">
+    <div class="detail-hdr">
+      <div class="detail-name" id="detail-name">—</div>
+      <button class="close-btn" onclick="clearAgent()">✕ إغلاق</button>
+    </div>
+    <div class="detail-stats" id="detail-stats"></div>
+    <div class="detail-charts">
+      <div><canvas id="donut-chart" height="180"></canvas></div>
+      <div id="mini-funnel"></div>
+    </div>
+  </div>
 
-      // Funnel
-      renderFunnel(data, leaders);
+  <!-- Bar chart -->
+  <div class="chart-card">
+    <div class="chart-hdr">
+      <div class="chart-title" id="chart-title">📊 ترتيب الوكلاء — RDV</div>
+    </div>
+    <div style="position:relative"><canvas id="bar-chart"></canvas></div>
+  </div>
+
+  <!-- Team funnel -->
+  <div class="funnel-card" id="team-funnel" style="display:none">
+    <div class="funnel-title">🎯 قمع التحويل — الفريق كامل</div>
+    <div class="funnel-row" id="funnel-row"></div>
+  </div>
+
+  <!-- Full leaderboard table -->
+  <div class="lb-table-wrap" id="lb-table-wrap">
+    <div class="chart-title" style="margin-bottom:10px">📋 جدول الترتيب الكامل</div>
+    <table class="lb-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>الوكيل</th>
+          <th>العملاء</th>
+          <th>RDV</th>
+          <th>%RDV</th>
+          <th>حضروا</th>
+          <th>مسجلين</th>
+          <th>B.V</th>
+          <th>N.R</th>
+        </tr>
+      </thead>
+      <tbody id="lb-tbody"></tbody>
+    </table>
+  </div>
+
+  <!-- Today submissions -->
+  <div class="section-title">إرسال اليوم</div>
+  <div class="subs-grid" id="subs-grid"></div>
+
+  <!-- Ethics monitor -->
+  <div class="ethics-wrap">
+    <div class="ethics-hdr" onclick="toggleEthics()">
+      <div class="ethics-hdr-left">
+        <span class="ethics-ttl">🔍 مراقبة الأخلاقيات</span>
+        <span class="ethics-badge badge-ok" id="ethics-badge">جاري التحميل...</span>
+      </div>
+      <span class="toggle-chevron" id="ethics-chevron">▼</span>
+    </div>
+    <div id="ethics-body" style="display:none">
+      <div class="ethics-body">
+        <div id="ethics-content" class="spinner">جاري التحميل...</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  const API   = window.location.origin;
+  const token = localStorage.getItem('token');
+  const role  = localStorage.getItem('role');
+  if (!token || role !== 'admin') window.location.href = '/index.html';
+
+  const SORT_LABELS = {
+    rdv_count: 'RDV', total_leads: 'العملاء',
+    registered_students: 'مسجلين', showed_up: 'حضروا',
+    bv_count: 'B.V', nr_count: 'N.R'
+  };
+
+  const state = {
+    period: 'today', dateFrom: null, dateTo: null,
+    selectedId: null, sortBy: 'rdv_count', search: '',
+    leaderboard: [], agents: [], ethicsLoaded: false, ethicsOpen: false
+  };
+
+  let barChart  = null;
+  let donutChart = null;
+
+  // ── Period helpers ─────────────────────────────────────
+  function getPeriodDates() {
+    const today = new Date();
+    const fmt = d => d.toISOString().split('T')[0];
+    if (state.period === 'today')  return { from: fmt(today), to: fmt(today) };
+    if (state.period === 'week')   {
+      const s = new Date(today); s.setDate(today.getDate() - 6);
+      return { from: fmt(s), to: fmt(today) };
     }
+    if (state.period === 'month')  {
+      const s = new Date(today.getFullYear(), today.getMonth(), 1);
+      return { from: fmt(s), to: fmt(today) };
+    }
+    return { from: state.dateFrom, to: state.dateTo };
+  }
 
-    function renderFunnel(data, leaders) {
-      const total  = data.total_leads || 0;
-      const rdvs   = data.total_rdv   || 0;
-      // Approximate showed_up and registered from leaderboard data
-      const showedUp = leaders.reduce((s, a) => s + (a.showed_up          || 0), 0);
-      const regs     = leaders.reduce((s, a) => s + (a.registered_students || 0), 0);
-      const rdvBook  = leaders.reduce((s, a) => s + (a.total_rdv_booked   || 0), 0);
+  function setPeriod(p) {
+    state.period = p;
+    document.querySelectorAll('.period-tab').forEach(b =>
+      b.classList.toggle('active', b.dataset.period === p));
+    document.getElementById('date-range-row').style.display = p === 'custom' ? 'flex' : 'none';
+    if (p !== 'custom') loadData();
+  }
 
-      if (!total) return;
-      document.getElementById('funnel-card').style.display = 'block';
+  function applyCustom() {
+    state.dateFrom = document.getElementById('date-from').value;
+    state.dateTo   = document.getElementById('date-to').value;
+    if (!state.dateFrom || !state.dateTo) { alert('اختر التاريخين'); return; }
+    loadData();
+  }
 
-      const MAX_H = 100;
-      const stages = [
-        { label: 'عملاء',  n: total,    pct: 100,                                           color: '#e63329' },
-        { label: 'RDV',    n: rdvBook,  pct: total   ? Math.round(rdvBook/total*100)  : 0,  color: '#f59e0b' },
-        { label: 'حضروا',  n: showedUp, pct: rdvBook ? Math.round(showedUp/rdvBook*100): 0, color: '#10b981' },
-        { label: 'مسجلين', n: regs,     pct: showedUp? Math.round(regs/showedUp*100)  : 0,  color: '#3b82f6' },
-      ];
-      const maxN = Math.max(...stages.map(s => s.n)) || 1;
-      const container = document.getElementById('funnel-stages');
-      container.innerHTML = '';
-      stages.forEach((s, i) => {
-        const barH = Math.max(8, Math.round((s.n / maxN) * MAX_H));
-        container.insertAdjacentHTML('beforeend', `
-          <div class="funnel-stage">
-            <div class="funnel-num">${s.n}</div>
-            <div class="funnel-pct">${i === 0 ? '100%' : s.pct + '%'}</div>
-            <div style="width:100%">
-              <div class="funnel-bar" style="height:${barH}px;background:${s.color}"></div>
-            </div>
-            <div class="funnel-lbl">${s.label}</div>
-          </div>
-        `);
-        if (i < stages.length - 1) container.insertAdjacentHTML('beforeend', '<div class="funnel-arrow">‹</div>');
-      });
+  function setSort(btn, key) {
+    state.sortBy = key;
+    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('chart-title').textContent = `📊 ترتيب الوكلاء — ${SORT_LABELS[key]}`;
+    renderCards();
+    renderBarChart();
+    renderLeaderboardTable();
+  }
 
-      // Per-agent breakdown
-      if (leaders.length) {
-        const agentsEl = document.getElementById('funnel-agents');
-        agentsEl.innerHTML = `
-          <div class="funnel-agents-title">أداء الوكلاء</div>
-          <div class="funnel-agent-row header">
-            <span>الوكيل</span>
-            <span style="text-align:center">عملاء</span>
-            <span style="text-align:center" class="fa-rdv">RDV</span>
-            <span style="text-align:center" class="fa-show">حضر</span>
-            <span style="text-align:center" class="fa-reg">مسجل</span>
-          </div>
-          ${leaders.slice(0, 10).map(a => `
-            <div class="funnel-agent-row">
-              <span class="funnel-agent-name">${a.name}</span>
-              <span class="funnel-agent-num">${a.total_leads || 0}</span>
-              <span class="funnel-agent-num fa-rdv">${a.rdv_count || 0}</span>
-              <span class="funnel-agent-num fa-show">${a.showed_up || 0}</span>
-              <span class="funnel-agent-num fa-reg">${a.registered_students || 0}</span>
-            </div>
-          `).join('')}
-        `;
+  function onSearch() {
+    state.search = document.getElementById('search-box').value.toLowerCase();
+    renderCards();
+    renderBarChart();
+  }
+
+  // ── Load data ──────────────────────────────────────────
+  async function loadData() {
+    const { from, to } = getPeriodDates();
+    const p = new URLSearchParams();
+    if (from) p.set('date_from', from);
+    if (to)   p.set('date_to', to);
+    const h = { Authorization: `Bearer ${token}` };
+
+    const [dashRes, lbRes] = await Promise.all([
+      fetch(`${API}/admin/dashboard?${p}`, { headers: h }),
+      fetch(`${API}/admin/leaderboard?${p}`, { headers: h })
+    ]);
+
+    const dash = dashRes.ok ? await dashRes.json() : {};
+    state.leaderboard = lbRes.ok ? await lbRes.json() : [];
+    state.agents = dash.agents || [];
+
+    renderSummary();
+    renderCards();
+    renderBarChart();
+    renderFunnel();
+    renderLeaderboardTable();
+    renderSubmissions();
+  }
+
+  // ── Summary stats ──────────────────────────────────────
+  function renderSummary() {
+    const lb = state.leaderboard;
+    document.getElementById('s-leads').textContent  = lb.reduce((s,a)=>s+(a.total_leads||0),0);
+    document.getElementById('s-rdv').textContent    = lb.reduce((s,a)=>s+(a.total_rdv_booked||0),0);
+    document.getElementById('s-showed').textContent = lb.reduce((s,a)=>s+(a.showed_up||0),0);
+    document.getElementById('s-reg').textContent    = lb.reduce((s,a)=>s+(a.registered_students||0),0);
+  }
+
+  // ── Filtered + sorted list ─────────────────────────────
+  function getSorted() {
+    let data = [...state.leaderboard];
+    if (state.search) data = data.filter(a => a.name.toLowerCase().includes(state.search));
+    data.sort((a, b) => (b[state.sortBy]||0) - (a[state.sortBy]||0));
+    return data;
+  }
+
+  // ── Agent performance cards ────────────────────────────
+  function renderCards() {
+    const data = getSorted();
+    const grid = document.getElementById('perf-grid');
+    grid.innerHTML = '';
+    data.forEach((agent, idx) => {
+      const rank = idx + 1;
+      const rc   = rank===1?'r1':rank===2?'r2':rank===3?'r3':'rx';
+      const emo  = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':rank;
+      const sel  = state.selectedId === agent.id;
+      const mainVal = agent[state.sortBy] || 0;
+      const div = document.createElement('div');
+      div.className = `perf-card ${sel ? 'selected' : ''}`;
+      div.onclick   = () => selectAgent(agent.id);
+      div.innerHTML = `
+        <div class="rank-badge ${rc}">${emo}</div>
+        <div class="perf-name">${agent.name}</div>
+        <div class="perf-main-val">${mainVal}</div>
+        <div class="perf-main-lbl">${SORT_LABELS[state.sortBy]}</div>
+        <div class="perf-chips">
+          <span class="chip" style="color:#f59e0b">RDV ${agent.rdv_count||0}</span>
+          <span class="chip" style="color:#10b981">✅ ${agent.showed_up||0}</span>
+          <span class="chip" style="color:#3b82f6">🎓 ${agent.registered_students||0}</span>
+        </div>`;
+      grid.appendChild(div);
+    });
+  }
+
+  // ── Bar chart ──────────────────────────────────────────
+  function renderBarChart() {
+    const data   = getSorted();
+    const labels = data.map(a => a.name);
+    const values = data.map(a => a[state.sortBy] || 0);
+    const colors = data.map((_, i) => i===0?'#e63329':i===1?'#374151':i===2?'#6b7280':'#d1d5db');
+
+    const ctx = document.getElementById('bar-chart').getContext('2d');
+    if (barChart) barChart.destroy();
+
+    // Dynamic height
+    const h = Math.max(180, data.length * 36);
+    document.getElementById('bar-chart').style.height = h + 'px';
+
+    barChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{ data: values, backgroundColor: colors, borderRadius: 5 }]
+      },
+      options: {
+        indexAxis: 'y', responsive: true,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => ` ${c.raw} ${SORT_LABELS[state.sortBy]}` } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: { family: 'Cairo', size: 11 } } },
+          y: { grid: { display: false }, ticks: { font: { family: 'Cairo', size: 12 } } }
+        }
       }
+    });
+  }
+
+  // ── Funnel ─────────────────────────────────────────────
+  function renderFunnel() {
+    const lb = state.leaderboard;
+    const leads  = lb.reduce((s,a)=>s+(a.total_leads||0),0);
+    const rdv    = lb.reduce((s,a)=>s+(a.total_rdv_booked||0),0);
+    const showed = lb.reduce((s,a)=>s+(a.showed_up||0),0);
+    const reg    = lb.reduce((s,a)=>s+(a.registered_students||0),0);
+    const funnel = document.getElementById('team-funnel');
+    if (!leads) { funnel.style.display = 'none'; return; }
+    funnel.style.display = 'block';
+
+    const stages = [
+      { label:'عملاء', n:leads,  color:'#e63329' },
+      { label:'RDV',   n:rdv,    color:'#f59e0b' },
+      { label:'حضروا', n:showed, color:'#10b981' },
+      { label:'مسجلين',n:reg,    color:'#3b82f6' },
+    ];
+    const maxN = Math.max(...stages.map(s=>s.n)) || 1;
+    const row  = document.getElementById('funnel-row');
+    row.innerHTML = '';
+    stages.forEach((s, i) => {
+      const barH = Math.max(6, Math.round((s.n / maxN) * 80));
+      const pct  = i===0 ? '100%' : (leads ? Math.round(s.n/leads*100)+'%' : '0%');
+      row.insertAdjacentHTML('beforeend', `
+        <div class="funnel-col">
+          <div class="f-num">${s.n}</div>
+          <div class="f-pct">${pct}</div>
+          <div style="width:100%"><div class="f-bar" style="height:${barH}px;background:${s.color}"></div></div>
+          <div class="f-lbl">${s.label}</div>
+        </div>`);
+      if (i < stages.length-1) row.insertAdjacentHTML('beforeend','<div class="f-arrow">‹</div>');
+    });
+  }
+
+  // ── Leaderboard table ───────────────────────────────────
+  function renderLeaderboardTable() {
+    const data = getSorted();
+    const tbody = document.getElementById('lb-tbody');
+    tbody.innerHTML = '';
+    data.forEach((a, i) => {
+      const rank = i + 1;
+      const rc   = rank===1?'top-1':rank===2?'top-2':rank===3?'top-3':'';
+      const emo  = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':rank;
+      tbody.insertAdjacentHTML('beforeend', `
+        <tr class="${rc}" style="cursor:pointer" onclick="selectAgent('${a.id}')">
+          <td class="rank-cell">${emo}</td>
+          <td style="font-weight:700;text-align:right">${a.name}</td>
+          <td>${a.total_leads||0}</td>
+          <td style="color:#f59e0b">${a.rdv_count||0}</td>
+          <td style="color:#6b7280">${a.rdv_pct||0}%</td>
+          <td style="color:#10b981">${a.showed_up||0}</td>
+          <td style="color:#3b82f6">${a.registered_students||0}</td>
+          <td style="color:#8b5cf6">${a.bv_count||0}</td>
+          <td style="color:#ef4444">${a.nr_count||0}</td>
+        </tr>`);
+    });
+  }
+
+  // ── Today submissions ──────────────────────────────────
+  function renderSubmissions() {
+    const grid = document.getElementById('subs-grid');
+    grid.innerHTML = '';
+    (state.agents || []).forEach(a => {
+      const div = document.createElement('div');
+      div.className = 'sub-card';
+      div.innerHTML = `
+        <span class="sub-name">${a.name}</span>
+        <span class="${a.submitted_today?'sub-yes':'sub-no'}">${a.submitted_today?'✅':'❌'}</span>`;
+      grid.appendChild(div);
+    });
+  }
+
+  // ── Agent detail ───────────────────────────────────────
+  function selectAgent(id) {
+    if (state.selectedId === id) { clearAgent(); return; }
+    state.selectedId = id;
+    renderCards();
+
+    const agent = state.leaderboard.find(a => a.id === id);
+    if (!agent) return;
+
+    document.getElementById('detail-panel').style.display = 'block';
+    document.getElementById('detail-name').textContent = `📋 ${agent.name}`;
+
+    // Stats row
+    const metrics = [
+      { l:'العملاء',   n: agent.total_leads||0,         c:'#e63329' },
+      { l:'RDV',       n: agent.rdv_count||0,            c:'#f59e0b' },
+      { l:'حضروا',     n: agent.showed_up||0,            c:'#10b981' },
+      { l:'مسجلين',    n: agent.registered_students||0,  c:'#3b82f6' },
+      { l:'B.V',       n: agent.bv_count||0,             c:'#8b5cf6' },
+      { l:'N.R',       n: agent.nr_count||0,             c:'#ef4444' },
+      { l:'P.I',       n: agent.pi_count||0,             c:'#6b7280' },
+      { l:'Autre V.',  n: agent.av_count||0,             c:'#06b6d4' },
+    ];
+    document.getElementById('detail-stats').innerHTML = metrics.map(m =>
+      `<div class="detail-stat"><div class="n" style="color:${m.c}">${m.n}</div><div class="l">${m.l}</div></div>`
+    ).join('');
+
+    // Donut chart
+    if (donutChart) donutChart.destroy();
+    const ctx = document.getElementById('donut-chart').getContext('2d');
+    donutChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['RDV','B.V','N.R','P.I','Autre V.','مسجل'],
+        datasets: [{
+          data: [
+            agent.rdv_count||0, agent.bv_count||0, agent.nr_count||0,
+            agent.pi_count||0, agent.av_count||0, agent.registered_students||0
+          ],
+          backgroundColor: ['#f59e0b','#8b5cf6','#ef4444','#6b7280','#06b6d4','#3b82f6'],
+          borderWidth: 2,
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: { legend: { position:'bottom', labels:{ font:{ family:'Cairo', size:10 } } } }
+      }
+    });
+
+    // Mini funnel
+    const total = agent.total_leads || 0;
+    const fStages = [
+      { label:'عملاء', n:total,                         color:'#e63329' },
+      { label:'RDV',   n:agent.rdv_count||0,            color:'#f59e0b' },
+      { label:'حضروا', n:agent.showed_up||0,            color:'#10b981' },
+      { label:'مسجل',  n:agent.registered_students||0,  color:'#3b82f6' },
+    ];
+    const maxN = Math.max(...fStages.map(s=>s.n)) || 1;
+    document.getElementById('mini-funnel').innerHTML = `
+      <div style="font-size:11px;font-weight:700;color:#9ca3af;margin-bottom:8px">قمع ${agent.name}</div>
+      <div style="display:flex;align-items:flex-end;gap:4px">
+        ${fStages.map((s, i) => {
+          const bh = Math.max(4, Math.round((s.n/maxN)*60));
+          const pct = i===0?'100%':(total?Math.round(s.n/total*100)+'%':'0%');
+          return `<div style="flex:1;text-align:center">
+            <div style="font-size:12px;font-weight:900">${s.n}</div>
+            <div style="font-size:9px;color:#9ca3af">${pct}</div>
+            <div style="height:${bh}px;background:${s.color};border-radius:4px 4px 0 0;width:100%"></div>
+            <div style="font-size:9px;color:#6b7280;margin-top:2px">${s.label}</div>
+          </div>${i<fStages.length-1?'<div style="color:#d1d5db;font-size:12px;padding-bottom:18px">‹</div>':''}`;
+        }).join('')}
+      </div>`;
+
+    document.getElementById('detail-panel').scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  function clearAgent() {
+    state.selectedId = null;
+    document.getElementById('detail-panel').style.display = 'none';
+    if (donutChart) { donutChart.destroy(); donutChart = null; }
+    renderCards();
+  }
+
+  // ── Ethics ─────────────────────────────────────────────
+  async function loadEthics() {
+    const res = await fetch(`${API}/admin/ethics`, { headers:{ Authorization:`Bearer ${token}` } });
+    if (!res.ok) {
+      document.getElementById('ethics-content').innerHTML = '<div class="no-flags">⚠️ فشل تحميل البيانات</div>';
+      return;
+    }
+    const data  = await res.json();
+    const count = data.total_flagged || 0;
+    const badge = document.getElementById('ethics-badge');
+    badge.textContent  = count ? `⚠️ ${count} وكيل مُبلَّغ` : '✅ كل شيء طبيعي';
+    badge.className    = `ethics-badge ${count ? 'badge-bad' : 'badge-ok'}`;
+
+    if (!count) {
+      document.getElementById('ethics-content').innerHTML =
+        '<div class="no-flags">✅ لا توجد أنشطة مشبوهة</div>';
+    } else {
+      document.getElementById('ethics-content').innerHTML =
+        data.flagged_agents.map(ag => `
+          <div class="flag-card ${ag.flags.some(f=>f.severity==='high')?'flag-high':'flag-medium'}">
+            <div class="flag-agent">${ag.agent_name}
+              <span class="flag-sub"> — ${ag.total_leads} عميل | ${ag.total_rdv} RDV</span>
+            </div>
+            ${ag.flags.map(f=>`
+              <div class="flag-item">${f.severity==='high'?'🔴':'🟡'} ${f.message}</div>
+            `).join('')}
+          </div>`
+        ).join('');
     }
 
-    function logout() {
-      localStorage.clear();
-      window.location.href = '/index.html';
-    }
+    document.getElementById('ethics-content').insertAdjacentHTML('beforeend', `
+      <div class="ethics-tips">
+        <strong>💡 توصيات إضافية للمراقبة اليدوية:</strong>
+        • اتصل عشوائياً ببعض العملاء أسبوعياً للتحقق من الاتصال الفعلي<br>
+        • راجع أوقات الإرسال — هل هي دائماً في نفس الوقت؟<br>
+        • قارن نسبة RDV مقابل الحضور لكل وكيل — الفجوة الكبيرة علامة تحذير<br>
+        • اطلب من الوكلاء تسجيل ملاحظات صوتية أو كتابية عند الاتصال بعملاء مشبوهين<br>
+        • أي وكيل لديه أرقام من نفس المنطقة بشكل متكرر يستحق المراجعة
+      </div>`);
 
-    loadDashboard();
-  </script>
+    state.ethicsLoaded = true;
+  }
+
+  function toggleEthics() {
+    state.ethicsOpen = !state.ethicsOpen;
+    document.getElementById('ethics-body').style.display    = state.ethicsOpen ? 'block' : 'none';
+    document.getElementById('ethics-chevron').className     = `toggle-chevron ${state.ethicsOpen ? 'open' : ''}`;
+    if (state.ethicsOpen && !state.ethicsLoaded) loadEthics();
+  }
+
+  function logout() { localStorage.clear(); window.location.href = '/index.html'; }
+
+  // ── Init ───────────────────────────────────────────────
+  loadData();
+</script>
 </body>
 </html>
