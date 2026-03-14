@@ -43,6 +43,21 @@ def debug_env():
         "all_env_keys": sorted(os.environ.keys())
     }
 
-# Serve frontend static files
+# Serve frontend static files with no-cache headers
+from fastapi import Request
+from fastapi.responses import Response
+import mimetypes
+
 FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
+
+@app.middleware("http")
+async def no_cache_html(request: Request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.endswith(".html") or path == "/" or "." not in path.split("/")[-1]:
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 app.mount("/", StaticFiles(directory=FRONTEND_DIR, html=True), name="frontend")
