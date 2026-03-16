@@ -293,8 +293,9 @@
     .popup-btn-cancel { background: #f3f4f6; color: #6b7280; }
     .popup-btn-primary { background: #e63329; color: white; }
     .popup-btn-green  { background: #10b981; color: white; }
-    .popup-btn-logha  { background: #fff0ef; color: #a61c10; }
-    .popup-btn-takwin { background: #fef3c7; color: #92400e; }
+    .popup-btn-logha    { background: #fff0ef; color: #a61c10; }
+    .popup-btn-maharat  { background: #e0f2fe; color: #075985; }
+    .popup-btn-takwin   { background: #fef3c7; color: #92400e; }
     .popup-input {
       width: 100%; padding: 12px 14px; border: 2px solid #e5e7eb; border-radius: 12px;
       font-size: 15px; font-family: 'Cairo', sans-serif; margin-bottom: 14px;
@@ -576,8 +577,12 @@
       📚 اللغة فقط
       <span style="font-size:12px;font-weight:400;display:block;margin-top:2px">1 مسجل — 100 درهم</span>
     </button>
+    <button class="popup-btn popup-btn-maharat" onclick="doRegister('maharat')">
+      🛠️ المهارات فقط
+      <span style="font-size:12px;font-weight:400;display:block;margin-top:2px">1 مسجل — 100 درهم</span>
+    </button>
     <button class="popup-btn popup-btn-takwin" onclick="doRegister('takwin')">
-      🎓 تكوين أو كليهما
+      🎓 كليهما
       <span style="font-size:12px;font-weight:400;display:block;margin-top:2px">2 مسجل — 200 درهم</span>
     </button>
     <button class="popup-btn popup-btn-cancel" onclick="closeAllPopups()">إلغاء</button>
@@ -618,11 +623,12 @@
     const STATUS_CLASS = {
       'RDV': 's-rdv', 'B.V': 's-bv', 'N.R': 's-nr',
       'P.I': 's-pi', 'Autre ville': 's-av',
-      'registered_logha': 's-reg', 'registered_takwin': 's-reg'
+      'registered_logha': 's-reg', 'registered_maharat': 's-reg', 'registered_takwin': 's-reg'
     };
     const STATUS_LABEL = {
       'registered_logha': '✅ مسجل - لغة',
-      'registered_takwin': '✅ مسجل - تكوين'
+      'registered_maharat': '✅ مسجل - مهارات',
+      'registered_takwin': '✅ مسجل - كليهما'
     };
 
     const agentId = localStorage.getItem('agent_id');
@@ -716,11 +722,12 @@
       const myRdvs   = allRdvs;
       const rdvTotal = myRdvs.length;
       const showed   = myRdvs.filter(r=>r.status==='showed_up').length;
-      const regLeads = allLeads.filter(l=>l.status==='registered_logha'||l.status==='registered_takwin');
+      const regLeads = allLeads.filter(l=>l.status==='registered_logha'||l.status==='registered_maharat'||l.status==='registered_takwin');
       currentStats.showed_up          = showed;
       currentStats.total_rdv_booked   = rdvTotal;
       currentStats.registered_students = regLeads.length;
       currentStats.registered_inscre  = regLeads.filter(l=>l.status==='registered_logha').length
+                                       + regLeads.filter(l=>l.status==='registered_maharat').length
                                        + regLeads.filter(l=>l.status==='registered_takwin').length * 2;
 
       // Restore profile from DB
@@ -989,7 +996,7 @@
         'N.R': allLeads.filter(l=>l.status==='N.R').length,
         'P.I': allLeads.filter(l=>l.status==='P.I').length,
         'Autre ville': allLeads.filter(l=>l.status==='Autre ville').length,
-        'مسجل': allLeads.filter(l=>l.status==='registered_logha'||l.status==='registered_takwin').length,
+        'مسجل': allLeads.filter(l=>l.status==='registered_logha'||l.status==='registered_maharat'||l.status==='registered_takwin').length,
       };
       const total = Object.values(counts).reduce((s,v)=>s+v,0);
       if (!total) return;
@@ -1270,7 +1277,7 @@
         return;
       }
       leads.forEach(lead => {
-        const isReg = lead.status === 'registered_logha' || lead.status === 'registered_takwin';
+        const isReg = lead.status === 'registered_logha' || lead.status === 'registered_maharat' || lead.status === 'registered_takwin';
         const sc    = STATUS_CLASS[lead.status] || '';
         const label = STATUS_LABEL[lead.status] || lead.status;
 

@@ -111,7 +111,7 @@ async def my_coach(user=Depends(get_current_user)):
     av_c       = sum(1 for l in leads if l["status"] == "Autre ville")
     showed     = sum(1 for r in rdvs if r["status"] == "showed_up")
     rdv_booked = len(rdvs)
-    registered = sum(1 for r in reg_l if r["status"] in ("registered_logha", "registered_takwin"))
+    registered = sum(1 for r in reg_l if r["status"] in ("registered_logha", "registered_maharat", "registered_takwin"))
 
     rdv_rate  = round(rdv_c / total * 100, 1) if total else 0
     show_rate = round(showed / rdv_booked * 100, 1) if rdv_booked else 0
@@ -128,7 +128,7 @@ async def my_coach(user=Depends(get_current_user)):
         ash = sum(1 for r in av if r["status"] == "showed_up")
         arb = len(av)
         arl = sb.table("leads").select("status").eq("current_agent", a["id"]).execute().data
-        areg = sum(1 for r in arl if r["status"] in ("registered_logha", "registered_takwin"))
+        areg = sum(1 for r in arl if r["status"] in ("registered_logha", "registered_maharat", "registered_takwin"))
         if at: t_rdv.append(ar / at * 100)
         if arb: t_show.append(ash / arb * 100)
         if ash: t_reg.append(areg / ash * 100)

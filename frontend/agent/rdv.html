@@ -37,6 +37,7 @@
     .call-wa      { background: #dcfce7; color: #166534; }
     .call-cancel  { background: #f3f4f6; color: #374151; }
     .reg-logha    { background: #ffe5e3; color: #a61c10; }
+    .reg-maharat  { background: #e0f2fe; color: #075985; }
     .reg-takwin   { background: #fef3c7; color: #92400e; }
     .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 999; }
     .overlay.show { display: block; }
@@ -78,8 +79,12 @@
       📚 اللغة فقط
       <div style="font-size:13px;font-weight:400;margin-top:2px">يُحسب كـ 1 مسجل — 100 درهم</div>
     </button>
+    <button class="call-option reg-maharat" onclick="doRegister('maharat')">
+      🛠️ المهارات فقط
+      <div style="font-size:13px;font-weight:400;margin-top:2px">يُحسب كـ 1 مسجل — 100 درهم</div>
+    </button>
     <button class="call-option reg-takwin" onclick="doRegister('takwin')">
-      🎓 تكوين أو كليهما
+      🎓 كليهما
       <div style="font-size:13px;font-weight:400;margin-top:2px">يُحسب كـ 2 مسجل — 200 درهم</div>
     </button>
     <button class="call-option call-cancel" onclick="closeAllPopups()">إلغاء</button>
@@ -107,7 +112,7 @@
       rdvs.forEach(rdv => {
         const lead  = rdv.leads || {};
         const date  = new Date(rdv.rdv_date).toLocaleString('ar-MA', { dateStyle: 'medium', timeStyle: 'short' });
-        const isRegistered = lead.status === 'registered_logha' || lead.status === 'registered_takwin';
+        const isRegistered = lead.status === 'registered_logha' || lead.status === 'registered_maharat' || lead.status === 'registered_takwin';
         const sc    = rdv.status === 'showed_up' ? 's-showed' : rdv.status === 'no_show' ? 's-noshow' : isRegistered ? 's-registered' : 's-scheduled';
         const label = rdv.status === 'showed_up' ? 'حضر ✅' : rdv.status === 'no_show' ? 'لم يحضر ❌' : isRegistered ? 'مسجل ⭐' : 'مجدول';
 

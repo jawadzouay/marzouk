@@ -118,9 +118,10 @@ def leaderboard(
         reg_leads = reg_leads_q.execute()
 
         reg_logha   = sum(1 for r in reg_leads.data if r["status"] == "registered_logha")
+        reg_maharat = sum(1 for r in reg_leads.data if r["status"] == "registered_maharat")
         reg_takwin  = sum(1 for r in reg_leads.data if r["status"] == "registered_takwin")
-        registered_students = reg_logha + reg_takwin
-        registered_inscre   = reg_logha + reg_takwin * 2
+        registered_students = reg_logha + reg_maharat + reg_takwin
+        registered_inscre   = reg_logha + reg_maharat + reg_takwin * 2
 
         board.append({
             "id":                  agent["id"],

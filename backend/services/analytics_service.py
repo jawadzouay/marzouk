@@ -63,7 +63,7 @@ def compute_metrics(agents, leads, rdvs, spend_rows):
         rdv_booked  = len(a_rdvs)
         showed      = sum(1 for r in a_rdvs if r["status"] == "showed_up")
         registered  = sum(1 for l in leads if l.get("current_agent") == aid
-                          and l["status"] in ("registered_logha", "registered_takwin"))
+                          and l["status"] in ("registered_logha", "registered_maharat", "registered_takwin"))
 
         a_spend = [s for s in spend_rows if s.get("agent_id") == aid]
         spend        = sum(s["spend"] for s in a_spend)

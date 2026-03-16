@@ -186,7 +186,7 @@ def register_lead(lead_id: str, body: dict, agent=Depends(get_current_agent)):
     agent_id = agent["sub"]
     reg_type = body.get("registration_type")
 
-    if reg_type not in ("logha", "takwin"):
+    if reg_type not in ("logha", "maharat", "takwin"):
         raise HTTPException(status_code=400, detail="نوع التسجيل غير صحيح")
 
     lead = sb.table("leads").select("*").eq("id", lead_id).execute()
@@ -194,12 +194,19 @@ def register_lead(lead_id: str, body: dict, agent=Depends(get_current_agent)):
         raise HTTPException(status_code=404, detail="Lead not found")
 
     lead_row = lead.data[0]
-    if lead_row["status"] in ("registered_logha", "registered_takwin"):
+    if lead_row["status"] in ("registered_logha", "registered_maharat", "registered_takwin"):
         raise HTTPException(status_code=400, detail="هذا الطالب مسجل مسبقاً")
 
     old_status = lead_row["status"]
-    new_status = "registered_logha" if reg_type == "logha" else "registered_takwin"
-    points = 1 if reg_type == "logha" else 2
+    if reg_type == "logha":
+        new_status = "registered_logha"
+        points = 1
+    elif reg_type == "maharat":
+        new_status = "registered_maharat"
+        points = 1
+    else:
+        new_status = "registered_takwin"
+        points = 2
 
     sb.table("leads").update({
         "status": new_status,
