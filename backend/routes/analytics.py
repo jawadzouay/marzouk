@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt
 from services.supabase_service import get_client
-from services.analytics_service import compute_metrics, compute_warnings, ai_analyze_team, ai_analyze_agent
+from services.analytics_service import compute_metrics, compute_warnings, ai_analyze_team, ai_analyze_agent, ai_script_analyzer
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
 import os
@@ -180,3 +180,22 @@ async def ai_analysis(
     else:
         text = await ai_analyze_team(metrics)
         return {"type": "team", "analysis": text}
+
+
+@router.post("/script-analyzer")
+async def script_analyzer(admin=Depends(require_admin)):
+    """Analyze lead notes + objection patterns and generate sales/video scripts."""
+    sb = get_client()
+
+    leads = sb.table("leads").select("note,status").execute()
+    notes = [l["note"].strip() for l in leads.data if l.get("note") and l["note"].strip()]
+
+    status_counts = {
+        "bv":  sum(1 for l in leads.data if l["status"] == "B.V"),
+        "nr":  sum(1 for l in leads.data if l["status"] == "N.R"),
+        "pi":  sum(1 for l in leads.data if l["status"] == "P.I"),
+        "rdv": sum(1 for l in leads.data if l["status"] == "RDV"),
+    }
+
+    analysis = await ai_script_analyzer(notes, status_counts)
+    return {"analysis": analysis, "notes_count": len(notes), "status_counts": status_counts}
