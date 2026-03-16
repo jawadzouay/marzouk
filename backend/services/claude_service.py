@@ -36,7 +36,7 @@ async def extract_leads_from_image(image_bytes: bytes, media_type: str) -> list:
     image_b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
 
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-4-5-20251001",
         max_tokens=4096,
         messages=[
             {
