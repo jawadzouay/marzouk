@@ -109,6 +109,17 @@
     .no-goal-text { color: #9ca3af; text-align: center; font-size: 13px; padding: 6px 0; }
     .progress-wrap { margin-bottom: 8px; }
     .progress-labels { display: flex; justify-content: space-between; font-size: 12px; color: #374151; margin-bottom: 5px; font-weight: 600; }
+    .goal-type-row { display:flex; gap:6px; margin-bottom:4px; }
+    .goal-type-btn { flex:1; padding:8px 4px; border:2px solid #e5e7eb; border-radius:10px; background:white; font-family:'Cairo',sans-serif; font-size:11px; font-weight:700; cursor:pointer; text-align:center; line-height:1.4; color:#374151; }
+    .goal-type-btn.active { border-color:#e63329; background:#fff5f5; color:#e63329; }
+    .goal-type-btn span { font-size:10px; font-weight:400; color:#9ca3af; display:block; }
+    .goal-type-btn.active span { color:#e63329; }
+    .goal-group-label { font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.5px; margin:10px 0 6px; padding-right:4px; }
+    .goal-item { background:#f9fafb; border-radius:10px; padding:10px 12px; margin-bottom:8px; border-right:3px solid #e5e7eb; }
+    .goal-item.type-master { border-right-color:#f59e0b; }
+    .goal-item.type-medium { border-right-color:#3b82f6; }
+    .goal-item.type-small  { border-right-color:#10b981; }
+    .goal-metric-sel { width:100%; padding:8px 10px; border:1.5px solid #e5e7eb; border-radius:8px; font-family:'Cairo',sans-serif; font-size:13px; margin-bottom:8px; background:white; }
     .progress-bar-bg { background: #e5e7eb; border-radius: 99px; height: 14px; overflow: hidden; }
     .progress-bar-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
     .prog-green { background: linear-gradient(90deg, #10b981, #34d399); }
@@ -619,23 +630,49 @@
   <!-- Goal Popup -->
   <div class="popup-sheet" id="goal-popup">
     <div class="popup-handle"></div>
-    <div class="popup-title">تحديد الهدف 🎯</div>
-    <div style="margin-bottom:10px">
-      <label style="font-size:12px;color:#6b7280;font-weight:600;display:block;margin-bottom:4px">اسم الهدف</label>
-      <input type="text" id="goal-name-inp" style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:8px;font-family:'Cairo',sans-serif;font-size:13px" placeholder="مثال: هدف مارس">
-    </div>
+    <div class="popup-title">🎯 إضافة هدف</div>
+
     <div class="form-group">
-      <label class="form-label">تاريخ البداية</label>
-      <input type="date" id="goal-start" class="popup-input" style="margin-bottom:0" />
+      <label class="form-label">اسم الهدف</label>
+      <input type="text" id="goal-name-inp" class="popup-input" placeholder="مثال: هدف اليوم" style="margin-bottom:0" />
     </div>
+
+    <div class="form-group" style="margin-top:10px">
+      <label class="form-label">حجم الهدف</label>
+      <div class="goal-type-row">
+        <button class="goal-type-btn active" data-type="small"  onclick="selectGoalType('small',this)">🎯 صغير<span>يومي</span></button>
+        <button class="goal-type-btn"        data-type="medium" onclick="selectGoalType('medium',this)">🚀 متوسط<span>أسبوعي</span></button>
+        <button class="goal-type-btn"        data-type="master" onclick="selectGoalType('master',this)">👑 كبير<span>شهري/مخصص</span></button>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top:10px">
+      <label class="form-label">ما تريد تحقيقه</label>
+      <select id="goal-metric" class="goal-metric-sel">
+        <option value="rdv">📅 مواعيد RDV محجوزة</option>
+        <option value="inscription">⭐ تسجيلات طلاب</option>
+        <option value="leads">👥 عملاء محتملون مُضافون</option>
+        <option value="showed_up">✅ حضور مؤكد</option>
+        <option value="visited">🏢 زيارات المركز</option>
+      </select>
+    </div>
+
     <div class="form-group">
-      <label class="form-label">تاريخ النهاية</label>
-      <input type="date" id="goal-end" class="popup-input" style="margin-bottom:0" />
+      <label class="form-label">الهدف (العدد)</label>
+      <input type="number" id="goal-target" class="popup-input" placeholder="مثال: 3" min="1" style="margin-bottom:0" />
     </div>
-    <div class="form-group">
-      <label class="form-label">الهدف (عدد المسجلين)</label>
-      <input type="number" id="goal-target" class="popup-input" placeholder="مثال: 20" min="1" style="margin-bottom:0" />
+
+    <div id="goal-custom-dates" style="display:none">
+      <div class="form-group" style="margin-top:8px">
+        <label class="form-label">من تاريخ</label>
+        <input type="date" id="goal-start" class="popup-input" style="margin-bottom:0" />
+      </div>
+      <div class="form-group" style="margin-top:8px">
+        <label class="form-label">إلى تاريخ</label>
+        <input type="date" id="goal-end" class="popup-input" style="margin-bottom:0" />
+      </div>
     </div>
+
     <div style="height:14px"></div>
     <button class="popup-btn popup-btn-primary" onclick="saveGoal()">✅ حفظ الهدف</button>
     <button class="popup-btn popup-btn-cancel" onclick="closeAllPopups()">إلغاء</button>
@@ -781,17 +818,21 @@
               if (el) el.innerHTML = `<img src="${profile.avatar_url}" />`;
             }
           }
-          // Goals — migrate from old single-goal localStorage if needed
+          // Load goals — DB first, localStorage as fallback
           if (profile.goals && profile.goals.length > 0) {
             agentGoals = profile.goals;
+            localStorage.setItem(GOAL_KEY, JSON.stringify(agentGoals)); // sync local
           } else {
-            // Try migrating old localStorage goal
-            const oldGoal = localStorage.getItem(GOAL_KEY);
-            if (oldGoal) {
-              const parsed = JSON.parse(oldGoal);
-              agentGoals = [{ ...parsed, id: Date.now().toString(), name: 'هدفي' }];
-              await saveGoalsToDB(agentGoals);
-              localStorage.removeItem(GOAL_KEY);
+            // Fallback to localStorage (covers DB column missing or network failure)
+            const localGoals = localStorage.getItem(GOAL_KEY);
+            if (localGoals) {
+              try {
+                const parsed = JSON.parse(localGoals);
+                agentGoals = Array.isArray(parsed) ? parsed
+                  : [{ ...parsed, id: Date.now().toString(), name: 'هدفي', type: 'master', metric: 'inscription', target: parsed.targetStudents || 10 }];
+                // Try to push to DB
+                await saveGoalsToDB(agentGoals);
+              } catch(e) {}
             }
           }
           renderGoals();
@@ -1171,35 +1212,100 @@
       });
     }
 
-    // ===== Goals (multi-goal system) =====
+    // ===== Goals =====
     async function saveGoalsToDB(goals) {
       try {
-        await fetch(`${API}/agents/me`, {
+        const res = await fetch(`${API}/agents/me`, {
           method: 'PATCH',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ goals })
         });
-      } catch(e) { console.warn('Goals save failed', e); }
+        if (!res.ok) throw new Error('save failed');
+        // Also persist locally as backup
+        localStorage.setItem(GOAL_KEY, JSON.stringify(goals));
+      } catch(e) {
+        // Fallback: save to localStorage only
+        localStorage.setItem(GOAL_KEY, JSON.stringify(goals));
+      }
     }
 
+    function selectGoalType(type, btn) {
+      document.querySelectorAll('.goal-type-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('goal-custom-dates').style.display = type === 'master' ? 'block' : 'none';
+    }
+
+    function computeGoalValue(goal) {
+      const now   = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const weekStart = new Date(today); weekStart.setDate(today.getDate() - today.getDay());
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+      let fromDate;
+      if (goal.type === 'small')       fromDate = today;
+      else if (goal.type === 'medium') fromDate = weekStart;
+      else if (goal.startDate)         fromDate = new Date(goal.startDate);
+      else                             fromDate = monthStart;
+
+      const toDate = (goal.type === 'master' && goal.endDate) ? new Date(goal.endDate) : new Date(now.getFullYear(), now.getMonth()+1, 0);
+
+      const inRange = d => { const dt = new Date(d); return dt >= fromDate && dt <= toDate; };
+
+      switch (goal.metric) {
+        case 'rdv':
+          return allRdvs.filter(r => inRange(r.created_at || r.rdv_date)).length;
+        case 'inscription':
+          return allLeads.filter(l =>
+            (l.status === 'registered_logha' || l.status === 'registered_maharat' || l.status === 'registered_takwin')
+          ).length;
+        case 'leads':
+          return allLeads.filter(l => inRange(l.submitted_at)).length;
+        case 'showed_up':
+          return allRdvs.filter(r => r.status === 'showed_up' && inRange(r.created_at || r.rdv_date)).length;
+        case 'visited':
+          return allLeads.filter(l => l.status === 'visited_center').length;
+        default:
+          return 0;
+      }
+    }
+
+    const METRIC_LABEL = {
+      rdv: '📅 RDV', inscription: '⭐ تسجيل', leads: '👥 عميل',
+      showed_up: '✅ حضور', visited: '🏢 زيارة'
+    };
+    const TYPE_META = {
+      small:  { icon: '🎯', label: 'هدف يومي',   color: '#10b981' },
+      medium: { icon: '🚀', label: 'هدف أسبوعي', color: '#3b82f6' },
+      master: { icon: '👑', label: 'الهدف الكبير', color: '#f59e0b' }
+    };
+
     async function saveGoal() {
-      const startDate      = document.getElementById('goal-start').value;
-      const endDate        = document.getElementById('goal-end').value;
-      const targetStudents = parseInt(document.getElementById('goal-target').value);
-      const goalName       = (document.getElementById('goal-name-inp') || {}).value || 'هدفي';
-      if (!startDate || !endDate || !targetStudents || targetStudents < 1) { alert('يرجى ملء جميع الحقول'); return; }
-      if (endDate <= startDate) { alert('تاريخ النهاية يجب أن يكون بعد تاريخ البداية'); return; }
+      const name   = (document.getElementById('goal-name-inp').value || '').trim();
+      const target = parseInt(document.getElementById('goal-target').value);
+      const metric = document.getElementById('goal-metric').value;
+      const typeBtn = document.querySelector('.goal-type-btn.active');
+      const type   = typeBtn ? typeBtn.dataset.type : 'small';
+
+      if (!name)              { alert('يرجى كتابة اسم الهدف'); return; }
+      if (!target || target < 1) { alert('يرجى تحديد عدد صحيح'); return; }
+
+      let startDate = '', endDate = '';
+      if (type === 'master') {
+        startDate = document.getElementById('goal-start').value;
+        endDate   = document.getElementById('goal-end').value;
+        if (!startDate || !endDate) { alert('يرجى تحديد تواريخ الهدف الكبير'); return; }
+        if (endDate <= startDate)   { alert('تاريخ النهاية يجب أن يكون بعد البداية'); return; }
+      }
 
       const editId = document.getElementById('goal-popup').dataset.editId;
       if (editId) {
-        // Edit existing
         agentGoals = agentGoals.map(g => g.id === editId
-          ? { ...g, name: goalName, targetStudents, startDate, endDate }
+          ? { ...g, name, type, metric, target, startDate, endDate }
           : g);
       } else {
-        // Add new
-        agentGoals.push({ id: Date.now().toString(), name: goalName, targetStudents, startDate, endDate });
+        agentGoals.push({ id: Date.now().toString(), name, type, metric, target, startDate, endDate });
       }
+
       await saveGoalsToDB(agentGoals);
       closeAllPopups();
       renderGoals();
@@ -1214,20 +1320,32 @@
     function openGoalPopup(editGoalId) {
       const popup = document.getElementById('goal-popup');
       popup.dataset.editId = editGoalId || '';
+
+      // Reset form
+      document.querySelectorAll('.goal-type-btn').forEach(b => b.classList.remove('active'));
+      document.querySelector('.goal-type-btn[data-type="small"]').classList.add('active');
+      document.getElementById('goal-custom-dates').style.display = 'none';
+      document.getElementById('goal-name-inp').value  = '';
+      document.getElementById('goal-target').value    = '';
+      document.getElementById('goal-metric').value    = 'rdv';
+      document.getElementById('goal-start').value     = '';
+      document.getElementById('goal-end').value       = '';
+
       if (editGoalId) {
         const g = agentGoals.find(x => x.id === editGoalId);
         if (g) {
-          document.getElementById('goal-start').value  = g.startDate;
-          document.getElementById('goal-end').value    = g.endDate;
-          document.getElementById('goal-target').value = g.targetStudents;
-          if (document.getElementById('goal-name-inp')) document.getElementById('goal-name-inp').value = g.name || '';
+          document.getElementById('goal-name-inp').value = g.name || '';
+          document.getElementById('goal-target').value   = g.target || g.targetStudents || '';
+          document.getElementById('goal-metric').value   = g.metric || 'inscription';
+          document.getElementById('goal-start').value    = g.startDate || '';
+          document.getElementById('goal-end').value      = g.endDate   || '';
+          const typeBtn = document.querySelector(`.goal-type-btn[data-type="${g.type || 'small'}"]`);
+          if (typeBtn) {
+            document.querySelectorAll('.goal-type-btn').forEach(b => b.classList.remove('active'));
+            typeBtn.classList.add('active');
+            document.getElementById('goal-custom-dates').style.display = g.type === 'master' ? 'block' : 'none';
+          }
         }
-      } else {
-        const today = new Date().toISOString().slice(0,10);
-        document.getElementById('goal-start').value  = today;
-        document.getElementById('goal-end').value    = '';
-        document.getElementById('goal-target').value = '';
-        if (document.getElementById('goal-name-inp')) document.getElementById('goal-name-inp').value = '';
       }
       showPopup('goal-popup');
     }
@@ -1242,51 +1360,60 @@
         return;
       }
 
-      const now = new Date(); now.setHours(0,0,0,0);
-      const inscre = currentStats.registered_inscre || 0;
+      const order = ['master', 'medium', 'small'];
+      let html = '';
 
-      body.innerHTML = agentGoals.map(goal => {
-        const start = new Date(goal.startDate);
-        const end   = new Date(goal.endDate);
-        const totalDays   = Math.max(1, Math.round((end - start) / 86400000));
-        const elapsedDays = Math.max(0, Math.min(totalDays, Math.round((now - start) / 86400000)));
-        const timeRatio   = elapsedDays / totalDays;
-        const target  = goal.targetStudents;
-        const pct     = Math.min(100, Math.round((inscre / target) * 100));
-        const timePct = Math.round(timeRatio * 100);
-        const expected = Math.floor(target * timeRatio);
-        const gap     = inscre - expected;
-        const isDone  = inscre >= target;
-        const isOnTrack = gap >= 0;
-        const daysLeft = Math.max(0, totalDays - elapsedDays);
-        const trackClass = isDone ? 'track-done' : isOnTrack ? 'track-ahead' : 'track-behind';
-        const trackText  = isDone ? '🏆 أحسنت! حققت الهدف!'
-          : isOnTrack ? `✅ متقدم بـ ${gap} مسجل`
-          : `⚠️ متأخر بـ ${Math.abs(gap)} مسجل`;
+      order.forEach(type => {
+        const goals = agentGoals.filter(g => (g.type || 'small') === type);
+        if (!goals.length) return;
+        const meta = TYPE_META[type];
+        html += `<div class="goal-group-label">${meta.icon} ${meta.label}</div>`;
 
-        return `
-          <div style="background:#f9fafb;border-radius:10px;padding:10px 12px;margin-bottom:8px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-              <span style="font-size:13px;font-weight:700;color:#374151">${goal.name || 'هدف'}</span>
-              <div style="display:flex;gap:6px">
-                <button class="btn-edit-goal" onclick="openGoalPopup('${goal.id}')">✏️</button>
-                <button class="btn-edit-goal" style="color:#dc2626" onclick="deleteGoal('${goal.id}')">🗑</button>
+        goals.forEach(goal => {
+          const target  = goal.target || goal.targetStudents || 1;
+          const current = computeGoalValue(goal);
+          const pct     = Math.min(100, Math.round((current / target) * 100));
+          const isDone  = current >= target;
+          const metricLbl = METRIC_LABEL[goal.metric] || goal.metric || '⭐ تسجيل';
+
+          let periodLabel = '';
+          if (type === 'small')       periodLabel = 'اليوم';
+          else if (type === 'medium') periodLabel = 'هذا الأسبوع';
+          else if (goal.startDate && goal.endDate) {
+            const daysLeft = Math.max(0, Math.round((new Date(goal.endDate) - new Date()) / 86400000));
+            periodLabel = `${goal.startDate} → ${goal.endDate} · ${daysLeft} يوم`;
+          }
+
+          const trackClass = isDone ? 'track-done' : pct >= 50 ? 'track-ahead' : 'track-behind';
+          const trackText  = isDone
+            ? '🏆 أحسنت! حققت الهدف!'
+            : `${current} من ${target} ${metricLbl} · ${pct}%`;
+
+          html += `
+            <div class="goal-item type-${type}">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <span style="font-size:13px;font-weight:700;color:#374151">${goal.name || 'هدف'}</span>
+                <div style="display:flex;gap:6px;align-items:center">
+                  <span style="font-size:10px;color:#9ca3af">${periodLabel}</span>
+                  <button class="btn-edit-goal" onclick="openGoalPopup('${goal.id}')">✏️</button>
+                  <button class="btn-edit-goal" style="color:#dc2626" onclick="deleteGoal('${goal.id}')">🗑</button>
+                </div>
               </div>
-            </div>
-            <div class="progress-wrap">
-              <div class="progress-labels"><span>${inscre} من ${target}</span><span>${pct}%</span></div>
-              <div class="progress-bar-bg">
-                <div class="progress-bar-fill ${isOnTrack||isDone?'prog-green':'prog-red'}" style="width:${pct}%"></div>
+              <div class="progress-wrap">
+                <div class="progress-labels">
+                  <span style="color:${meta.color}">${current} / ${target} ${metricLbl}</span>
+                  <span>${pct}%</span>
+                </div>
+                <div class="progress-bar-bg">
+                  <div class="progress-bar-fill ${isDone ? 'prog-green' : pct >= 50 ? 'prog-green' : 'prog-red'}" style="width:${pct}%"></div>
+                </div>
               </div>
-            </div>
-            <div class="time-bar-wrap">
-              <div class="time-bar-label">الوقت: ${timePct}%</div>
-              <div class="time-bar-bg"><div class="time-bar-fill" style="width:${timePct}%"></div></div>
-            </div>
-            <div class="track-badge ${trackClass}">${trackText}</div>
-            <div class="goal-dates">${goal.startDate} → ${goal.endDate} · ${daysLeft} يوم</div>
-          </div>`;
-      }).join('');
+              <div class="track-badge ${trackClass}">${trackText}</div>
+            </div>`;
+        });
+      });
+
+      body.innerHTML = html;
     }
 
     // ===== Filter =====
