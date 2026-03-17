@@ -1566,7 +1566,7 @@
 
               ${!isReg ? `
               <div class="lead-detail-actions">
-                <select class="status-select" id="ss-${lead.id}" onclick="event.stopPropagation()" onchange="toggleCustom('${lead.id}',this.value)">
+                <select class="status-select" id="ss-${lead.id}" onclick="event.stopPropagation()" onchange="toggleCustom('${lead.id}',this.value);if(this.value==='RDV'){event.stopPropagation();openRdvPopup('${lead.id}','${esc(lead.name)}')}">
                   <option value="RDV"              ${lead.status==='RDV'?'selected':''}>📅 RDV — حجز موعد</option>
                   <option value="visited_center"   ${lead.status==='visited_center'?'selected':''}>🏢 زار المركز</option>
                   <option value="cancelled_visit"  ${lead.status==='cancelled_visit'?'selected':''}>❌ ألغى الزيارة</option>
