@@ -375,15 +375,24 @@
     .cq-age-urgent { background:#fef2f2; color:#dc2626; }
     .cq-age-warn   { background:#fffbeb; color:#d97706; }
     .cq-call-btn { background:#10b981; color:white; border:none; border-radius:8px; padding:7px 12px; font-family:'Cairo',sans-serif; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; min-height:36px; }
-    .cq-status-row { display:flex; gap:5px; flex-wrap:wrap; }
-    .cq-s-btn { flex:1; min-width:44px; padding:5px 4px; border:1.5px solid #e5e7eb; border-radius:7px; font-family:'Cairo',sans-serif; font-size:11px; font-weight:700; cursor:pointer; background:white; color:#374151; transition:background .15s; }
-    .cq-s-btn:active { filter:brightness(.9); }
-    .cq-s-bv  { border-color:#f59e0b; color:#b45309; }
-    .cq-s-nr  { border-color:#ef4444; color:#dc2626; }
-    .cq-s-rdv { border-color:#10b981; color:#065f46; }
-    .cq-s-pi  { border-color:#8b5cf6; color:#6d28d9; }
-    .cq-s-vis { border-color:#f59e0b; background:#fef3c7; color:#92400e; }
+    .cq-status-row { display:flex; gap:6px; align-items:center; }
+    .cq-select { flex:1; padding:7px 8px; border:1.5px solid #e5e7eb; border-radius:8px; font-family:'Cairo',sans-serif; font-size:12px; background:white; color:#374151; }
+    .cq-update-btn { padding:7px 12px; background:#1a1a1a; color:white; border:none; border-radius:8px; font-family:'Cairo',sans-serif; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; }
+    .cq-update-btn:disabled { opacity:.4; cursor:default; }
     .btn-visited-center { margin-top:8px; width:100%; padding:8px; background:#fef3c7; color:#92400e; border:1.5px solid #f59e0b; border-radius:8px; font-family:'Cairo',sans-serif; font-size:13px; font-weight:700; cursor:pointer; }
+    /* Registered students */
+    .reg-section { background:white; border-radius:16px; padding:14px 16px; margin-bottom:12px; box-shadow:0 2px 8px rgba(0,0,0,0.06); border-right:4px solid #10b981; display:none; }
+    .reg-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+    .reg-title { font-size:14px; font-weight:700; color:#065f46; }
+    .reg-count { background:#10b981; color:white; border-radius:20px; padding:2px 10px; font-size:12px; font-weight:700; }
+    .reg-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #f3f4f6; }
+    .reg-item:last-child { border-bottom:none; }
+    .reg-name { font-size:13px; font-weight:700; color:#1a1a1a; }
+    .reg-phone { font-size:11px; color:#9ca3af; margin-top:2px; }
+    .reg-type-badge { font-size:11px; font-weight:700; border-radius:6px; padding:3px 8px; }
+    .reg-logha   { background:#ffe5e3; color:#a61c10; }
+    .reg-maharat { background:#e0f2fe; color:#075985; }
+    .reg-takwin  { background:#fef3c7; color:#92400e; }
 
     /* ===== Lead Age Badge ===== */
     .lead-age-badge { display:inline-block; border-radius:5px; padding:1px 6px; font-size:10px; font-weight:700; margin-right:4px; vertical-align:middle; }
@@ -541,6 +550,15 @@
     <div class="action-btns">
       <a href="submit.html" class="action-btn">📸 إرسال قائمة اليوم</a>
       <a href="rdv.html" class="action-btn secondary">📅 مواعيد RDV</a>
+    </div>
+
+    <!-- Registered Students Section -->
+    <div class="reg-section" id="reg-section">
+      <div class="reg-header">
+        <div class="reg-title">⭐ الطلاب المسجلون</div>
+        <span class="reg-count" id="reg-count">0</span>
+      </div>
+      <div id="reg-list"></div>
     </div>
 
     <!-- Leads Section -->
@@ -790,6 +808,35 @@
       document.getElementById('rdv-count').textContent = currentStats['RDV']  || 0;
       document.getElementById('bv-count').textContent  = currentStats['B.V']  || 0;
       document.getElementById('nr-count').textContent  = currentStats['N.R']  || 0;
+      renderRegistered();
+    }
+
+    // ===== Registered Students =====
+    function renderRegistered() {
+      const regLeads = allLeads.filter(l =>
+        l.status === 'registered_logha' || l.status === 'registered_maharat' || l.status === 'registered_takwin'
+      );
+      const sec = document.getElementById('reg-section');
+      const list = document.getElementById('reg-list');
+      document.getElementById('reg-count').textContent = regLeads.length;
+
+      if (!regLeads.length) { sec.style.display = 'none'; return; }
+      sec.style.display = 'block';
+
+      const typeLabel = { registered_logha: 'اللغة', registered_maharat: 'المهارات', registered_takwin: 'كليهما' };
+      const typeCls   = { registered_logha: 'reg-logha', registered_maharat: 'reg-maharat', registered_takwin: 'reg-takwin' };
+
+      list.innerHTML = regLeads.map(l => `
+        <div class="reg-item">
+          <div>
+            <div class="reg-name">${l.name || '—'}</div>
+            <div class="reg-phone">${l.phone}</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span class="reg-type-badge ${typeCls[l.status] || ''}">${typeLabel[l.status] || l.status}</span>
+            <button style="background:#e0f2fe;color:#0369a1;border:none;border-radius:8px;padding:5px 10px;font-family:'Cairo',sans-serif;font-size:12px;cursor:pointer" onclick="openCallPopup('${l.phone}','${esc(l.name)}')">📞</button>
+          </div>
+        </div>`).join('');
     }
 
     // ===== Money Card =====
@@ -986,11 +1033,16 @@
               <button class="cq-call-btn" onclick="openCallPopup('${lead.phone}','${n}')">📞</button>
             </div>
             <div class="cq-status-row">
-              <button class="cq-s-btn cq-s-bv"  id="cqb-bv-${lead.id}"  onclick="quickStatus('${lead.id}','B.V','${n}')">B.V</button>
-              <button class="cq-s-btn cq-s-nr"  id="cqb-nr-${lead.id}"  onclick="quickStatus('${lead.id}','N.R','${n}')">N.R</button>
-              <button class="cq-s-btn cq-s-rdv" id="cqb-rdv-${lead.id}" onclick="openRdvPopup('${lead.id}','${n}')">RDV 📅</button>
-              <button class="cq-s-btn cq-s-pi"  id="cqb-pi-${lead.id}"  onclick="quickStatus('${lead.id}','P.I','${n}')">P.I</button>
-              <button class="cq-s-btn cq-s-vis" id="cqb-vis-${lead.id}" onclick="markVisitedCenter('${lead.id}')">🏢 زار</button>
+              <select class="cq-select" id="cqs-${lead.id}">
+                <option value="">— اختر الحالة —</option>
+                <option value="RDV">📅 RDV (موعد)</option>
+                <option value="visited_center">🏢 زار المركز</option>
+                <option value="B.V">B.V (بريد صوتي)</option>
+                <option value="N.R">N.R (لم يرد)</option>
+                <option value="P.I">P.I (غير مهتم)</option>
+                <option value="Autre ville">Autre ville</option>
+              </select>
+              <button class="cq-update-btn" id="cqb-upd-${lead.id}" onclick="quickStatusFromSelect('${lead.id}','${n}')">تحديث</button>
             </div>
           </div>`;
       }).join('');
@@ -1434,13 +1486,23 @@
       } catch(e) {}
     }
 
-    // ===== Quick Status (from call queue) =====
-    async function quickStatus(leadId, newStatus, name) {
-      // Visual: disable all buttons on this row
-      ['bv','nr','pi','vis'].forEach(k => {
-        const b = document.getElementById(`cqb-${k}-${leadId}`);
-        if (b) { b.disabled = true; b.style.opacity = '0.4'; }
-      });
+    // ===== Quick Status from dropdown (call queue) =====
+    async function quickStatusFromSelect(leadId, name) {
+      const sel = document.getElementById(`cqs-${leadId}`);
+      const newStatus = sel ? sel.value : '';
+      if (!newStatus) return;
+
+      if (newStatus === 'RDV') {
+        openRdvPopup(leadId, name.replace(/\\'/g,"'"));
+        return;
+      }
+      if (newStatus === 'visited_center') {
+        markVisitedCenter(leadId);
+        return;
+      }
+
+      const btn = document.getElementById(`cqb-upd-${leadId}`);
+      if (btn) { btn.disabled = true; btn.textContent = '...'; }
 
       const res = await fetch(`${API}/leads/${leadId}/status`, {
         method: 'PATCH',
@@ -1449,31 +1511,35 @@
       });
 
       if (res.ok) {
-        // Flash success on the meta line
         const meta = document.getElementById(`cq-meta-${leadId}`);
-        if (meta) meta.textContent = `✅ تم تحديث الحالة إلى ${newStatus}`;
-
-        // If status is no longer B.V or N.R, remove card from queue immediately
+        if (meta) meta.textContent = `✅ ${newStatus}`;
+        if (btn) { btn.textContent = '✅'; btn.style.background = '#10b981'; }
         if (newStatus !== 'B.V' && newStatus !== 'N.R') {
           const card = document.getElementById(`cq-${leadId}`);
-          if (card) { card.style.opacity = '0'; setTimeout(() => card.remove(), 400); }
+          if (card) { card.style.opacity = '0'; card.style.transition = 'opacity .3s'; setTimeout(() => card.remove(), 350); }
         }
-
-        // Reload to sync stats
-        setTimeout(() => loadDashboard(), 600);
+        setTimeout(() => loadDashboard(), 700);
       } else {
-        ['bv','nr','pi','vis'].forEach(k => {
-          const b = document.getElementById(`cqb-${k}-${leadId}`);
-          if (b) { b.disabled = false; b.style.opacity = '1'; }
-        });
+        if (btn) { btn.disabled = false; btn.textContent = 'تحديث'; btn.style.background = ''; }
         try { const d = await res.json(); alert(d.detail || 'خطأ في التحديث'); }
         catch(e) { alert('خطأ في التحديث'); }
       }
     }
 
+    // ===== Quick Status (direct call, kept for compatibility) =====
+    async function quickStatus(leadId, newStatus) {
+      const res = await fetch(`${API}/leads/${leadId}/status`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) loadDashboard();
+      else { try { const d = await res.json(); alert(d.detail || 'خطأ'); } catch(e){} }
+    }
+
     // ===== Mark Visited Center (without RDV) =====
     async function markVisitedCenter(leadId) {
-      const visBtn = document.getElementById(`cqb-vis-${leadId}`);
+      const visBtn = document.getElementById(`cqb-upd-${leadId}`);
       if (visBtn) { visBtn.disabled = true; visBtn.textContent = '...'; }
 
       const res = await fetch(`${API}/leads/${leadId}/visited-center`, {
@@ -1482,7 +1548,7 @@
       });
 
       if (res.ok) {
-        if (visBtn) { visBtn.textContent = '✅ تم'; visBtn.style.background = '#d1fae5'; visBtn.style.color = '#065f46'; }
+        if (visBtn) { visBtn.textContent = '✅ تم'; visBtn.style.background = '#d1fae5'; visBtn.style.color = '#065f46'; visBtn.disabled = false; }
         // Also show in lead detail panel if open
         const el = document.getElementById(`detail-${leadId}`);
         if (el && el.classList.contains('open')) {
@@ -1493,7 +1559,7 @@
         }
         setTimeout(() => loadDashboard(), 1200);
       } else {
-        if (visBtn) { visBtn.disabled = false; visBtn.textContent = '🏢 زار'; }
+        if (visBtn) { visBtn.disabled = false; visBtn.textContent = 'تحديث'; visBtn.style.background = ''; visBtn.style.color = ''; }
         alert('خطأ في تسجيل الزيارة');
       }
     }
