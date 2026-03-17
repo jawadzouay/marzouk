@@ -112,6 +112,17 @@ def update_rdv(rdv_id: str, update: RDVUpdate, user=Depends(get_current_user)):
             "note": "تسجل — Registered"
         }).execute()
 
+    elif update.status == "visited_center":
+        sb.table("rdv").update({"status": "visited_center", "confirmed_at": datetime.utcnow().isoformat()}).eq("id", rdv_id).execute()
+        sb.table("lead_history").insert({
+            "lead_id": rdv_row["lead_id"],
+            "agent_id": agent_id,
+            "action": "visited_center",
+            "status_before": rdv_row["status"],
+            "status_after": "RDV",
+            "note": "زار المركز — Visited center"
+        }).execute()
+
     return {"message": "تم التحديث"}
 
 

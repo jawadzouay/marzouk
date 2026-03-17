@@ -23,10 +23,7 @@
     .filter-row { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
     .filter-btn { padding: 8px 16px; border-radius: 20px; border: 2px solid #e5e7eb; background: white; font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 14px; }
     .filter-btn.active { background: #1a1a1a; color: white; border-color: #1a1a1a; }
-    .rdv-actions { display: flex; gap: 8px; margin-top: 12px; }
-    .btn-show { flex: 1; padding: 8px; background: #10b981; color: white; border: none; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; }
-    .btn-noshow { flex: 1; padding: 8px; background: #ef4444; color: white; border: none; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; }
-    .btn-show:disabled, .btn-noshow:disabled { opacity: 0.4; cursor: not-allowed; }
+    .s-visited { background: #fef3c7; color: #92400e; }
   </style>
 </head>
 <body>
@@ -40,6 +37,7 @@
       <button class="filter-btn active" onclick="filterRdv('all', this)">الكل</button>
       <button class="filter-btn" onclick="filterRdv('scheduled', this)">مجدول</button>
       <button class="filter-btn" onclick="filterRdv('showed_up', this)">حضر ✅</button>
+      <button class="filter-btn" onclick="filterRdv('visited_center', this)">زار المركز 🏢</button>
       <button class="filter-btn" onclick="filterRdv('no_show', this)">لم يحضر ❌</button>
     </div>
     <div id="rdv-list"></div>
@@ -71,10 +69,11 @@
         const lead = rdv.leads || {};
         const agent = rdv.agents || {};
         const date = new Date(rdv.rdv_date).toLocaleString('ar-MA', { dateStyle: 'full', timeStyle: 'short' });
-        const sc = rdv.status === 'showed_up' ? 's-showed' : rdv.status === 'no_show' ? 's-noshow' : 's-scheduled';
-        const label = rdv.status === 'showed_up' ? 'حضر ✅' : rdv.status === 'no_show' ? 'لم يحضر ❌' : 'مجدول';
+        const scMap = { showed_up: 's-showed', no_show: 's-noshow', visited_center: 's-visited' };
+        const sc = scMap[rdv.status] || 's-scheduled';
+        const labelMap = { showed_up: 'حضر ✅', no_show: 'لم يحضر ❌', visited_center: 'زار المركز 🏢' };
+        const label = labelMap[rdv.status] || 'مجدول';
 
-        const isSettled = rdv.status === 'showed_up' || rdv.status === 'no_show';
         const card = document.createElement('div');
         card.className = 'rdv-card';
         card.innerHTML = `
@@ -86,10 +85,6 @@
             </div>
             <span class="status-badge ${sc}">${label}</span>
           </div>
-          <div class="rdv-actions">
-            <button class="btn-show" onclick="updateRdv('${rdv.id}','showed_up')" ${isSettled ? 'disabled' : ''}>✅ حضر</button>
-            <button class="btn-noshow" onclick="updateRdv('${rdv.id}','no_show')" ${isSettled ? 'disabled' : ''}>❌ لم يحضر</button>
-          </div>
         `;
         list.appendChild(card);
       });
@@ -100,16 +95,6 @@
       btn.classList.add('active');
       if (status === 'all') renderRdvs(allRdvs);
       else renderRdvs(allRdvs.filter(r => r.status === status));
-    }
-
-    async function updateRdv(rdvId, status) {
-      const res = await fetch(`${API}/rdv/${rdvId}`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-      if (res.ok) loadRdvs();
-      else alert('خطأ في تحديث الموعد');
     }
 
     loadRdvs();

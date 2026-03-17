@@ -27,6 +27,8 @@
     .s-showed     { background: #dcfce7; color: #166534; }
     .s-noshow     { background: #fef2f2; color: #dc2626; }
     .s-registered { background: #ede9fe; color: #6d28d9; }
+    .s-visited    { background: #fef3c7; color: #92400e; }
+    .btn-visited  { background: #fef3c7; color: #92400e; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex: 1; }
     .empty { text-align: center; color: #9ca3af; padding: 40px; }
 
     .call-popup { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 20px 20px 0 0; padding: 24px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15); z-index: 1000; }
@@ -113,8 +115,10 @@
         const lead  = rdv.leads || {};
         const date  = new Date(rdv.rdv_date).toLocaleString('ar-MA', { dateStyle: 'medium', timeStyle: 'short' });
         const isRegistered = lead.status === 'registered_logha' || lead.status === 'registered_maharat' || lead.status === 'registered_takwin';
-        const sc    = rdv.status === 'showed_up' ? 's-showed' : rdv.status === 'no_show' ? 's-noshow' : isRegistered ? 's-registered' : 's-scheduled';
-        const label = rdv.status === 'showed_up' ? 'حضر ✅' : rdv.status === 'no_show' ? 'لم يحضر ❌' : isRegistered ? 'مسجل ⭐' : 'مجدول';
+        const scMap = { showed_up: 's-showed', no_show: 's-noshow', visited_center: 's-visited' };
+        const sc    = isRegistered ? 's-registered' : (scMap[rdv.status] || 's-scheduled');
+        const labelMap = { showed_up: 'حضر ✅', no_show: 'لم يحضر ❌', visited_center: 'زار المركز 🏢' };
+        const label = isRegistered ? 'مسجل ⭐' : (labelMap[rdv.status] || 'مجدول');
 
         const card = document.createElement('div');
         card.className = 'rdv-card';
@@ -131,6 +135,7 @@
           <div class="rdv-actions">
             ${rdv.status === 'scheduled' ? `<button class="btn-show" onclick="updateRdv('${rdv.id}', 'showed_up')">✅ حضر</button>` : ''}
             ${rdv.status === 'scheduled' ? `<button class="btn-noshow" onclick="updateRdv('${rdv.id}', 'no_show')">❌ لم يحضر</button>` : ''}
+            ${(rdv.status === 'scheduled' || rdv.status === 'showed_up') ? `<button class="btn-visited" onclick="updateRdv('${rdv.id}', 'visited_center')">🏢 زار المركز</button>` : ''}
             <button class="btn-registered" id="reg-btn-${rdv.lead_id}" onclick="openRegisterPopup('${rdv.lead_id}','${esc(lead.name)}')">⭐ تسجيل</button>
             <button class="btn-call" onclick="openCallPopup('${lead.phone}','${esc(lead.name)}')">📞</button>
           </div>` : `<div style="color:#10b981;font-weight:600;font-size:14px;margin-top:8px">⭐ تم تسجيل هذا الطالب</div>`}
