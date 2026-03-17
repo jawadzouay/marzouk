@@ -502,8 +502,8 @@
       <div class="stat-card" id="card-all" onclick="setFilter(null,'card-all')">
         <div class="num" id="total">0</div><div class="label">إجمالي العملاء</div>
       </div>
-      <div class="stat-card" id="card-rdv" onclick="setFilter('RDV','card-rdv')">
-        <div class="num" id="rdv-count">0</div><div class="label">RDV</div>
+      <div class="stat-card" id="card-rdv" onclick="window.location.href='rdv.html'" style="cursor:pointer">
+        <div class="num" id="rdv-count">0</div><div class="label">RDV 📅</div>
       </div>
       <div class="stat-card" id="card-bv" onclick="setFilter('B.V','card-bv')">
         <div class="num" id="bv-count">0</div><div class="label">B.V</div>
@@ -976,21 +976,21 @@
         const ageClass = lead.ageDays >= 4 ? 'cq-age-urgent' : 'cq-age-warn';
         const n = (lead.name||'').replace(/'/g,"\\'");
         return `
-          <div class="cq-item">
+          <div class="cq-item" id="cq-${lead.id}">
             <div class="cq-top">
               <div class="cq-info">
                 <div class="cq-name">${lead.name || lead.phone}</div>
-                <div class="cq-meta">${lead.status} · ${lead.city || '—'}</div>
+                <div class="cq-meta" id="cq-meta-${lead.id}">${lead.status} · ${lead.city || '—'}</div>
               </div>
               <span class="cq-age ${ageClass}">${lead.ageDays} أيام</span>
               <button class="cq-call-btn" onclick="openCallPopup('${lead.phone}','${n}')">📞</button>
             </div>
             <div class="cq-status-row">
-              <button class="cq-s-btn cq-s-bv"  onclick="quickStatus('${lead.id}','B.V')">B.V</button>
-              <button class="cq-s-btn cq-s-nr"  onclick="quickStatus('${lead.id}','N.R')">N.R</button>
-              <button class="cq-s-btn cq-s-rdv" onclick="quickStatus('${lead.id}','RDV')">RDV ✅</button>
-              <button class="cq-s-btn cq-s-pi"  onclick="quickStatus('${lead.id}','P.I')">P.I</button>
-              <button class="cq-s-btn cq-s-vis" onclick="markVisitedCenter('${lead.id}')">🏢 زار</button>
+              <button class="cq-s-btn cq-s-bv"  id="cqb-bv-${lead.id}"  onclick="quickStatus('${lead.id}','B.V','${n}')">B.V</button>
+              <button class="cq-s-btn cq-s-nr"  id="cqb-nr-${lead.id}"  onclick="quickStatus('${lead.id}','N.R','${n}')">N.R</button>
+              <button class="cq-s-btn cq-s-rdv" id="cqb-rdv-${lead.id}" onclick="openRdvPopup('${lead.id}','${n}')">RDV 📅</button>
+              <button class="cq-s-btn cq-s-pi"  id="cqb-pi-${lead.id}"  onclick="quickStatus('${lead.id}','P.I','${n}')">P.I</button>
+              <button class="cq-s-btn cq-s-vis" id="cqb-vis-${lead.id}" onclick="markVisitedCenter('${lead.id}')">🏢 زار</button>
             </div>
           </div>`;
       }).join('');
@@ -1435,31 +1435,67 @@
     }
 
     // ===== Quick Status (from call queue) =====
-    async function quickStatus(leadId, newStatus) {
+    async function quickStatus(leadId, newStatus, name) {
+      // Visual: disable all buttons on this row
+      ['bv','nr','pi','vis'].forEach(k => {
+        const b = document.getElementById(`cqb-${k}-${leadId}`);
+        if (b) { b.disabled = true; b.style.opacity = '0.4'; }
+      });
+
       const res = await fetch(`${API}/leads/${leadId}/status`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus })
       });
-      if (res.ok) loadDashboard();
-      else { const d = await res.json(); alert(d.detail || 'خطأ في التحديث'); }
+
+      if (res.ok) {
+        // Flash success on the meta line
+        const meta = document.getElementById(`cq-meta-${leadId}`);
+        if (meta) meta.textContent = `✅ تم تحديث الحالة إلى ${newStatus}`;
+
+        // If status is no longer B.V or N.R, remove card from queue immediately
+        if (newStatus !== 'B.V' && newStatus !== 'N.R') {
+          const card = document.getElementById(`cq-${leadId}`);
+          if (card) { card.style.opacity = '0'; setTimeout(() => card.remove(), 400); }
+        }
+
+        // Reload to sync stats
+        setTimeout(() => loadDashboard(), 600);
+      } else {
+        ['bv','nr','pi','vis'].forEach(k => {
+          const b = document.getElementById(`cqb-${k}-${leadId}`);
+          if (b) { b.disabled = false; b.style.opacity = '1'; }
+        });
+        try { const d = await res.json(); alert(d.detail || 'خطأ في التحديث'); }
+        catch(e) { alert('خطأ في التحديث'); }
+      }
     }
 
     // ===== Mark Visited Center (without RDV) =====
     async function markVisitedCenter(leadId) {
+      const visBtn = document.getElementById(`cqb-vis-${leadId}`);
+      if (visBtn) { visBtn.disabled = true; visBtn.textContent = '...'; }
+
       const res = await fetch(`${API}/leads/${leadId}/visited-center`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
+
       if (res.ok) {
-        // Flash confirmation
+        if (visBtn) { visBtn.textContent = '✅ تم'; visBtn.style.background = '#d1fae5'; visBtn.style.color = '#065f46'; }
+        // Also show in lead detail panel if open
         const el = document.getElementById(`detail-${leadId}`);
-        const msg = document.createElement('div');
-        msg.style.cssText = 'color:#92400e;background:#fef3c7;padding:8px;border-radius:8px;font-size:13px;font-weight:700;text-align:center;margin-top:6px';
-        msg.textContent = '🏢 تم تسجيل الزيارة';
-        if (el) { el.appendChild(msg); setTimeout(() => msg.remove(), 2500); }
-        else { renderCallQueue(); }
-      } else { alert('خطأ في تسجيل الزيارة'); }
+        if (el && el.classList.contains('open')) {
+          const msg = document.createElement('div');
+          msg.style.cssText = 'color:#92400e;background:#fef3c7;padding:8px;border-radius:8px;font-size:13px;font-weight:700;text-align:center;margin-top:6px';
+          msg.textContent = '🏢 تم تسجيل الزيارة';
+          el.appendChild(msg); setTimeout(() => msg.remove(), 2500);
+        }
+        setTimeout(() => loadDashboard(), 1200);
+      } else {
+        if (visBtn) { visBtn.disabled = false; visBtn.textContent = '🏢 زار'; }
+        alert('خطأ في تسجيل الزيارة');
+      }
     }
 
     // ===== Status Update =====
