@@ -225,6 +225,24 @@ def register_lead(lead_id: str, body: dict, agent=Depends(get_current_agent)):
     return {"message": "تم التسجيل بنجاح", "points": points}
 
 
+@router.patch("/{lead_id}/visited-center")
+def mark_visited_center(lead_id: str, agent=Depends(get_current_agent)):
+    sb = get_client()
+    agent_id = agent["sub"]
+    lead = sb.table("leads").select("id,status").eq("id", lead_id).execute()
+    if not lead.data:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    sb.table("lead_history").insert({
+        "lead_id": lead_id,
+        "agent_id": agent_id,
+        "action": "visited_center",
+        "status_before": lead.data[0]["status"],
+        "status_after": lead.data[0]["status"],
+        "note": "زار المركز بدون موعد RDV — Visited center (no RDV)"
+    }).execute()
+    return {"message": "تم تسجيل الزيارة"}
+
+
 @router.patch("/{lead_id}/note")
 def update_lead_note(lead_id: str, body: dict, agent=Depends(get_current_agent)):
     sb = get_client()

@@ -365,15 +365,25 @@
     .cq-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
     .cq-title { font-size:14px; font-weight:700; color:#374151; }
     .cq-badge { background:#f59e0b; color:white; border-radius:20px; padding:2px 10px; font-size:12px; font-weight:700; }
-    .cq-item { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f3f4f6; }
+    .cq-item { display:flex; flex-direction:column; padding:10px 0; border-bottom:1px solid #f3f4f6; gap:8px; }
     .cq-item:last-child { border-bottom:none; padding-bottom:0; }
+    .cq-top { display:flex; align-items:center; justify-content:space-between; gap:6px; }
     .cq-info { flex:1; min-width:0; }
     .cq-name { font-size:13px; font-weight:700; color:#1a1a1a; }
     .cq-meta { font-size:11px; color:#9ca3af; margin-top:1px; }
     .cq-age { font-size:11px; font-weight:700; border-radius:6px; padding:2px 7px; }
     .cq-age-urgent { background:#fef2f2; color:#dc2626; }
     .cq-age-warn   { background:#fffbeb; color:#d97706; }
-    .cq-call-btn { background:#10b981; color:white; border:none; border-radius:8px; padding:7px 12px; font-family:'Cairo',sans-serif; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; min-height:36px; margin-right:6px; }
+    .cq-call-btn { background:#10b981; color:white; border:none; border-radius:8px; padding:7px 12px; font-family:'Cairo',sans-serif; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; min-height:36px; }
+    .cq-status-row { display:flex; gap:5px; flex-wrap:wrap; }
+    .cq-s-btn { flex:1; min-width:44px; padding:5px 4px; border:1.5px solid #e5e7eb; border-radius:7px; font-family:'Cairo',sans-serif; font-size:11px; font-weight:700; cursor:pointer; background:white; color:#374151; transition:background .15s; }
+    .cq-s-btn:active { filter:brightness(.9); }
+    .cq-s-bv  { border-color:#f59e0b; color:#b45309; }
+    .cq-s-nr  { border-color:#ef4444; color:#dc2626; }
+    .cq-s-rdv { border-color:#10b981; color:#065f46; }
+    .cq-s-pi  { border-color:#8b5cf6; color:#6d28d9; }
+    .cq-s-vis { border-color:#f59e0b; background:#fef3c7; color:#92400e; }
+    .btn-visited-center { margin-top:8px; width:100%; padding:8px; background:#fef3c7; color:#92400e; border:1.5px solid #f59e0b; border-radius:8px; font-family:'Cairo',sans-serif; font-size:13px; font-weight:700; cursor:pointer; }
 
     /* ===== Lead Age Badge ===== */
     .lead-age-badge { display:inline-block; border-radius:5px; padding:1px 6px; font-size:10px; font-weight:700; margin-right:4px; vertical-align:middle; }
@@ -964,14 +974,24 @@
       const list = document.getElementById('cq-list');
       list.innerHTML = queue.slice(0, 8).map(lead => {
         const ageClass = lead.ageDays >= 4 ? 'cq-age-urgent' : 'cq-age-warn';
+        const n = (lead.name||'').replace(/'/g,"\\'");
         return `
           <div class="cq-item">
-            <div class="cq-info">
-              <div class="cq-name">${lead.name || lead.phone}</div>
-              <div class="cq-meta">${lead.status} · ${lead.city || '—'}</div>
+            <div class="cq-top">
+              <div class="cq-info">
+                <div class="cq-name">${lead.name || lead.phone}</div>
+                <div class="cq-meta">${lead.status} · ${lead.city || '—'}</div>
+              </div>
+              <span class="cq-age ${ageClass}">${lead.ageDays} أيام</span>
+              <button class="cq-call-btn" onclick="openCallPopup('${lead.phone}','${n}')">📞</button>
             </div>
-            <span class="cq-age ${ageClass}">${lead.ageDays} أيام</span>
-            <button class="cq-call-btn" onclick="openCallPopup('${lead.phone}','${(lead.name||'').replace(/'/g,"\\'")}')">📞</button>
+            <div class="cq-status-row">
+              <button class="cq-s-btn cq-s-bv"  onclick="quickStatus('${lead.id}','B.V')">B.V</button>
+              <button class="cq-s-btn cq-s-nr"  onclick="quickStatus('${lead.id}','N.R')">N.R</button>
+              <button class="cq-s-btn cq-s-rdv" onclick="quickStatus('${lead.id}','RDV')">RDV ✅</button>
+              <button class="cq-s-btn cq-s-pi"  onclick="quickStatus('${lead.id}','P.I')">P.I</button>
+              <button class="cq-s-btn cq-s-vis" onclick="markVisitedCenter('${lead.id}')">🏢 زار</button>
+            </div>
           </div>`;
       }).join('');
       if (queue.length > 8) {
@@ -1355,6 +1375,7 @@
               <div id="csw-${lead.id}" style="display:none;margin-top:8px">
                 <input type="text" id="cs-${lead.id}" class="status-select" style="width:100%" placeholder="اكتب الحالة..." onclick="event.stopPropagation()" />
               </div>
+              <button class="btn-visited-center" onclick="event.stopPropagation();markVisitedCenter('${lead.id}')">🏢 زار المركز</button>
               <button class="btn-register" id="reg-btn-${lead.id}" onclick="event.stopPropagation();openRegisterPopup('${lead.id}','${esc(lead.name)}')">✅ تسجيل الطالب</button>
               ` : `<div style="color:#10b981;font-size:14px;font-weight:700;margin-top:10px;text-align:center">✅ تم تسجيل هذا الطالب</div>`}
             </div>
@@ -1411,6 +1432,34 @@
         const lead = allLeads.find(l => l.id === leadId);
         if (lead) lead.note = note;
       } catch(e) {}
+    }
+
+    // ===== Quick Status (from call queue) =====
+    async function quickStatus(leadId, newStatus) {
+      const res = await fetch(`${API}/leads/${leadId}/status`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      });
+      if (res.ok) loadDashboard();
+      else { const d = await res.json(); alert(d.detail || 'خطأ في التحديث'); }
+    }
+
+    // ===== Mark Visited Center (without RDV) =====
+    async function markVisitedCenter(leadId) {
+      const res = await fetch(`${API}/leads/${leadId}/visited-center`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+      if (res.ok) {
+        // Flash confirmation
+        const el = document.getElementById(`detail-${leadId}`);
+        const msg = document.createElement('div');
+        msg.style.cssText = 'color:#92400e;background:#fef3c7;padding:8px;border-radius:8px;font-size:13px;font-weight:700;text-align:center;margin-top:6px';
+        msg.textContent = '🏢 تم تسجيل الزيارة';
+        if (el) { el.appendChild(msg); setTimeout(() => msg.remove(), 2500); }
+        else { renderCallQueue(); }
+      } else { alert('خطأ في تسجيل الزيارة'); }
     }
 
     // ===== Status Update =====
