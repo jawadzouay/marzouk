@@ -565,11 +565,14 @@
 
     <!-- Registered Students Section -->
     <div class="reg-section" id="reg-section">
-      <div class="reg-header">
+      <div class="reg-header" onclick="toggleRegList()" style="cursor:pointer">
         <div class="reg-title">⭐ الطلاب المسجلون</div>
-        <span class="reg-count" id="reg-count">0</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="reg-count" id="reg-count">0</span>
+          <span id="reg-toggle-icon" style="font-size:12px;color:#9ca3af">▼</span>
+        </div>
       </div>
-      <div id="reg-list"></div>
+      <div id="reg-list" style="display:none"></div>
     </div>
 
     <!-- Leads Section -->
@@ -861,6 +864,14 @@
     }
 
     // ===== Registered Students =====
+    function toggleRegList() {
+      const list = document.getElementById('reg-list');
+      const icon = document.getElementById('reg-toggle-icon');
+      const open = list.style.display === 'block';
+      list.style.display = open ? 'none' : 'block';
+      icon.textContent = open ? '▼' : '▲';
+    }
+
     function renderRegistered() {
       const regLeads = allLeads.filter(l =>
         l.status === 'registered_logha' || l.status === 'registered_maharat' || l.status === 'registered_takwin'
