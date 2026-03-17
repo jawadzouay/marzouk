@@ -651,9 +651,17 @@
     const STATUS_CLASS = {
       'RDV': 's-rdv', 'B.V': 's-bv', 'N.R': 's-nr',
       'P.I': 's-pi', 'Autre ville': 's-av',
+      'visited_center':   's-bv',
+      'cancelled_visit':  's-nr',
+      'cancelled_rdv':    's-nr',
+      'interested':       's-rdv',
       'registered_logha': 's-reg', 'registered_maharat': 's-reg', 'registered_takwin': 's-reg'
     };
     const STATUS_LABEL = {
+      'visited_center':   '🏢 زار المركز',
+      'cancelled_visit':  '❌ ألغى الزيارة',
+      'cancelled_rdv':    '❌ ألغى الموعد',
+      'interested':       '👍 مهتم',
       'registered_logha': '✅ مسجل - لغة',
       'registered_maharat': '✅ مسجل - مهارات',
       'registered_takwin': '✅ مسجل - كليهما'
@@ -964,10 +972,13 @@
             <div style="display:flex;gap:6px;align-items:center">
               <select id="rdv-status-sel-${rdv.id}" style="flex:1;padding:6px 8px;border:1.5px solid #e5e7eb;border-radius:8px;font-family:'Cairo',sans-serif;font-size:12px;background:white" onclick="event.stopPropagation()">
                 <option value="">— تحديث حالة العميل —</option>
-                <option value="RDV">RDV</option>
-                <option value="B.V">B.V</option>
-                <option value="N.R">N.R</option>
-                <option value="P.I">P.I</option>
+                <option value="visited_center">🏢 زار المركز</option>
+                <option value="cancelled_visit">❌ ألغى الزيارة</option>
+                <option value="cancelled_rdv">❌ ألغى الموعد</option>
+                <option value="interested">👍 مهتم</option>
+                <option value="B.V">B.V — بريد صوتي</option>
+                <option value="N.R">N.R — لم يرد</option>
+                <option value="P.I">P.I — غير مهتم</option>
                 <option value="Autre ville">Autre ville</option>
               </select>
               <button onclick="event.stopPropagation();updateLeadStatusFromRdv('${leadId}','${rdv.id}')" style="padding:6px 10px;background:#e63329;color:white;border:none;border-radius:8px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">تحديث</button>
@@ -1035,12 +1046,15 @@
             <div class="cq-status-row">
               <select class="cq-select" id="cqs-${lead.id}">
                 <option value="">— اختر الحالة —</option>
-                <option value="RDV">📅 RDV (موعد)</option>
+                <option value="RDV">📅 RDV — حجز موعد</option>
                 <option value="visited_center">🏢 زار المركز</option>
-                <option value="B.V">B.V (بريد صوتي)</option>
-                <option value="N.R">N.R (لم يرد)</option>
-                <option value="P.I">P.I (غير مهتم)</option>
-                <option value="Autre ville">Autre ville</option>
+                <option value="cancelled_visit">❌ ألغى الزيارة</option>
+                <option value="cancelled_rdv">❌ ألغى الموعد</option>
+                <option value="interested">👍 مهتم</option>
+                <option value="B.V">B.V — بريد صوتي</option>
+                <option value="N.R">N.R — لم يرد</option>
+                <option value="P.I">P.I — غير مهتم</option>
+                <option value="Autre ville">Autre ville — مدينة أخرى</option>
               </select>
               <button class="cq-update-btn" id="cqb-upd-${lead.id}" onclick="quickStatusFromSelect('${lead.id}','${n}')">تحديث</button>
             </div>
@@ -1415,11 +1429,15 @@
               ${!isReg ? `
               <div class="lead-detail-actions">
                 <select class="status-select" id="ss-${lead.id}" onclick="event.stopPropagation()" onchange="toggleCustom('${lead.id}',this.value)">
-                  <option value="RDV"         ${lead.status==='RDV'?'selected':''}>RDV</option>
-                  <option value="B.V"         ${lead.status==='B.V'?'selected':''}>B.V</option>
-                  <option value="N.R"         ${lead.status==='N.R'?'selected':''}>N.R</option>
-                  <option value="P.I"         ${lead.status==='P.I'?'selected':''}>P.I</option>
-                  <option value="Autre ville" ${lead.status==='Autre ville'?'selected':''}>Autre ville</option>
+                  <option value="RDV"              ${lead.status==='RDV'?'selected':''}>📅 RDV — حجز موعد</option>
+                  <option value="visited_center"   ${lead.status==='visited_center'?'selected':''}>🏢 زار المركز</option>
+                  <option value="cancelled_visit"  ${lead.status==='cancelled_visit'?'selected':''}>❌ ألغى الزيارة</option>
+                  <option value="cancelled_rdv"    ${lead.status==='cancelled_rdv'?'selected':''}>❌ ألغى الموعد</option>
+                  <option value="interested"       ${lead.status==='interested'?'selected':''}>👍 مهتم</option>
+                  <option value="B.V"              ${lead.status==='B.V'?'selected':''}>B.V — بريد صوتي</option>
+                  <option value="N.R"              ${lead.status==='N.R'?'selected':''}>N.R — لم يرد</option>
+                  <option value="P.I"              ${lead.status==='P.I'?'selected':''}>P.I — غير مهتم</option>
+                  <option value="Autre ville"      ${lead.status==='Autre ville'?'selected':''}>Autre ville — مدينة أخرى</option>
                   <option value="__custom__">✏️ نص مخصص...</option>
                 </select>
                 <button class="btn-update-status" id="upd-${lead.id}" onclick="event.stopPropagation();updateStatus('${lead.id}')">تحديث</button>
@@ -1427,7 +1445,6 @@
               <div id="csw-${lead.id}" style="display:none;margin-top:8px">
                 <input type="text" id="cs-${lead.id}" class="status-select" style="width:100%" placeholder="اكتب الحالة..." onclick="event.stopPropagation()" />
               </div>
-              <button class="btn-visited-center" onclick="event.stopPropagation();markVisitedCenter('${lead.id}')">🏢 زار المركز</button>
               <button class="btn-register" id="reg-btn-${lead.id}" onclick="event.stopPropagation();openRegisterPopup('${lead.id}','${esc(lead.name)}')">✅ تسجيل الطالب</button>
               ` : `<div style="color:#10b981;font-size:14px;font-weight:700;margin-top:10px;text-align:center">✅ تم تسجيل هذا الطالب</div>`}
             </div>
@@ -1494,10 +1511,6 @@
 
       if (newStatus === 'RDV') {
         openRdvPopup(leadId, name.replace(/\\'/g,"'"));
-        return;
-      }
-      if (newStatus === 'visited_center') {
-        markVisitedCenter(leadId);
         return;
       }
 
