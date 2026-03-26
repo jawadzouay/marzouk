@@ -21,6 +21,11 @@ class LoginRequest(BaseModel):
     pin: str
 
 
+class RegisterRequest(BaseModel):
+    requested_name: str
+    password: str
+
+
 def create_token(data: dict, expires_hours: int = 24):
     payload = data.copy()
     payload["exp"] = datetime.utcnow() + timedelta(hours=expires_hours)
@@ -48,6 +53,26 @@ def login(req: LoginRequest):
 
     token = create_token({"sub": agent["id"], "role": "agent", "name": agent["name"]})
     return {"token": token, "role": "agent", "name": agent["name"], "agent_id": agent["id"]}
+
+
+@router.post("/register-request")
+def register_request(req: RegisterRequest):
+    if not req.requested_name.strip() or not req.password.strip():
+        raise HTTPException(status_code=400, detail="الاسم وكلمة المرور مطلوبان")
+    sb = get_client()
+    # Check if name already taken by active agent
+    existing = sb.table("agents").select("id").eq("name", req.requested_name.strip()).eq("is_active", True).execute()
+    if existing.data:
+        raise HTTPException(status_code=400, detail="هذا الاسم مستخدم مسبقاً")
+    # Check if pending request with same name
+    pending = sb.table("agent_requests").select("id").eq("requested_name", req.requested_name.strip()).eq("status", "pending").execute()
+    if pending.data:
+        raise HTTPException(status_code=400, detail="يوجد طلب بهذا الاسم قيد الانتظار")
+    result = sb.table("agent_requests").insert({
+        "requested_name": req.requested_name.strip(),
+        "password_plain": req.password
+    }).execute()
+    return {"message": "تم إرسال طلبك. انتظر موافقة الإدارة.", "id": result.data[0]["id"]}
 
 
 @router.post("/verify")

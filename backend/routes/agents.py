@@ -179,6 +179,46 @@ def update_my_profile(body: dict, user=Depends(get_current_user)):
     return {"message": "تم التحديث"}
 
 
+@router.get("/requests")
+def list_requests(admin=Depends(require_admin)):
+    sb = get_client()
+    result = sb.table("agent_requests").select("*").eq("status", "pending").order("created_at").execute()
+    return result.data
+
+
+class ApproveRequest(BaseModel):
+    final_name: Optional[str] = None
+    branch_id: Optional[str] = None
+
+
+@router.post("/requests/{request_id}/approve")
+def approve_request(request_id: str, body: ApproveRequest, admin=Depends(require_admin)):
+    sb = get_client()
+    req = sb.table("agent_requests").select("*").eq("id", request_id).execute()
+    if not req.data:
+        raise HTTPException(404, "الطلب غير موجود")
+    req = req.data[0]
+    name = (body.final_name or req["requested_name"]).strip()
+    # Check name not taken
+    existing = sb.table("agents").select("id").eq("name", name).execute()
+    if existing.data:
+        raise HTTPException(400, "هذا الاسم مستخدم مسبقاً")
+    hashed = pwd_context.hash(req["password_plain"])
+    data = {"name": name, "pin": hashed, "is_active": True}
+    if body.branch_id:
+        data["branch_id"] = body.branch_id
+    sb.table("agents").insert(data).execute()
+    sb.table("agent_requests").update({"status": "approved", "final_name": name}).eq("id", request_id).execute()
+    return {"message": f"تم قبول الوكيل {name}"}
+
+
+@router.delete("/requests/{request_id}")
+def reject_request(request_id: str, admin=Depends(require_admin)):
+    sb = get_client()
+    sb.table("agent_requests").update({"status": "rejected"}).eq("id", request_id).execute()
+    return {"message": "تم رفض الطلب"}
+
+
 @router.get("/me/bonuses")
 def get_my_bonuses(user=Depends(get_current_user)):
     sb = get_client()

@@ -138,3 +138,14 @@ CREATE TABLE IF NOT EXISTS bonuses (
 );
 
 CREATE INDEX IF NOT EXISTS idx_bonuses_agent ON bonuses(agent_id);
+
+-- AGENT REGISTRATION REQUESTS (self-signup flow)
+CREATE TABLE IF NOT EXISTS agent_requests (
+  id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  requested_name TEXT NOT NULL,
+  password_plain TEXT NOT NULL,
+  status         TEXT DEFAULT 'pending',  -- pending / approved / rejected
+  final_name     TEXT,
+  branch_id      UUID REFERENCES branches(id),
+  created_at     TIMESTAMP DEFAULT now()
+);

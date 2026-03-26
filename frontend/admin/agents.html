@@ -34,6 +34,16 @@
     .alert-error { background: #fef2f2; color: #dc2626; }
     .section-title { font-size: 16px; font-weight: 700; color: #374151; margin: 0 0 12px; }
     .empty-state { text-align: center; color: #9ca3af; padding: 20px; font-size: 14px; }
+    .request-row { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
+    .request-row .req-name { font-weight: 700; font-size: 15px; color: #1a1a1a; }
+    .request-row .req-pass { font-size: 13px; color: #6b7280; margin-top: 3px; direction: ltr; text-align: right; }
+    .request-row .req-pass span { background: #f3f4f6; padding: 2px 8px; border-radius: 4px; font-family: monospace; color: #374151; }
+    .request-row .req-date { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+    .req-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+    .req-edit-row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .req-edit-row input, .req-edit-row select { flex: 1; min-width: 120px; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 13px; font-family: 'Cairo', sans-serif; }
+    .btn-approve { background: #10b981; color: white; border: none; border-radius: 8px; padding: 8px 16px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 700; font-size: 13px; }
+    .btn-reject  { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 8px; padding: 8px 16px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; font-size: 13px; }
   </style>
 </head>
 <body>
@@ -43,6 +53,12 @@
   </header>
 
   <div class="container">
+
+    <!-- Pending Registration Requests -->
+    <div class="card" id="requests-card" style="border: 2px solid #fbbf24;">
+      <h2>🔔 طلبات إنشاء الحساب <span id="requests-badge" style="background:#e63329;color:white;border-radius:20px;padding:2px 10px;font-size:13px;margin-right:8px">0</span></h2>
+      <div id="requests-list"><div class="empty-state">لا يوجد طلبات معلقة</div></div>
+    </div>
 
     <!-- Branch Management -->
     <div class="card">
@@ -234,7 +250,69 @@
       }
     }
 
-    loadBranches().then(() => loadAgents());
+    async function loadRequests() {
+      const res = await fetch(`${API}/agents/requests`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      const requests = await res.json();
+      const badge = document.getElementById('requests-badge');
+      badge.textContent = requests.length;
+      badge.style.display = requests.length ? 'inline' : 'none';
+
+      const list = document.getElementById('requests-list');
+      if (!requests.length) {
+        list.innerHTML = '<div class="empty-state">لا يوجد طلبات معلقة ✅</div>';
+        return;
+      }
+      list.innerHTML = requests.map(r => `
+        <div class="request-row" id="req-${r.id}">
+          <div class="req-name">👤 ${r.requested_name}</div>
+          <div class="req-pass">كلمة المرور: <span>${r.password_plain}</span></div>
+          <div class="req-date">📅 ${new Date(r.created_at).toLocaleString('ar-MA')}</div>
+          <div class="req-edit-row">
+            <input type="text" id="fname-${r.id}" value="${r.requested_name}" placeholder="الاسم النهائي" />
+            <select id="fbranch-${r.id}">
+              <option value="">— بدون فرع —</option>
+              ${Object.entries(branchMap).map(([id, name]) => `<option value="${id}">${name}</option>`).join('')}
+            </select>
+          </div>
+          <div class="req-actions">
+            <button class="btn-approve" onclick="approveRequest('${r.id}')">✅ قبول</button>
+            <button class="btn-reject" onclick="rejectRequest('${r.id}', '${r.requested_name}')">❌ رفض</button>
+          </div>
+        </div>`).join('');
+    }
+
+    async function approveRequest(id) {
+      const final_name = document.getElementById(`fname-${id}`).value.trim();
+      const branch_id  = document.getElementById(`fbranch-${id}`).value || null;
+      const alertEl = document.getElementById('alert');
+      const res = await fetch(`${API}/agents/requests/${id}/approve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ final_name, branch_id })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alertEl.className = 'alert alert-success';
+        alertEl.textContent = data.message;
+        loadRequests();
+        loadAgents();
+      } else {
+        alertEl.className = 'alert alert-error';
+        alertEl.textContent = data.detail || 'خطأ في القبول';
+      }
+    }
+
+    async function rejectRequest(id, name) {
+      if (!confirm(`رفض طلب "${name}"؟`)) return;
+      await fetch(`${API}/agents/requests/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      loadRequests();
+    }
+
+    loadBranches().then(() => { loadAgents(); loadRequests(); });
   </script>
 </body>
 </html>
