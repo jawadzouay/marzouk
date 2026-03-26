@@ -11,23 +11,29 @@
     header { background: #1a1a1a; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
     .back-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer; }
     .container { padding: 20px; max-width: 800px; margin: 0 auto; }
-    .add-form { background: white; border-radius: 12px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
-    .add-form h2 { margin-bottom: 16px; font-size: 16px; }
-    .form-row { display: flex; gap: 12px; }
-    input { flex: 1; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 15px; font-family: 'Cairo', sans-serif; }
-    input:focus { outline: none; border-color: #1a1a1a; }
-    .btn-add { background: #1a1a1a; color: white; border: none; border-radius: 8px; padding: 10px 20px; font-family: 'Cairo', sans-serif; font-size: 15px; cursor: pointer; font-weight: 700; }
+    .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    .card h2 { margin-bottom: 16px; font-size: 16px; color: #1a1a1a; }
+    .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    input, select { flex: 1; min-width: 120px; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 15px; font-family: 'Cairo', sans-serif; }
+    input:focus, select:focus { outline: none; border-color: #1a1a1a; }
+    .btn-add { background: #1a1a1a; color: white; border: none; border-radius: 8px; padding: 10px 20px; font-family: 'Cairo', sans-serif; font-size: 15px; cursor: pointer; font-weight: 700; white-space: nowrap; }
+    .btn-red { background: #e63329; color: white; border: none; border-radius: 8px; padding: 10px 20px; font-family: 'Cairo', sans-serif; font-size: 15px; cursor: pointer; font-weight: 700; }
     .agent-row { background: white; border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
-    .agent-name { font-weight: 700; }
-    .agent-date { font-size: 12px; color: #9ca3af; }
+    .agent-info .agent-name { font-weight: 700; }
+    .agent-info .agent-meta { font-size: 12px; color: #9ca3af; margin-top: 2px; }
+    .branch-tag { display: inline-block; background: #e0f2fe; color: #0369a1; border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600; margin-top: 4px; }
+    .branch-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #f9fafb; border-radius: 8px; margin-bottom: 8px; border: 1px solid #e5e7eb; }
+    .branch-name { font-weight: 600; font-size: 14px; }
+    .branch-count { font-size: 12px; color: #6b7280; }
+    .btn-delete-branch { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 6px; padding: 5px 12px; font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 12px; }
     .btn-fire { background: #fef2f2; color: #dc2626; border: 2px solid #fecaca; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; }
-    .btn-wipe { background: #1a1a1a; color: white; border: 2px solid #1a1a1a; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; margin-right: 6px; }
-    .agent-actions { display: flex; gap: 6px; }
-    .badge-inactive { background: #f3f4f6; color: #6b7280; padding: 4px 10px; border-radius: 20px; font-size: 12px; }
+    .btn-wipe { background: #1a1a1a; color: white; border: 2px solid #1a1a1a; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; }
+    .agent-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
     .alert { padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 14px; }
     .alert-success { background: #dcfce7; color: #166534; }
     .alert-error { background: #fef2f2; color: #dc2626; }
     .section-title { font-size: 16px; font-weight: 700; color: #374151; margin: 0 0 12px; }
+    .empty-state { text-align: center; color: #9ca3af; padding: 20px; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -37,12 +43,28 @@
   </header>
 
   <div class="container">
-    <div class="add-form">
+
+    <!-- Branch Management -->
+    <div class="card">
+      <h2>🏢 إدارة الفروع</h2>
+      <div id="branch-alert"></div>
+      <div class="form-row" style="margin-bottom:16px">
+        <input type="text" id="new-branch-name" placeholder="اسم الفرع (مثال: فرع طنجة)" />
+        <button class="btn-red" onclick="addBranch()">+ إضافة فرع</button>
+      </div>
+      <div id="branches-list"><div class="empty-state">لا يوجد فروع بعد</div></div>
+    </div>
+
+    <!-- Add Agent -->
+    <div class="card">
       <h2>إضافة وكيل جديد</h2>
       <div id="alert"></div>
       <div class="form-row">
         <input type="text" id="new-name" placeholder="اسم الوكيل" />
         <input type="text" id="new-pin" placeholder="PIN (4 أرقام)" maxlength="6" />
+        <select id="new-branch">
+          <option value="">— اختر الفرع —</option>
+        </select>
         <button class="btn-add" onclick="addAgent()">إضافة</button>
       </div>
     </div>
@@ -56,19 +78,98 @@
     const token = localStorage.getItem('token');
     if (!token || localStorage.getItem('role') !== 'admin') window.location.href = '/index.html';
 
+    let branchMap = {}; // id -> name
+
+    async function loadBranches() {
+      const res = await fetch(`${API}/branches/`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      const branches = await res.json();
+      branchMap = {};
+      branches.forEach(b => { branchMap[b.id] = b.name; });
+
+      // Update branch list UI
+      const list = document.getElementById('branches-list');
+      if (!branches.length) {
+        list.innerHTML = '<div class="empty-state">لا يوجد فروع بعد</div>';
+      } else {
+        list.innerHTML = branches.map(b => `
+          <div class="branch-row">
+            <div>
+              <div class="branch-name">🏢 ${b.name}</div>
+            </div>
+            <button class="btn-delete-branch" onclick="deleteBranch('${b.id}', '${b.name}')">حذف</button>
+          </div>`).join('');
+      }
+
+      // Update branch dropdown in add form
+      const sel = document.getElementById('new-branch');
+      sel.innerHTML = '<option value="">— اختر الفرع (اختياري) —</option>' +
+        branches.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+    }
+
+    async function addBranch() {
+      const name = document.getElementById('new-branch-name').value.trim();
+      const alertEl = document.getElementById('branch-alert');
+      if (!name) {
+        alertEl.className = 'alert alert-error';
+        alertEl.textContent = 'يرجى إدخال اسم الفرع';
+        return;
+      }
+      const res = await fetch(`${API}/branches/`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alertEl.className = 'alert alert-success';
+        alertEl.textContent = `تم إضافة فرع "${name}" بنجاح`;
+        document.getElementById('new-branch-name').value = '';
+        loadBranches();
+      } else {
+        alertEl.className = 'alert alert-error';
+        alertEl.textContent = data.detail || 'خطأ في الإضافة';
+      }
+    }
+
+    async function deleteBranch(id, name) {
+      if (!confirm(`هل أنت متأكد من حذف فرع "${name}"؟`)) return;
+      const res = await fetch(`${API}/branches/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        loadBranches();
+        loadAgents();
+      } else {
+        const alertEl = document.getElementById('branch-alert');
+        alertEl.className = 'alert alert-error';
+        alertEl.textContent = data.detail || 'خطأ في الحذف';
+      }
+    }
+
     async function loadAgents() {
       const res = await fetch(`${API}/agents/`, { headers: { Authorization: `Bearer ${token}` } });
       const agents = await res.json();
       const list = document.getElementById('agents-list');
       list.innerHTML = '';
 
-      agents.filter(a => a.is_active).forEach(agent => {
+      const active = agents.filter(a => a.is_active);
+      if (!active.length) {
+        list.innerHTML = '<div class="empty-state">لا يوجد وكلاء نشطون</div>';
+        return;
+      }
+
+      active.forEach(agent => {
+        const branchName = agent.branch_id ? branchMap[agent.branch_id] : null;
         const div = document.createElement('div');
         div.className = 'agent-row';
         div.innerHTML = `
-          <div>
+          <div class="agent-info">
             <div class="agent-name">${agent.name}</div>
-            <div class="agent-date">تاريخ الإضافة: ${new Date(agent.created_at).toLocaleDateString('ar-MA')}</div>
+            <div class="agent-meta">تاريخ الإضافة: ${new Date(agent.created_at).toLocaleDateString('ar-MA')}</div>
+            ${branchName ? `<span class="branch-tag">🏢 ${branchName}</span>` : ''}
           </div>
           <div class="agent-actions">
             <button class="btn-fire" onclick="fireAgent('${agent.id}', '${agent.name}')">🔴 إيقاف</button>
@@ -82,6 +183,7 @@
     async function addAgent() {
       const name = document.getElementById('new-name').value.trim();
       const pin = document.getElementById('new-pin').value.trim();
+      const branch_id = document.getElementById('new-branch').value || null;
       const alertEl = document.getElementById('alert');
 
       if (!name || !pin) {
@@ -93,7 +195,7 @@
       const res = await fetch(`${API}/agents/`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, pin })
+        body: JSON.stringify({ name, pin, branch_id })
       });
       const data = await res.json();
 
@@ -102,6 +204,7 @@
         alertEl.textContent = `تم إضافة الوكيل ${name} بنجاح`;
         document.getElementById('new-name').value = '';
         document.getElementById('new-pin').value = '';
+        document.getElementById('new-branch').value = '';
         loadAgents();
       } else {
         alertEl.className = 'alert alert-error';
@@ -131,7 +234,7 @@
       }
     }
 
-    loadAgents();
+    loadBranches().then(() => loadAgents());
   </script>
 </body>
 </html>

@@ -117,3 +117,24 @@ CREATE INDEX IF NOT EXISTS idx_ad_spend_period ON ad_spend(period_start, period_
 -- Run these in Supabase SQL editor:
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS goals JSONB DEFAULT '[]'::jsonb;
+
+-- BRANCHES
+CREATE TABLE IF NOT EXISTS branches (
+  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name       TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT now()
+);
+
+-- Add branch to agents
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES branches(id);
+
+-- BONUSES (agent-entered manual bonus amounts)
+CREATE TABLE IF NOT EXISTS bonuses (
+  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  agent_id   UUID REFERENCES agents(id),
+  amount     NUMERIC(10,2) NOT NULL,
+  note       TEXT,
+  created_at TIMESTAMP DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_bonuses_agent ON bonuses(agent_id);

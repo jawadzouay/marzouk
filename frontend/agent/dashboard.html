@@ -476,9 +476,32 @@
         <div class="money-amount" id="money-amount">0</div>
         <div class="money-currency">درهم</div>
       </div>
+      <div id="money-breakdown" style="color:rgba(255,255,255,0.65);font-size:12px;margin-top:4px;display:none">
+        <span id="money-from-reg"></span> + <span id="money-from-bonus"></span>
+      </div>
       <div class="inscre-row">
         <div class="inscre-badge" id="inscre-badge" style="display:none"><span id="inscre-count">0</span> مسجل</div>
         <button class="toggle-btn" id="toggle-btn" onclick="toggleInscre()">👁 إظهار العدد</button>
+        <button class="toggle-btn" onclick="openBonusModal()" style="background:rgba(251,191,36,0.2);border-color:rgba(251,191,36,0.5);color:#fbbf24">+ مكافأة</button>
+      </div>
+    </div>
+
+    <!-- Bonus Modal -->
+    <div id="bonus-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px">
+      <div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:380px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+          <h3 style="font-size:16px;color:#1a1a1a">🎁 إضافة مكافأة</h3>
+          <button onclick="closeBonusModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">×</button>
+        </div>
+        <div id="bonus-alert" style="margin-bottom:12px"></div>
+        <input type="number" id="bonus-amount" placeholder="المبلغ بالدرهم" min="1"
+          style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:16px;font-family:'Cairo',sans-serif;margin-bottom:10px;direction:ltr;text-align:center" />
+        <input type="text" id="bonus-note" placeholder="السبب (اختياري — مثال: تجاوز 5 تسجيلات)"
+          style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;font-family:'Cairo',sans-serif;margin-bottom:16px" />
+        <button onclick="saveBonus()" style="width:100%;background:#e63329;color:white;border:none;border-radius:10px;padding:13px;font-family:'Cairo',sans-serif;font-size:15px;font-weight:700;cursor:pointer">
+          حفظ المكافأة
+        </button>
+        <div id="bonus-list-section" style="margin-top:16px"></div>
       </div>
     </div>
 
@@ -716,6 +739,7 @@
     let allRdvs  = [];
     let currentStats = {};
     let showInscre = localStorage.getItem(INSCRE_KEY) === 'true';
+    let bonusList = [];
     let currentRegisterLeadId = null;
     let currentRdvLeadId = null;
     const registeringLeads = new Set();
@@ -774,11 +798,13 @@
     // ===== Load Dashboard =====
     async function loadDashboard() {
       const h = { Authorization: `Bearer ${token}` };
-      const [leadsRes, rdvsRes, rankRes] = await Promise.all([
+      const [leadsRes, rdvsRes, rankRes, bonusRes] = await Promise.all([
         fetch(`${API}/leads/my`, { headers: h }),
         fetch(`${API}/rdv/my`, { headers: h }),
         fetch(`${API}/agents/my-rank`, { headers: h }),
+        fetch(`${API}/agents/me/bonuses`, { headers: h }),
       ]);
+      bonusList = bonusRes.ok ? await bonusRes.json() : [];
 
       if (!leadsRes.ok) { logout(); return; }
       allLeads = await leadsRes.json();
@@ -902,9 +928,80 @@
     // ===== Money Card =====
     function updateMoneyCard() {
       const inscre = currentStats.registered_inscre || 0;
-      document.getElementById('money-amount').textContent = (inscre * 100).toLocaleString('ar-MA');
+      const fromReg = inscre * 100;
+      const fromBonus = bonusList.reduce((s, b) => s + Number(b.amount), 0);
+      const total = fromReg + fromBonus;
+      document.getElementById('money-amount').textContent = total.toLocaleString('ar-MA');
       document.getElementById('inscre-count').textContent = inscre;
+      const breakdown = document.getElementById('money-breakdown');
+      if (fromBonus > 0) {
+        breakdown.style.display = 'block';
+        document.getElementById('money-from-reg').textContent = fromReg.toLocaleString('ar-MA') + ' درهم تسجيلات';
+        document.getElementById('money-from-bonus').textContent = fromBonus.toLocaleString('ar-MA') + ' درهم مكافآت';
+      } else {
+        breakdown.style.display = 'none';
+      }
       applyInscreVisibility();
+    }
+
+    // ===== Bonus Modal =====
+    function openBonusModal() {
+      document.getElementById('bonus-modal').style.display = 'flex';
+      document.getElementById('bonus-amount').value = '';
+      document.getElementById('bonus-note').value = '';
+      document.getElementById('bonus-alert').innerHTML = '';
+      renderBonusList();
+    }
+    function closeBonusModal() {
+      document.getElementById('bonus-modal').style.display = 'none';
+    }
+    function renderBonusList() {
+      const el = document.getElementById('bonus-list-section');
+      if (!bonusList.length) { el.innerHTML = ''; return; }
+      el.innerHTML = `<div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:8px">المكافآت السابقة</div>` +
+        bonusList.map(b => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#f9fafb;border-radius:8px;margin-bottom:6px;font-size:13px">
+            <div>
+              <span style="font-weight:700;color:#e63329">${Number(b.amount).toLocaleString('ar-MA')} درهم</span>
+              ${b.note ? `<span style="color:#6b7280;margin-right:6px">· ${b.note}</span>` : ''}
+            </div>
+            <button onclick="deleteBonus('${b.id}')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:16px">×</button>
+          </div>`).join('');
+    }
+    async function saveBonus() {
+      const amount = parseFloat(document.getElementById('bonus-amount').value);
+      const note = document.getElementById('bonus-note').value.trim();
+      const alertEl = document.getElementById('bonus-alert');
+      if (!amount || amount <= 0) {
+        alertEl.innerHTML = '<div style="background:#fef2f2;color:#dc2626;padding:8px 12px;border-radius:8px;font-size:13px">يرجى إدخال مبلغ صحيح</div>';
+        return;
+      }
+      const res = await fetch(`${API}/agents/me/bonuses`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, note: note || null })
+      });
+      if (res.ok) {
+        const bonus = await res.json();
+        bonusList.unshift(bonus);
+        document.getElementById('bonus-amount').value = '';
+        document.getElementById('bonus-note').value = '';
+        alertEl.innerHTML = '<div style="background:#dcfce7;color:#166534;padding:8px 12px;border-radius:8px;font-size:13px">تم إضافة المكافأة ✅</div>';
+        updateMoneyCard();
+        renderBonusList();
+        playMoneySound();
+      }
+    }
+    async function deleteBonus(id) {
+      const res = await fetch(`${API}/agents/me/bonuses/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        bonusList = bonusList.filter(b => b.id !== id);
+        updateMoneyCard();
+        renderBonusList();
+      }
     }
     function applyInscreVisibility() {
       document.getElementById('inscre-badge').style.display = showInscre ? 'inline-block' : 'none';

@@ -6,6 +6,7 @@ from jose import jwt
 from services.supabase_service import get_client
 from services.swap_service import redistribute_agent_leads
 from dotenv import load_dotenv
+from typing import Optional
 import os
 
 load_dotenv()
@@ -38,12 +39,18 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 class AgentCreate(BaseModel):
     name: str
     pin: str
+    branch_id: Optional[str] = None
+
+
+class BonusCreate(BaseModel):
+    amount: float
+    note: Optional[str] = None
 
 
 @router.get("/")
 def list_agents(admin=Depends(require_admin)):
     sb = get_client()
-    result = sb.table("agents").select("id, name, is_active, created_at, fired_at").order("created_at").execute()
+    result = sb.table("agents").select("id, name, is_active, created_at, fired_at, branch_id").order("created_at").execute()
     return result.data
 
 
@@ -57,11 +64,10 @@ def create_agent(agent: AgentCreate, admin=Depends(require_admin)):
         raise HTTPException(status_code=400, detail="اسم المستخدم موجود مسبقاً")
 
     hashed_pin = pwd_context.hash(agent.pin)
-    result = sb.table("agents").insert({
-        "name": agent.name,
-        "pin": hashed_pin,
-        "is_active": True
-    }).execute()
+    data = {"name": agent.name, "pin": hashed_pin, "is_active": True}
+    if agent.branch_id:
+        data["branch_id"] = agent.branch_id
+    result = sb.table("agents").insert(data).execute()
 
     return result.data[0]
 
@@ -171,6 +177,41 @@ def update_my_profile(body: dict, user=Depends(get_current_user)):
         raise HTTPException(400, "Nothing to update")
     sb.table("agents").update(updates).eq("id", agent_id).execute()
     return {"message": "تم التحديث"}
+
+
+@router.get("/me/bonuses")
+def get_my_bonuses(user=Depends(get_current_user)):
+    sb = get_client()
+    agent_id = user["sub"]
+    if agent_id == "admin":
+        raise HTTPException(400, "Admin has no bonuses")
+    result = sb.table("bonuses").select("*").eq("agent_id", agent_id).order("created_at", desc=True).execute()
+    return result.data
+
+
+@router.post("/me/bonuses")
+def add_bonus(bonus: BonusCreate, user=Depends(get_current_user)):
+    sb = get_client()
+    agent_id = user["sub"]
+    if agent_id == "admin":
+        raise HTTPException(400, "Admin has no bonuses")
+    result = sb.table("bonuses").insert({
+        "agent_id": agent_id,
+        "amount": bonus.amount,
+        "note": bonus.note
+    }).execute()
+    return result.data[0]
+
+
+@router.delete("/me/bonuses/{bonus_id}")
+def delete_bonus(bonus_id: str, user=Depends(get_current_user)):
+    sb = get_client()
+    agent_id = user["sub"]
+    existing = sb.table("bonuses").select("id").eq("id", bonus_id).eq("agent_id", agent_id).execute()
+    if not existing.data:
+        raise HTTPException(404, "Bonus not found")
+    sb.table("bonuses").delete().eq("id", bonus_id).execute()
+    return {"message": "تم حذف المكافأة"}
 
 
 @router.get("/{agent_id}/stats")
