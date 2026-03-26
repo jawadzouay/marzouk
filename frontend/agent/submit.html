@@ -183,10 +183,22 @@
 
         try {
           const fd = new FormData(); fd.append('file', f);
-          const res = await fetch(`${API}/leads/extract`, {
-            method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd
-          });
-          const data = await res.json();
+          let res, attempt = 0;
+          while (attempt < 3) {
+            res = await fetch(`${API}/leads/extract`, {
+              method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd
+            });
+            if (res.status !== 503) break;
+            attempt++;
+            if (attempt < 3) {
+              document.getElementById('progress-text').textContent = `⏳ جاري تشغيل الخادم... إعادة المحاولة ${attempt}/3`;
+              await new Promise(r => setTimeout(r, 5000));
+            }
+          }
+          let data;
+          try { data = await res.json(); } catch {
+            throw new Error('الخادم غير متاح، حاول مرة أخرى بعد لحظة');
+          }
           if (!res.ok) throw new Error(data.detail || 'خطأ');
           const leads = (data.leads || []).map(l => ({ ...l, _src: i+1 }));
           extractedLeads.push(...leads);
@@ -251,12 +263,22 @@
         showAlert('يوجد أرقام غير صحيحة. صحّحها أو احذفها قبل الإرسال.','warn'); return;
       }
       try {
-        const res = await fetch(`${API}/leads/submit`,{
-          method:'POST',
-          headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-          body:JSON.stringify({leads:extractedLeads})
-        });
-        const data = await res.json();
+        let res2, attempt2 = 0;
+        while (attempt2 < 3) {
+          res2 = await fetch(`${API}/leads/submit`,{
+            method:'POST',
+            headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
+            body:JSON.stringify({leads:extractedLeads})
+          });
+          if (res2.status !== 503) break;
+          attempt2++;
+          if (attempt2 < 3) await new Promise(r => setTimeout(r, 5000));
+        }
+        const res = res2;
+        let data;
+        try { data = await res.json(); } catch {
+          throw new Error('الخادم غير متاح، حاول مرة أخرى بعد لحظة');
+        }
         if (!res.ok) throw new Error(data.detail||'خطأ في الإرسال');
         let msg = `✅ تم حفظ ${data.saved} عميل.`;
         if (data.skipped?.length) {
