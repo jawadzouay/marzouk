@@ -158,7 +158,6 @@ def update_lead_status(lead_id: str, body: dict, agent=Depends(get_current_agent
     lead_row = lead.data[0]
     old_status = lead_row["status"]
 
-    from datetime import datetime, timedelta
     swap_eligible_at = None
     if new_status in ("B.V", "N.R"):
         swap_eligible_at = (datetime.utcnow() + timedelta(days=4)).isoformat()
