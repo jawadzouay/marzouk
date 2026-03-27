@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>جودة الإعلانات — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; }
+    header { background: #1a1a1a; color: white; padding: 13px 16px; padding-top: max(13px, env(safe-area-inset-top)); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+    header h1 { font-size: 16px; font-weight: 700; }
+    .back-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 7px 13px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; text-decoration: none; }
+    .container { padding: 14px; padding-bottom: max(24px, env(safe-area-inset-bottom)); max-width: 860px; margin: 0 auto; }
+
+    /* Date filter bar */
+    .filter-bar { background: white; border-radius: 14px; padding: 14px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.06); }
+    .filter-title { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 10px; }
+    .period-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .period-pill { padding: 6px 14px; border-radius: 20px; border: 1.5px solid #e5e7eb; background: white; font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 600; cursor: pointer; color: #374151; transition: all .15s; }
+    .period-pill.active { background: #1a1a1a; color: white; border-color: #1a1a1a; }
+    .custom-dates { display: none; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+    .custom-dates.show { display: flex; }
+    .date-input { padding: 7px 10px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; background: white; }
+    .apply-btn { padding: 7px 16px; background: #e63329; color: white; border: none; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+    .agent-filter { margin-top: 8px; }
+    .agent-filter select { width: 100%; padding: 8px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; background: white; }
+
+    /* Summary chips */
+    .summary-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .chip { flex: 1; min-width: 100px; background: white; border-radius: 12px; padding: 12px 10px; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,.06); }
+    .chip-num { font-size: 22px; font-weight: 900; }
+    .chip-lbl { font-size: 11px; color: #6b7280; margin-top: 2px; }
+    .chip-red .chip-num   { color: #dc2626; }
+    .chip-yellow .chip-num { color: #d97706; }
+    .chip-blue .chip-num  { color: #3b82f6; }
+    .chip-green .chip-num { color: #16a34a; }
+    .chip-purple .chip-num { color: #7c3aed; }
+
+    /* Section label */
+    .sec-label { font-size: 12px; font-weight: 700; color: #9ca3af; letter-spacing: 0.4px; margin-bottom: 8px; margin-top: 4px; }
+
+    /* Daily table */
+    .day-table { background: white; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.06); margin-bottom: 14px; }
+    .day-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .day-table th { background: #f9fafb; padding: 10px 12px; text-align: center; font-weight: 700; color: #374151; font-size: 12px; border-bottom: 1px solid #f3f4f6; }
+    .day-table th:first-child { text-align: right; }
+    .day-table td { padding: 10px 12px; text-align: center; border-bottom: 1px solid #f9fafb; }
+    .day-table td:first-child { text-align: right; font-weight: 600; color: #374151; }
+    .day-table tr:last-child td { border-bottom: none; }
+    .day-table tr:hover td { background: #fafafa; }
+    .pct-cell { font-weight: 700; border-radius: 6px; padding: 3px 6px; display: inline-block; min-width: 44px; }
+    .pct-bad-high  { background: #fef2f2; color: #dc2626; }
+    .pct-bad-med   { background: #fffbeb; color: #d97706; }
+    .pct-ok        { background: #f0fdf4; color: #16a34a; }
+    .pct-neutral   { background: #f9fafb; color: #6b7280; }
+    .score-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-weight: 700; font-size: 12px; }
+    .score-good { background: #dcfce7; color: #166534; }
+    .score-mid  { background: #fffbeb; color: #92400e; }
+    .score-bad  { background: #fef2f2; color: #991b1b; }
+
+    /* Agent quality cards */
+    .agent-grid { display: grid; gap: 10px; margin-bottom: 14px; }
+    .agent-card { background: white; border-radius: 14px; padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.06); border-right: 4px solid #e5e7eb; }
+    .agent-card.quality-good { border-right-color: #10b981; }
+    .agent-card.quality-mid  { border-right-color: #f59e0b; }
+    .agent-card.quality-bad  { border-right-color: #ef4444; }
+    .agent-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+    .agent-card-name { font-size: 15px; font-weight: 700; color: #1a1a1a; }
+    .agent-card-total { font-size: 12px; color: #6b7280; }
+    .metrics-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .metric-pill { display: flex; flex-direction: column; align-items: center; background: #f9fafb; border-radius: 8px; padding: 6px 10px; min-width: 58px; }
+    .metric-pill .m-val { font-size: 14px; font-weight: 900; }
+    .metric-pill .m-lbl { font-size: 10px; color: #9ca3af; margin-top: 1px; }
+    .m-av  { color: #3b82f6; }
+    .m-pi  { color: #7c3aed; }
+    .m-nr  { color: #ef4444; }
+    .m-rdv { color: #10b981; }
+    .m-bv  { color: #f59e0b; }
+
+    /* Legend */
+    .legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: #6b7280; margin-bottom: 10px; }
+    .legend span { display: flex; align-items: center; gap: 4px; }
+    .leg-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+    .spinner { text-align: center; padding: 40px; color: #9ca3af; font-size: 14px; }
+    .empty { text-align: center; padding: 40px 20px; color: #9ca3af; font-size: 14px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>📊 جودة الإعلانات</h1>
+  <a href="warnings.html" class="back-btn">← التحذيرات</a>
+</header>
+
+<div class="container">
+
+  <!-- Filter bar -->
+  <div class="filter-bar">
+    <div class="filter-title">الفترة الزمنية</div>
+    <div class="period-pills">
+      <button class="period-pill" onclick="setPeriod('today')">اليوم</button>
+      <button class="period-pill" onclick="setPeriod('yesterday')">أمس</button>
+      <button class="period-pill active" onclick="setPeriod('week')">آخر 7 أيام</button>
+      <button class="period-pill" onclick="setPeriod('month')">هذا الشهر</button>
+      <button class="period-pill" onclick="setPeriod('custom')">📅 مخصص</button>
+    </div>
+    <div class="custom-dates" id="custom-dates">
+      <input type="date" id="date-from" class="date-input" />
+      <span style="color:#9ca3af;font-size:13px">→</span>
+      <input type="date" id="date-to" class="date-input" />
+      <button class="apply-btn" onclick="load()">تطبيق</button>
+    </div>
+    <div class="agent-filter">
+      <select id="agent-sel" onchange="load()">
+        <option value="">— جميع الوكلاء —</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Summary chips -->
+  <div class="summary-row" id="summary-row" style="display:none">
+    <div class="chip chip-blue">
+      <div class="chip-num" id="sum-total">—</div>
+      <div class="chip-lbl">إجمالي العملاء</div>
+    </div>
+    <div class="chip chip-red">
+      <div class="chip-num" id="sum-av">—</div>
+      <div class="chip-lbl">مدن أخرى %</div>
+    </div>
+    <div class="chip chip-purple">
+      <div class="chip-num" id="sum-pi">—</div>
+      <div class="chip-lbl">غير مهتمين %</div>
+    </div>
+    <div class="chip chip-yellow">
+      <div class="chip-num" id="sum-nr">—</div>
+      <div class="chip-lbl">لم يردوا %</div>
+    </div>
+    <div class="chip chip-green">
+      <div class="chip-num" id="sum-rdv">—</div>
+      <div class="chip-lbl">RDV %</div>
+    </div>
+  </div>
+
+  <div id="main-content" class="spinner">جاري التحميل...</div>
+
+</div>
+
+<script>
+  const API   = window.location.origin;
+  const token = localStorage.getItem('token');
+  if (!token || localStorage.getItem('role') !== 'admin') window.location.href = '/index.html';
+
+  let dateFrom = '', dateTo = '';
+  let currentPeriod = 'week';
+
+  function isoDate(d) { return d.toISOString().slice(0, 10); }
+
+  function setPeriod(p) {
+    currentPeriod = p;
+    document.querySelectorAll('.period-pill').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('custom-dates').classList.toggle('show', p === 'custom');
+    if (p !== 'custom') load();
+  }
+
+  function buildDates() {
+    const today = new Date();
+    if (currentPeriod === 'today') {
+      dateFrom = dateTo = isoDate(today);
+    } else if (currentPeriod === 'yesterday') {
+      const y = new Date(today); y.setDate(y.getDate() - 1);
+      dateFrom = dateTo = isoDate(y);
+    } else if (currentPeriod === 'week') {
+      const w = new Date(today); w.setDate(w.getDate() - 6);
+      dateFrom = isoDate(w); dateTo = isoDate(today);
+    } else if (currentPeriod === 'month') {
+      dateFrom = isoDate(new Date(today.getFullYear(), today.getMonth(), 1));
+      dateTo   = isoDate(today);
+    } else {
+      dateFrom = document.getElementById('date-from').value;
+      dateTo   = document.getElementById('date-to').value;
+      if (!dateFrom || !dateTo) { alert('يرجى تحديد التواريخ'); return false; }
+    }
+    return true;
+  }
+
+  async function loadAgents() {
+    try {
+      const res  = await fetch(`${API}/agents`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      const sel  = document.getElementById('agent-sel');
+      (data || []).forEach(a => {
+        const opt = document.createElement('option');
+        opt.value = a.id; opt.textContent = a.name;
+        sel.appendChild(opt);
+      });
+    } catch(e) {}
+  }
+
+  async function load() {
+    if (!buildDates()) return;
+    const agentId = document.getElementById('agent-sel').value;
+    const el = document.getElementById('main-content');
+    el.innerHTML = '<div class="spinner">جاري التحليل...</div>';
+    document.getElementById('summary-row').style.display = 'none';
+
+    let url = `${API}/analytics/ads-quality?date_from=${dateFrom}&date_to=${dateTo}`;
+    if (agentId) url += `&agent_id=${agentId}`;
+
+    try {
+      const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      render(data, agentId);
+    } catch(e) {
+      el.innerHTML = '<div class="empty">تعذر تحميل البيانات</div>';
+    }
+  }
+
+  function qualityClass(score) {
+    return score >= 65 ? 'quality-good' : score >= 40 ? 'quality-mid' : 'quality-bad';
+  }
+  function scoreBadge(score) {
+    const cls = score >= 65 ? 'score-good' : score >= 40 ? 'score-mid' : 'score-bad';
+    return `<span class="score-badge ${cls}">${score}/100</span>`;
+  }
+  function pctCell(pct, threshHigh, threshMed, invert = false) {
+    let cls;
+    if (invert) {
+      cls = pct >= threshHigh ? 'pct-ok' : pct >= threshMed ? 'pct-neutral' : 'pct-bad-med';
+    } else {
+      cls = pct >= threshHigh ? 'pct-bad-high' : pct >= threshMed ? 'pct-bad-med' : 'pct-neutral';
+    }
+    return `<span class="pct-cell ${cls}">${pct}%</span>`;
+  }
+
+  function render(data, agentId) {
+    const { days, agents, period } = data;
+    const el = document.getElementById('main-content');
+
+    if (!days.length && !agents.length) {
+      el.innerHTML = '<div class="empty">لا توجد بيانات في هذه الفترة</div>';
+      return;
+    }
+
+    // Summary totals
+    const totals = days.reduce((acc, d) => {
+      acc.total += d.total; acc.rdv += d.rdv;
+      acc.av += d.av; acc.pi += d.pi; acc.nr += d.nr;
+      return acc;
+    }, { total: 0, rdv: 0, av: 0, pi: 0, nr: 0 });
+    const t = totals.total || 1;
+
+    document.getElementById('sum-total').textContent = totals.total;
+    document.getElementById('sum-av').textContent    = Math.round(totals.av / t * 100) + '%';
+    document.getElementById('sum-pi').textContent    = Math.round(totals.pi / t * 100) + '%';
+    document.getElementById('sum-nr').textContent    = Math.round(totals.nr / t * 100) + '%';
+    document.getElementById('sum-rdv').textContent   = Math.round(totals.rdv / t * 100) + '%';
+    document.getElementById('summary-row').style.display = 'flex';
+
+    let html = '';
+
+    // Daily table
+    if (days.length > 0) {
+      html += `<div class="sec-label">📅 تحليل يومي — ${period.from} → ${period.to}</div>`;
+      html += `<div class="legend">
+        <span><span class="leg-dot" style="background:#3b82f6"></span> Autre ville</span>
+        <span><span class="leg-dot" style="background:#7c3aed"></span> غير مهتمين P.I</span>
+        <span><span class="leg-dot" style="background:#ef4444"></span> لم يردوا N.R</span>
+        <span><span class="leg-dot" style="background:#10b981"></span> RDV</span>
+      </div>`;
+      html += `<div class="day-table"><table>
+        <thead><tr>
+          <th>التاريخ</th>
+          <th>عملاء</th>
+          <th>Autre ville</th>
+          <th>P.I</th>
+          <th>N.R</th>
+          <th>RDV</th>
+          <th>الجودة</th>
+        </tr></thead><tbody>`;
+      days.forEach(d => {
+        const dateLabel = new Date(d.date).toLocaleDateString('ar-MA', { weekday: 'short', month: 'short', day: 'numeric' });
+        html += `<tr>
+          <td>${dateLabel}</td>
+          <td><strong>${d.total}</strong></td>
+          <td>${pctCell(d.av_pct, 35, 20)}</td>
+          <td>${pctCell(d.pi_pct, 30, 15)}</td>
+          <td>${pctCell(d.nr_pct, 45, 25)}</td>
+          <td>${pctCell(d.rdv_pct, 20, 10, true)}</td>
+          <td>${scoreBadge(d.quality_score)}</td>
+        </tr>`;
+      });
+      html += '</tbody></table></div>';
+    }
+
+    // Agent breakdown (only when showing all agents)
+    if (!agentId && agents && agents.length > 0) {
+      html += `<div class="sec-label" style="margin-top:6px">👤 جودة الإعلان حسب الوكيل</div>`;
+      html += `<div class="agent-grid">`;
+      agents.forEach(a => {
+        const qcls = qualityClass(a.quality_score);
+        html += `<div class="agent-card ${qcls}">
+          <div class="agent-card-top">
+            <div class="agent-card-name">${a.agent_name}</div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <span class="agent-card-total">${a.total} عميل</span>
+              ${scoreBadge(a.quality_score)}
+            </div>
+          </div>
+          <div class="metrics-row">
+            <div class="metric-pill"><span class="m-val m-av">${a.av_pct}%</span><span class="m-lbl">Autre ville</span></div>
+            <div class="metric-pill"><span class="m-val m-pi">${a.pi_pct}%</span><span class="m-lbl">P.I</span></div>
+            <div class="metric-pill"><span class="m-val m-nr">${a.nr_pct}%</span><span class="m-lbl">N.R</span></div>
+            <div class="metric-pill"><span class="m-val m-rdv">${a.rdv_pct}%</span><span class="m-lbl">RDV</span></div>
+          </div>
+          ${renderAgentProblems(a)}
+        </div>`;
+      });
+      html += `</div>`;
+    }
+
+    el.innerHTML = html;
+  }
+
+  function renderAgentProblems(a) {
+    const issues = [];
+    if (a.av_pct > 35) issues.push(`<span style="color:#3b82f6">⚠️ ${a.av_pct}% مدن خارج النطاق — راجع الاستهداف الجغرافي</span>`);
+    if (a.pi_pct > 30) issues.push(`<span style="color:#7c3aed">⚠️ ${a.pi_pct}% غير مهتمين — مشكلة في استهداف الجمهور</span>`);
+    if (a.nr_pct > 45) issues.push(`<span style="color:#ef4444">⚠️ ${a.nr_pct}% لم يردوا — جودة الأرقام أو التوقيت</span>`);
+    if (a.rdv_pct < 5 && a.total >= 20) issues.push(`<span style="color:#d97706">⚠️ معدل RDV ضعيف جداً: ${a.rdv_pct}%</span>`);
+    if (!issues.length) return `<div style="font-size:12px;color:#16a34a;margin-top:8px">✅ أداء جيد في هذه الفترة</div>`;
+    return `<div style="margin-top:8px;display:flex;flex-direction:column;gap:4px;font-size:12px">${issues.join('')}</div>`;
+  }
+
+  // Init
+  loadAgents();
+  load();
+</script>
+</body>
+</html>

@@ -95,15 +95,28 @@ def compute_metrics(agents, leads, rdvs, spend_rows):
 def compute_warnings(agents_metrics):
     """Rule-based warnings. Returns list of {agent_name, warnings:[]}."""
     active = [a for a in agents_metrics if a["total_leads"] > 0]
-    cpls   = [a["cpl"] for a in active if a["cpl"] > 0]
+    cpls    = [a["cpl"] for a in active if a["cpl"] > 0]
     avg_cpl = sum(cpls) / len(cpls) if cpls else 0
+
+    cp_regs    = [a["cost_per_registration"] for a in active if a["cost_per_registration"] > 0 and a["registered"] > 0]
+    avg_cp_reg = sum(cp_regs) / len(cp_regs) if cp_regs else 0
 
     output = []
     for a in active:
         ws = []
         total = a["total_leads"]
 
-        # Critical
+        # ── Cost per registration (main metric — shown first) ──────────────
+        cp_reg = a["cost_per_registration"]
+        reg    = a["registered"]
+        if reg >= 1 and cp_reg > 250:
+            ws.append({"severity": "critical", "text": f"تكلفة تسجيل مرتفعة جداً: {cp_reg:.0f} درهم/مسجل — الإعلان غير مربح"})
+        elif reg >= 1 and avg_cp_reg > 0 and cp_reg > avg_cp_reg * 1.6:
+            ws.append({"severity": "warning", "text": f"تكلفة تسجيل {cp_reg:.0f} درهم — أعلى بكثير من متوسط الفريق ({avg_cp_reg:.0f} درهم)"})
+        elif reg >= 1 and avg_cp_reg > 0 and cp_reg > avg_cp_reg * 1.2:
+            ws.append({"severity": "info", "text": f"تكلفة تسجيل {cp_reg:.0f} درهم مقابل متوسط الفريق {avg_cp_reg:.0f} درهم"})
+
+        # ── Critical ────────────────────────────────────────────────────────
         if a["rdv_booked"] >= 5 and a["showed_up"] == 0:
             ws.append({"severity": "critical", "text": f"لديه {a['rdv_booked']} موعد RDV بدون أي حضور — مواعيد وهمية محتملة"})
         if total >= 15 and a["rdv_count"] == 0:
@@ -111,7 +124,7 @@ def compute_warnings(agents_metrics):
         if avg_cpl > 0 and a["cpl"] > avg_cpl * 3 and a["cpl"] > 0:
             ws.append({"severity": "critical", "text": f"تكلفة عميل {a['cpl']:.0f}دم — أكثر من 3× متوسط الفريق ({avg_cpl:.0f}دم)"})
 
-        # Warning
+        # ── Warning ─────────────────────────────────────────────────────────
         if total > 0:
             av_pct = a["av_count"] / total * 100
             nr_pct = a["nr_count"] / total * 100

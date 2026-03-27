@@ -765,14 +765,17 @@
         const el = document.getElementById('avatar-circle');
         el.innerHTML = `<img src="${dataUrl}" />`;
       }
+      // Save to both cache keys — avatar_cache is session-only, profilePic_ survives logout
       localStorage.setItem('avatar_cache', dataUrl);
+      if (agentId) localStorage.setItem(`profilePic_${agentId}`, dataUrl);
       // Persist to DB
       try {
-        await fetch(`${API}/agents/me`, {
+        const res = await fetch(`${API}/agents/me`, {
           method: 'PATCH',
           headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
           body: JSON.stringify({ avatar_url: dataUrl })
         });
+        if (!res.ok) console.warn('Avatar DB save failed', await res.text());
       } catch(e) { console.warn('Avatar save failed', e); }
     }
 
@@ -847,19 +850,20 @@
               if (el) el.innerHTML = `<img src="${profile.avatar_url}" />`;
             }
           }
-          // Load goals — DB first, localStorage as fallback
-          if (profile.goals && profile.goals.length > 0) {
-            agentGoals = profile.goals;
-            localStorage.setItem(GOAL_KEY, JSON.stringify(agentGoals)); // sync local
+          // Load goals — DB is always authoritative when column exists
+          // null/undefined = column missing → fall back to localStorage
+          // [] = agent deleted all goals → respect that, don't restore from localStorage
+          if (profile.goals !== null && profile.goals !== undefined) {
+            agentGoals = Array.isArray(profile.goals) ? profile.goals : [];
+            localStorage.setItem(GOAL_KEY, JSON.stringify(agentGoals));
           } else {
-            // Fallback to localStorage (covers DB column missing or network failure)
+            // Column doesn't exist yet — fall back to localStorage
             const localGoals = localStorage.getItem(GOAL_KEY);
             if (localGoals) {
               try {
                 const parsed = JSON.parse(localGoals);
                 agentGoals = Array.isArray(parsed) ? parsed
                   : [{ ...parsed, id: Date.now().toString(), name: 'هدفي', type: 'master', metric: 'inscription', target: parsed.targetStudents || 10 }];
-                // Try to push to DB
                 await saveGoalsToDB(agentGoals);
               } catch(e) {}
             }

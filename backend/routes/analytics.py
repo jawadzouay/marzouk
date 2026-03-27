@@ -145,6 +145,97 @@ def analytics_warnings(
     return {"warnings": warnings, "period": {"from": date_from, "to": date_to}}
 
 
+@router.get("/ads-quality")
+def ads_quality(
+    date_from: str = Query(None),
+    date_to:   str = Query(None),
+    agent_id:  str = Query(None),
+    admin=Depends(require_admin)
+):
+    """Daily lead-quality breakdown to diagnose ad targeting problems."""
+    sb = get_client()
+    if not date_from:
+        date_from = (datetime.utcnow() - timedelta(days=7)).date().isoformat()
+    if not date_to:
+        date_to = datetime.utcnow().date().isoformat()
+
+    leads_q = sb.table("leads").select("status, submitted_at, original_agent") \
+        .gte("submitted_at", date_from).lte("submitted_at", date_to + "T23:59:59")
+    if agent_id:
+        leads_q = leads_q.eq("original_agent", agent_id)
+    leads = leads_q.execute().data
+
+    from collections import defaultdict
+    daily = defaultdict(lambda: {"total": 0, "rdv": 0, "bv": 0, "nr": 0, "pi": 0, "av": 0, "other": 0})
+    for lead in leads:
+        date = (lead.get("submitted_at") or "")[:10]
+        if not date:
+            continue
+        daily[date]["total"] += 1
+        s = lead.get("status", "")
+        if   s == "RDV":          daily[date]["rdv"] += 1
+        elif s == "B.V":          daily[date]["bv"]  += 1
+        elif s == "N.R":          daily[date]["nr"]  += 1
+        elif s == "P.I":          daily[date]["pi"]  += 1
+        elif s == "Autre ville":  daily[date]["av"]  += 1
+        else:                     daily[date]["other"] += 1
+
+    result = []
+    for date in sorted(daily.keys()):
+        d     = daily[date]
+        total = d["total"] or 1
+        result.append({
+            "date":    date,
+            "total":   d["total"],
+            "rdv":     d["rdv"],  "rdv_pct": round(d["rdv"] / total * 100, 1),
+            "bv":      d["bv"],   "bv_pct":  round(d["bv"]  / total * 100, 1),
+            "nr":      d["nr"],   "nr_pct":  round(d["nr"]  / total * 100, 1),
+            "pi":      d["pi"],   "pi_pct":  round(d["pi"]  / total * 100, 1),
+            "av":      d["av"],   "av_pct":  round(d["av"]  / total * 100, 1),
+            # quality score 0-100: penalise av/pi/nr, reward rdv
+            "quality_score": max(0, min(100, round(
+                100
+                - (d["av"]  / total * 50)
+                - (d["pi"]  / total * 30)
+                - (d["nr"]  / total * 10)
+                + (d["rdv"] / total * 20)
+            ))),
+        })
+
+    # Agent-level summary for same period (only when no agent filter)
+    agents_summary = []
+    if not agent_id:
+        agents = sb.table("agents").select("id, name").eq("is_active", True).execute().data
+        for ag in agents:
+            ag_leads = [l for l in leads if l.get("original_agent") == ag["id"]]
+            t = len(ag_leads) or 1
+            av_c = sum(1 for l in ag_leads if l.get("status") == "Autre ville")
+            pi_c = sum(1 for l in ag_leads if l.get("status") == "P.I")
+            nr_c = sum(1 for l in ag_leads if l.get("status") == "N.R")
+            rdv_c = sum(1 for l in ag_leads if l.get("status") == "RDV")
+            if not ag_leads:
+                continue
+            agents_summary.append({
+                "agent_id":   ag["id"],
+                "agent_name": ag["name"],
+                "total":      len(ag_leads),
+                "av_pct":     round(av_c / t * 100, 1),
+                "pi_pct":     round(pi_c / t * 100, 1),
+                "nr_pct":     round(nr_c / t * 100, 1),
+                "rdv_pct":    round(rdv_c / t * 100, 1),
+                "quality_score": max(0, min(100, round(
+                    100 - (av_c/t*50) - (pi_c/t*30) - (nr_c/t*10) + (rdv_c/t*20)
+                ))),
+            })
+        agents_summary.sort(key=lambda x: x["quality_score"])
+
+    return {
+        "days":    result,
+        "agents":  agents_summary,
+        "period":  {"from": date_from, "to": date_to},
+    }
+
+
 @router.post("/my-coach")
 async def my_coach(user=Depends(get_current_user)):
     """AI coaching for agent — accessible to agents and admin."""
