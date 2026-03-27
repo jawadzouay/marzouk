@@ -72,7 +72,7 @@ def get_eligible_agents_for_level(lead: dict, level: int, sb) -> list:
 def get_eligible_leads_for_swap():
     sb = get_client()
     now = datetime.utcnow().isoformat()
-    result = sb.table("leads").select("*").in_("status", ["B.V", "N.R"]).eq("locked", True).eq("is_blacklisted", False).lte("swap_eligible_at", now).lt("swap_count", 3).execute()
+    result = sb.table("leads").select("*").in_("status", ["B.V", "N.R", "P.I"]).eq("locked", True).eq("is_blacklisted", False).lte("swap_eligible_at", now).lt("swap_count", 3).execute()
     return result.data
 
 
@@ -148,7 +148,7 @@ def manual_assign_swap(lead_id: str, target_agent_id: str):
 
 def redistribute_agent_leads(agent_id: str):
     sb = get_client()
-    leads_result = sb.table("leads").select("*").eq("current_agent", agent_id).in_("status", ["B.V", "N.R", "RDV"]).execute()
+    leads_result = sb.table("leads").select("*").eq("current_agent", agent_id).in_("status", ["B.V", "N.R", "P.I", "RDV"]).execute()
     leads = leads_result.data
 
     agents_result = sb.table("agents").select("id").eq("is_active", True).execute()

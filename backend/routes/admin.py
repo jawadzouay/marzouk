@@ -59,7 +59,7 @@ def admin_dashboard(
         rdv_q = rdv_q.lte("created_at", date_to + "T23:59:59")
     total_rdv = rdv_q.execute()
 
-    swap_pool = sb.table("leads").select("id", count="exact").in_("status", ["B.V", "N.R"]).lt("swap_count", 3).execute()
+    swap_pool = sb.table("leads").select("id", count="exact").in_("status", ["B.V", "N.R", "P.I"]).lt("swap_count", 3).execute()
 
     return {
         "agents": agent_status,

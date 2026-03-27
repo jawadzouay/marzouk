@@ -85,7 +85,7 @@ def manual_bulk_swap(body: dict, admin=Depends(require_admin)):
     now = datetime.utcnow().isoformat()
     leads = sb.table("leads").select("*") \
         .eq("current_agent", from_agent_id) \
-        .in_("status", ["B.V", "N.R"]) \
+        .in_("status", ["B.V", "N.R", "P.I"]) \
         .lte("swap_eligible_at", now) \
         .lt("swap_count", 3) \
         .execute().data
@@ -115,7 +115,7 @@ def manual_bulk_swap(body: dict, admin=Depends(require_admin)):
 @router.get("/pool")
 def get_swap_pool(admin=Depends(require_admin)):
     sb = get_client()
-    result = sb.table("leads").select("*, agents!leads_current_agent_fkey(name)").in_("status", ["B.V", "N.R"]).lt("swap_count", 3).execute()
+    result = sb.table("leads").select("*, agents!leads_current_agent_fkey(name)").in_("status", ["B.V", "N.R", "P.I"]).lt("swap_count", 3).execute()
     leads = result.data
 
     # Attach history (actions + notes, no agent names)

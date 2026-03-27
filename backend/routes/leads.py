@@ -79,10 +79,12 @@ async def submit_leads(submission: LeadSubmit, agent=Depends(get_current_agent))
             skipped.append({"phone": phone, "reason": "duplicate"})
             continue
 
-        # Determine archive vs swap pool
+        # Determine swap eligibility:
+        # B.V, N.R, P.I → swap pool after 4 days
+        # Autre ville → stays with original agent, never swapped
+        # RDV → no swap
         status = lead.status
-        locked = True
-        is_archived = status in ("P.I", "Autre ville")
+        not_swappable = status in ("Autre ville", "RDV")
 
         lead_data = {
             "phone": phone,
@@ -93,10 +95,10 @@ async def submit_leads(submission: LeadSubmit, agent=Depends(get_current_agent))
             "original_agent": agent_id,
             "current_agent": agent_id,
             "swap_count": 0,
-            "locked": locked,
+            "locked": True,
             "is_blacklisted": False,
             "source_date": submission.source_date.isoformat() if submission.source_date else today,
-            "swap_eligible_at": None if is_archived or status == "RDV" else swap_eligible_at
+            "swap_eligible_at": None if not_swappable else swap_eligible_at
         }
 
         result = sb.table("leads").insert(lead_data).execute()
@@ -113,10 +115,6 @@ async def submit_leads(submission: LeadSubmit, agent=Depends(get_current_agent))
             "note": "Initial submission"
         }).execute()
 
-        # Archive immediately if P.I or Autre ville
-        if is_archived:
-            append_to_archive(agent_name, [new_lead], today)
-
     # Log submission
     sb.table("submissions").insert({
         "agent_id": agent_id,
@@ -124,12 +122,11 @@ async def submit_leads(submission: LeadSubmit, agent=Depends(get_current_agent))
         "leads_count": len(saved_leads)
     }).execute()
 
-    # Sync to Google Sheets
+    # Sync ALL leads to Google Sheets (agent tab + All Leads tab)
     sheets_error = None
-    non_archived = [l for l in saved_leads if l["status"] not in ("P.I", "Autre ville")]
-    if non_archived:
+    if saved_leads:
         try:
-            append_leads_to_sheet(agent_name, non_archived, today)
+            append_leads_to_sheet(agent_name, saved_leads, today)
         except Exception as e:
             sheets_error = str(e)
             print(f"[SHEETS ERROR] {e}")
