@@ -22,9 +22,13 @@
     .agent-info .agent-name { font-weight: 700; }
     .agent-info .agent-meta { font-size: 12px; color: #9ca3af; margin-top: 2px; }
     .branch-tag { display: inline-block; background: #e0f2fe; color: #0369a1; border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600; margin-top: 4px; }
-    .branch-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #f9fafb; border-radius: 8px; margin-bottom: 8px; border: 1px solid #e5e7eb; }
+    .city-group { margin-bottom: 14px; }
+    .city-header { display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; color: white; border-radius: 10px 10px 0 0; padding: 10px 16px; }
+    .city-header-name { font-weight: 700; font-size: 15px; }
+    .city-branches { border: 2px solid #1a1a1a; border-top: none; border-radius: 0 0 10px 10px; padding: 8px; background: #f9fafb; }
+    .branch-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: white; border-radius: 8px; margin-bottom: 6px; border: 1px solid #e5e7eb; }
+    .branch-row:last-child { margin-bottom: 0; }
     .branch-name { font-weight: 600; font-size: 14px; }
-    .branch-count { font-size: 12px; color: #6b7280; }
     .btn-delete-branch { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 6px; padding: 5px 12px; font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 12px; }
     .btn-fire { background: #fef2f2; color: #dc2626; border: 2px solid #fecaca; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; }
     .btn-wipe { background: #1a1a1a; color: white; border: 2px solid #1a1a1a; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; }
@@ -65,8 +69,9 @@
       <h2>🏢 إدارة الفروع</h2>
       <div id="branch-alert"></div>
       <div class="form-row" style="margin-bottom:16px">
-        <input type="text" id="new-branch-name" placeholder="اسم الفرع (مثال: فرع طنجة — المدينة 1)" />
-        <input type="text" id="new-branch-city" placeholder="المدينة (مثال: طنجة)" />
+        <input type="text" id="new-branch-name" placeholder="اسم الفرع (مثال: النجمة)" />
+        <input type="text" id="new-branch-city" list="cities-list" placeholder="المدينة (مثال: طنجة)" />
+        <datalist id="cities-list"></datalist>
         <button class="btn-red" onclick="addBranch()">+ إضافة فرع</button>
       </div>
       <div id="branches-list"><div class="empty-state">لا يوجد فروع بعد</div></div>
@@ -104,25 +109,43 @@
       branchMap = {};
       branches.forEach(b => { branchMap[b.id] = b.name; });
 
-      // Update branch list UI
+      // Update branch list UI — grouped by city
       const list = document.getElementById('branches-list');
       if (!branches.length) {
         list.innerHTML = '<div class="empty-state">لا يوجد فروع بعد</div>';
       } else {
-        list.innerHTML = branches.map(b => `
-          <div class="branch-row">
-            <div>
-              <div class="branch-name">🏢 ${b.name}</div>
-              ${b.city ? `<div style="font-size:11px;color:#6b7280;margin-top:2px">📍 ${b.city}</div>` : ''}
+        // Group by city
+        const cityGroups = {};
+        branches.forEach(b => {
+          const city = b.city || '— بدون مدينة —';
+          if (!cityGroups[city]) cityGroups[city] = [];
+          cityGroups[city].push(b);
+        });
+
+        list.innerHTML = Object.entries(cityGroups).map(([city, cityBranches]) => `
+          <div class="city-group">
+            <div class="city-header">
+              <span class="city-header-name">📍 ${city}</span>
+              <span style="font-size:12px;opacity:0.7">${cityBranches.length} فرع</span>
             </div>
-            <button class="btn-delete-branch" onclick="deleteBranch('${b.id}', '${b.name}')">حذف</button>
+            <div class="city-branches">
+              ${cityBranches.map(b => `
+                <div class="branch-row">
+                  <span class="branch-name">🏢 ${b.name}</span>
+                  <button class="btn-delete-branch" onclick="deleteBranch('${b.id}', '${b.name}')">حذف</button>
+                </div>`).join('')}
+            </div>
           </div>`).join('');
       }
+
+      // Update cities datalist
+      const cities = [...new Set(branches.map(b => b.city).filter(Boolean))];
+      document.getElementById('cities-list').innerHTML = cities.map(c => `<option value="${c}">`).join('');
 
       // Update branch dropdown in add form
       const sel = document.getElementById('new-branch');
       sel.innerHTML = '<option value="">— اختر الفرع (اختياري) —</option>' +
-        branches.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+        branches.map(b => `<option value="${b.id}">${b.city ? b.city + ' — ' : ''}${b.name}</option>`).join('');
     }
 
     async function addBranch() {
