@@ -136,16 +136,22 @@
     }
 
     async function setLevel(level) {
-      const res = await fetch(`${API}/swap/settings`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ swap_level: level })
-      });
-      if (res.ok) {
-        currentLevel = level;
-        updateLevelUI();
-        showAlert(`تم تغيير مستوى التبادل إلى المستوى ${level}`, 'success');
-        loadPool();
+      currentLevel = level;
+      updateLevelUI();
+      try {
+        const res = await fetch(`${API}/swap/settings`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ swap_level: level })
+        });
+        if (res.ok) {
+          showAlert(`تم حفظ المستوى ${level}`, 'success');
+          loadPool();
+        } else {
+          showAlert('تم تغيير المستوى محلياً — تأكد من تشغيل SQL في Supabase', 'error');
+        }
+      } catch(e) {
+        showAlert('خطأ في الاتصال بالخادم', 'error');
       }
     }
 
