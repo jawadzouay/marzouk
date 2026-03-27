@@ -106,7 +106,17 @@
       </div>
       <img id="preview-img" alt="preview">
       <div id="spend-previews" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"></div>
+      <!-- Branch / City filter -->
       <div class="period-row" style="margin-top:14px">
+        <label>الفرع / المدينة:</label>
+        <select id="filter-city" class="date-inp" onchange="onCityChange()" style="min-width:130px">
+          <option value="">— كل المدن —</option>
+        </select>
+        <select id="filter-branch" class="date-inp" style="min-width:140px">
+          <option value="">— كل الفروع —</option>
+        </select>
+      </div>
+      <div class="period-row" style="margin-top:4px">
         <label>الفترة:</label>
         <input type="date" class="date-inp" id="period-from">
         <span style="color:#9ca3af;font-size:12px">→</span>
@@ -165,8 +175,39 @@
   if (!token || role !== 'admin') window.location.href = '/index.html';
 
   let agentsList = [];
+  let allBranches = [];
   let extractedRows = [];
   let selectedSpendFiles = [];
+
+  // Load branches and cities for filter
+  async function loadBranchFilter() {
+    const res = await fetch(`${API}/branches/`, { headers: { Authorization: `Bearer ${token}` } });
+    if (!res.ok) return;
+    allBranches = await res.json();
+
+    // Populate city dropdown (unique cities)
+    const cities = [...new Set(allBranches.map(b => b.city).filter(Boolean))].sort();
+    const cityEl = document.getElementById('filter-city');
+    cityEl.innerHTML = '<option value="">— كل المدن —</option>' +
+      cities.map(c => `<option value="${c}">${c}</option>`).join('');
+
+    // Populate branch dropdown (all)
+    populateBranchDropdown('');
+  }
+
+  function populateBranchDropdown(city) {
+    const filtered = city ? allBranches.filter(b => b.city === city) : allBranches;
+    const el = document.getElementById('filter-branch');
+    el.innerHTML = '<option value="">— كل الفروع —</option>' +
+      filtered.map(b => `<option value="${b.id}">${b.name}${b.city ? ' — ' + b.city : ''}</option>`).join('');
+  }
+
+  function onCityChange() {
+    const city = document.getElementById('filter-city').value;
+    populateBranchDropdown(city);
+  }
+
+  loadBranchFilter();
 
   // Default dates: this week
   const today = new Date();
@@ -212,15 +253,23 @@
       let allRows = [];
       const h = { Authorization: `Bearer ${token}` };
       let agents = [];
+
+      // Get branch/city filter
+      const filterBranchId = document.getElementById('filter-branch').value;
+      const filterCity     = document.getElementById('filter-city').value;
+
       for (let i = 0; i < selectedSpendFiles.length; i++) {
         const statusEl = document.getElementById(`spend-img-st-${i}`);
         if (statusEl) statusEl.textContent = '⏳';
-        const fd = new FormData(); fd.append('file', selectedSpendFiles[i]);
+        const fd = new FormData();
+        fd.append('file', selectedSpendFiles[i]);
+        if (filterBranchId) fd.append('branch_id', filterBranchId);
+        if (filterCity)     fd.append('city', filterCity);
         const res = await fetch(`${API}/spend/extract`, { method: 'POST', headers: h, body: fd });
         const data = await res.json();
         if (res.ok) {
           if (i === 0) { agents = data.agents || []; }
-          const rows = (data.rows || []).map(r => ({ ...r, _src: i+1 }));
+          const rows = (data.rows || []).map(r => ({ ...r, _src: i+1, branch_id: filterBranchId || null }));
           allRows.push(...rows);
           if (statusEl) statusEl.textContent = `✅${rows.length}`;
         } else {

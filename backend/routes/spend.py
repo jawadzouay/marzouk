@@ -48,14 +48,32 @@ def match_agent(name: str, agents, aliases):
 
 
 @router.post("/extract")
-async def extract_spend(file: UploadFile = File(...), admin=Depends(require_admin)):
+async def extract_spend(
+    file: UploadFile = File(...),
+    branch_id: str = None,
+    city: str = None,
+    admin=Depends(require_admin)
+):
     if file.content_type not in ["image/jpeg","image/png","image/webp"]:
         raise HTTPException(400, "نوع الملف غير مدعوم")
     image_bytes = await file.read()
     rows = await extract_ad_spend_from_image(image_bytes, file.content_type)
 
     sb = get_client()
-    agents  = sb.table("agents").select("id,name").eq("is_active", True).execute().data
+
+    # Filter agents by branch or city if specified
+    if branch_id:
+        agents = sb.table("agents").select("id,name").eq("is_active", True).eq("branch_id", branch_id).execute().data
+    elif city:
+        city_branches = sb.table("branches").select("id").eq("city", city).execute().data
+        branch_ids = [b["id"] for b in city_branches]
+        if branch_ids:
+            agents = sb.table("agents").select("id,name").eq("is_active", True).in_("branch_id", branch_ids).execute().data
+        else:
+            agents = sb.table("agents").select("id,name").eq("is_active", True).execute().data
+    else:
+        agents = sb.table("agents").select("id,name").eq("is_active", True).execute().data
+
     aliases = sb.table("agent_ad_names").select("agent_id,ad_name").execute().data
 
     for row in rows:
