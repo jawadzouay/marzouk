@@ -48,10 +48,11 @@ async def submit_leads(submission: LeadSubmit, agent=Depends(get_current_agent))
 
     today = datetime.utcnow().date().isoformat()
 
-    # Check if agent already submitted today
+    # Allow up to 3 submissions per day
     existing_sub = sb.table("submissions").select("id").eq("agent_id", agent_id).eq("submission_date", today).execute()
-    if existing_sub.data:
-        raise HTTPException(status_code=400, detail="لقد قمت بالإرسال مسبقاً اليوم")
+    submissions_done = len(existing_sub.data)
+    if submissions_done >= 3:
+        raise HTTPException(status_code=400, detail="وصلت للحد الأقصى اليوم — 3 إرسالات فقط مسموح بها")
 
     # Get agent name
     agent_row = sb.table("agents").select("name").eq("id", agent_id).execute()
@@ -131,11 +132,14 @@ async def submit_leads(submission: LeadSubmit, agent=Depends(get_current_agent))
             sheets_error = str(e)
             print(f"[SHEETS ERROR] {e}")
 
+    new_count = submissions_done + 1
     return {
         "saved": len(saved_leads),
         "skipped": skipped,
         "leads": saved_leads,
-        "sheets_error": sheets_error
+        "sheets_error": sheets_error,
+        "submissions_today": new_count,
+        "submissions_remaining": max(0, 3 - new_count)
     }
 
 
@@ -248,6 +252,16 @@ def update_lead_note(lead_id: str, body: dict, agent=Depends(get_current_agent))
         raise HTTPException(status_code=404, detail="Lead not found")
     sb.table("leads").update({"note": note}).eq("id", lead_id).execute()
     return {"message": "تم حفظ الملاحظة"}
+
+
+@router.get("/submissions-today")
+def get_submissions_today(agent=Depends(get_current_agent)):
+    sb = get_client()
+    agent_id = agent["sub"]
+    today = datetime.utcnow().date().isoformat()
+    result = sb.table("submissions").select("id,leads_count,submitted_at").eq("agent_id", agent_id).eq("submission_date", today).execute()
+    count = len(result.data)
+    return {"count": count, "remaining": max(0, 3 - count)}
 
 
 @router.get("/my")

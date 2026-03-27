@@ -70,6 +70,19 @@
     .delete-btn { background: #fef2f2; color: #dc2626; border: none; border-radius: 6px; padding: 5px 8px; cursor: pointer; font-size: 11px; }
     .src-badge { font-size: 10px; color: #9ca3af; }
 
+    /* Submission counter */
+    .sub-counter {
+      border-radius: 12px; padding: 12px 16px; margin-bottom: 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 14px; font-weight: 700;
+    }
+    .sub-counter.ok   { background: #dcfce7; color: #166534; }
+    .sub-counter.warn { background: #fef3c7; color: #92400e; }
+    .sub-counter.full { background: #fef2f2; color: #dc2626; }
+    .sub-dots { display: flex; gap: 6px; }
+    .sub-dot { width: 14px; height: 14px; border-radius: 50%; background: #e5e7eb; }
+    .sub-dot.used { background: currentColor; }
+
     /* Alerts */
     .alert { padding: 12px 16px; border-radius: 10px; margin-bottom: 12px; font-size: 14px; }
     .alert-success { background: #dcfce7; color: #166534; }
@@ -88,6 +101,16 @@
   </header>
 
   <div class="container">
+    <!-- Submission counter -->
+    <div class="sub-counter ok" id="sub-counter" style="display:none">
+      <span id="sub-counter-text">جاري التحقق...</span>
+      <div class="sub-dots">
+        <div class="sub-dot" id="dot-1"></div>
+        <div class="sub-dot" id="dot-2"></div>
+        <div class="sub-dot" id="dot-3"></div>
+      </div>
+    </div>
+
     <!-- Upload zone -->
     <div class="upload-zone" id="upload-zone">
       <input type="file" id="file-input" accept="image/*" multiple onchange="handleFiles(event)" />
@@ -133,9 +156,47 @@
     const token = localStorage.getItem('token');
     if (!token) window.location.href = '/index.html';
 
-    let selectedFiles   = [];   // File objects
-    let extractedLeads  = [];   // all leads from all images
+    let selectedFiles   = [];
+    let extractedLeads  = [];
+    let submissionsToday = 0;
     const statusClass   = { 'RDV':'s-rdv','B.V':'s-bv','N.R':'s-nr','P.I':'s-pi','Autre ville':'s-av' };
+
+    async function checkSubmissionCount() {
+      try {
+        const res  = await fetch(`${API}/leads/submissions-today`, { headers: { Authorization: `Bearer ${token}` } });
+        const data = await res.json();
+        submissionsToday = data.count || 0;
+        updateCounter(submissionsToday);
+      } catch(e) { /* silent */ }
+    }
+
+    function updateCounter(count) {
+      const el   = document.getElementById('sub-counter');
+      const text = document.getElementById('sub-counter-text');
+      el.style.display = 'flex';
+      // fill dots
+      [1,2,3].forEach(i => {
+        document.getElementById(`dot-${i}`).classList.toggle('used', i <= count);
+      });
+      if (count === 0) {
+        el.className = 'sub-counter ok';
+        text.textContent = 'لم ترسل بعد اليوم — لديك 3 إرسالات متاحة';
+      } else if (count === 1) {
+        el.className = 'sub-counter ok';
+        text.textContent = 'إرسال 1/3 — لديك إرسالان إضافيان اليوم';
+      } else if (count === 2) {
+        el.className = 'sub-counter warn';
+        text.textContent = '⚠️ إرسال 2/3 — هذا هو آخر إرسال متاح لك اليوم';
+      } else {
+        el.className = 'sub-counter full';
+        text.textContent = '🚫 وصلت للحد الأقصى — 3/3 إرسالات مكتملة اليوم';
+        document.getElementById('upload-zone').style.pointerEvents = 'none';
+        document.getElementById('upload-zone').style.opacity = '0.4';
+        document.getElementById('extract-btn').disabled = true;
+      }
+    }
+
+    checkSubmissionCount();
 
     function handleFiles(e) {
       const newFiles = Array.from(e.target.files);
@@ -262,6 +323,11 @@
       if (extractedLeads.some(l=>l.flagged)) {
         showAlert('يوجد أرقام غير صحيحة. صحّحها أو احذفها قبل الإرسال.','warn'); return;
       }
+      // Warn on the last allowed submission
+      if (submissionsToday === 2) {
+        const ok = confirm('⚠️ تنبيه: هذا هو آخر إرسال مسموح به اليوم (3/3). هل تريد المتابعة؟');
+        if (!ok) return;
+      }
       try {
         let res2, attempt2 = 0;
         while (attempt2 < 3) {
@@ -286,6 +352,11 @@
           const blk  = data.skipped.filter(s=>s.reason==='blacklisted').length;
           if (dups) msg += ` ${dups} مكرر تم تجاهله.`;
           if (blk)  msg += ` ${blk} محظور تم تجاهله.`;
+        }
+        submissionsToday = data.submissions_today || submissionsToday + 1;
+        updateCounter(submissionsToday);
+        if (data.submissions_remaining > 0) {
+          msg += ` — متبقي ${data.submissions_remaining} إرسال اليوم.`;
         }
         showAlert(msg,'success');
         document.getElementById('table-section').style.display='none';
