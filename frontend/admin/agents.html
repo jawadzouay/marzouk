@@ -137,15 +137,34 @@
     const token = localStorage.getItem('token');
     if (!token || localStorage.getItem('role') !== 'admin') window.location.href = '/index.html';
 
-    let allCities   = [];   // [{id, name}]
-    let allBranches = [];   // [{id, name, city}]
-    let branchMap   = {};   // id -> branch obj
+    let allCities   = [];
+    let allBranches = [];
+    let branchMap   = {};
+
+    // Central fetch helper — never throws, always returns {ok, data}
+    async function callAPI(url, opts = {}) {
+      try {
+        const res = await fetch(url, {
+          ...opts,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            ...(opts.headers || {})
+          }
+        });
+        let data = {};
+        try { data = await res.json(); } catch(e) {}
+        return { ok: res.ok, data, status: res.status };
+      } catch (e) {
+        return { ok: false, data: { detail: 'تعذر الاتصال بالخادم — تأكد من تشغيل الخادم' }, status: 0 };
+      }
+    }
 
     // ─── CITIES ────────────────────────────────────────────
     async function loadCities() {
-      const res = await fetch(`${API}/cities/`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) return;
-      allCities = await res.json();
+      const { ok, data } = await callAPI(`${API}/cities/`);
+      if (!ok) return;
+      allCities = data;
 
       const list = document.getElementById('cities-list');
       if (!allCities.length) {
@@ -185,26 +204,16 @@
     async function saveEditCity(id) {
       const name = document.getElementById(`city-edit-${id}`).value.trim();
       if (!name) return;
-      const res = await fetch(`${API}/cities/${id}`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
-      });
-      const data = await res.json();
-      if (res.ok) { loadCities(); loadBranches(); }
+      const { ok, data } = await callAPI(`${API}/cities/${id}`, { method: 'PUT', body: JSON.stringify({ name }) });
+      if (ok) { loadCities(); loadBranches(); }
       else showAlert('city-alert', data.detail || 'خطأ', false);
     }
 
     async function addCity() {
       const name = document.getElementById('new-city-name').value.trim();
       if (!name) return showAlert('city-alert', 'يرجى إدخال اسم المدينة', false);
-      const res = await fetch(`${API}/cities/`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
-      });
-      const data = await res.json();
-      if (res.ok) {
+      const { ok, data } = await callAPI(`${API}/cities/`, { method: 'POST', body: JSON.stringify({ name }) });
+      if (ok) {
         document.getElementById('new-city-name').value = '';
         showAlert('city-alert', `تم إضافة مدينة "${name}"`, true);
         loadCities();
@@ -215,20 +224,16 @@
 
     async function deleteCity(id, name) {
       if (!confirm(`هل أنت متأكد من حذف مدينة "${name}"؟`)) return;
-      const res = await fetch(`${API}/cities/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) loadCities();
+      const { ok, data } = await callAPI(`${API}/cities/${id}`, { method: 'DELETE' });
+      if (ok) loadCities();
       else showAlert('city-alert', data.detail || 'خطأ', false);
     }
 
     // ─── BRANCHES ──────────────────────────────────────────
     async function loadBranches() {
-      const res = await fetch(`${API}/branches/`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) return;
-      allBranches = await res.json();
+      const { ok, data } = await callAPI(`${API}/branches/`);
+      if (!ok) return;
+      allBranches = data;
       branchMap = {};
       allBranches.forEach(b => { branchMap[b.id] = b; });
 
@@ -286,13 +291,8 @@
     async function saveEditBranch(id) {
       const name = document.getElementById(`branch-edit-${id}`).value.trim();
       if (!name) return;
-      const res = await fetch(`${API}/branches/${id}`, {
-        method: 'PUT',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
-      });
-      const data = await res.json();
-      if (res.ok) { loadBranches(); loadAgents(); }
+      const { ok, data } = await callAPI(`${API}/branches/${id}`, { method: 'PUT', body: JSON.stringify({ name }) });
+      if (ok) { loadBranches(); loadAgents(); }
       else showAlert('branch-alert', data.detail || 'خطأ', false);
     }
 
@@ -300,14 +300,9 @@
       const name = document.getElementById('new-branch-name').value.trim();
       const city = document.getElementById('new-branch-city').value;
       if (!name) return showAlert('branch-alert', 'يرجى إدخال اسم الفرع', false);
-      if (!city) return showAlert('branch-alert', 'يرجى اختيار المدينة', false);
-      const res = await fetch(`${API}/branches/`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, city })
-      });
-      const data = await res.json();
-      if (res.ok) {
+      if (!city) return showAlert('branch-alert', 'يرجى اختيار المدينة أولاً', false);
+      const { ok, data } = await callAPI(`${API}/branches/`, { method: 'POST', body: JSON.stringify({ name, city }) });
+      if (ok) {
         document.getElementById('new-branch-name').value = '';
         document.getElementById('new-branch-city').value = '';
         showAlert('branch-alert', `تم إضافة فرع "${name}"`, true);
@@ -319,19 +314,15 @@
 
     async function deleteBranch(id, name) {
       if (!confirm(`هل أنت متأكد من حذف فرع "${name}"؟`)) return;
-      const res = await fetch(`${API}/branches/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      if (res.ok) { loadBranches(); loadAgents(); }
+      const { ok, data } = await callAPI(`${API}/branches/${id}`, { method: 'DELETE' });
+      if (ok) { loadBranches(); loadAgents(); }
       else showAlert('branch-alert', data.detail || 'خطأ', false);
     }
 
     // ─── AGENTS ────────────────────────────────────────────
     async function loadAgents() {
-      const res = await fetch(`${API}/agents/`, { headers: { Authorization: `Bearer ${token}` } });
-      const agents = await res.json();
+      const { ok, data: agents } = await callAPI(`${API}/agents/`);
+      if (!ok) return;
       const list = document.getElementById('agents-list');
       const active = agents.filter(a => a.is_active);
       if (!active.length) {
@@ -376,18 +367,9 @@
 
     async function confirmTransfer(agentId) {
       const branch_id = document.getElementById(`transfer-sel-${agentId}`).value || null;
-      const res = await fetch(`${API}/agents/${agentId}/branch`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ branch_id })
-      });
-      if (res.ok) {
-        showAlert('alert', 'تم نقل الوكيل بنجاح', true);
-        loadAgents();
-      } else {
-        const data = await res.json();
-        showAlert('alert', data.detail || 'خطأ في النقل', false);
-      }
+      const { ok, data } = await callAPI(`${API}/agents/${agentId}/branch`, { method: 'PATCH', body: JSON.stringify({ branch_id }) });
+      if (ok) { showAlert('alert', 'تم نقل الوكيل بنجاح', true); loadAgents(); }
+      else showAlert('alert', data.detail || 'خطأ في النقل', false);
     }
 
     async function addAgent() {
@@ -395,13 +377,8 @@
       const pin  = document.getElementById('new-pin').value.trim();
       const branch_id = document.getElementById('new-branch').value || null;
       if (!name || !pin) return showAlert('alert', 'يرجى إدخال الاسم وكلمة المرور', false);
-      const res = await fetch(`${API}/agents/`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, pin, branch_id })
-      });
-      const data = await res.json();
-      if (res.ok) {
+      const { ok, data } = await callAPI(`${API}/agents/`, { method: 'POST', body: JSON.stringify({ name, pin, branch_id }) });
+      if (ok) {
         showAlert('alert', `تم إضافة الوكيل ${name}`, true);
         document.getElementById('new-name').value = '';
         document.getElementById('new-pin').value = '';
@@ -414,21 +391,20 @@
 
     async function fireAgent(id, name) {
       if (!confirm(`هل أنت متأكد من إيقاف الوكيل "${name}"؟ سيتم إعادة توزيع عملائه.`)) return;
-      const res = await fetch(`${API}/agents/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) loadAgents();
+      const { ok } = await callAPI(`${API}/agents/${id}`, { method: 'DELETE' });
+      if (ok) loadAgents();
     }
 
     async function fireAndWipe(id, name) {
       if (!confirm(`إيقاف ومسح اسم "${name}"؟ سيُحذف الاسم نهائياً.`)) return;
-      const res = await fetch(`${API}/agents/${id}/wipe`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) { showAlert('alert', `تم إيقاف ومسح "${name}"`, true); loadAgents(); }
+      const { ok } = await callAPI(`${API}/agents/${id}/wipe`, { method: 'DELETE' });
+      if (ok) { showAlert('alert', `تم إيقاف ومسح "${name}"`, true); loadAgents(); }
     }
 
     // ─── REQUESTS ──────────────────────────────────────────
     async function loadRequests() {
-      const res = await fetch(`${API}/agents/requests`, { headers: { Authorization: `Bearer ${token}` } });
-      if (!res.ok) return;
-      const requests = await res.json();
+      const { ok, data: requests } = await callAPI(`${API}/agents/requests`);
+      if (!ok) return;
       const badge = document.getElementById('requests-badge');
       badge.textContent = requests.length;
       badge.style.display = requests.length ? 'inline' : 'none';
@@ -460,19 +436,14 @@
     async function approveRequest(id) {
       const final_name = document.getElementById(`fname-${id}`).value.trim();
       const branch_id  = document.getElementById(`fbranch-${id}`).value || null;
-      const res = await fetch(`${API}/agents/requests/${id}/approve`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ final_name, branch_id })
-      });
-      const data = await res.json();
-      if (res.ok) { showAlert('alert', data.message, true); loadRequests(); loadAgents(); }
+      const { ok, data } = await callAPI(`${API}/agents/requests/${id}/approve`, { method: 'POST', body: JSON.stringify({ final_name, branch_id }) });
+      if (ok) { showAlert('alert', data.message, true); loadRequests(); loadAgents(); }
       else showAlert('alert', data.detail || 'خطأ', false);
     }
 
     async function rejectRequest(id, name) {
       if (!confirm(`رفض طلب "${name}"؟`)) return;
-      await fetch(`${API}/agents/requests/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      await callAPI(`${API}/agents/requests/${id}`, { method: 'DELETE' });
       loadRequests();
     }
 
