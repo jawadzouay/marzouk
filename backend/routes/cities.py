@@ -71,8 +71,7 @@ def delete_city(city_id: str, admin=Depends(require_admin)):
     city = sb.table("cities").select("name").eq("id", city_id).execute()
     if city.data:
         city_name = city.data[0]["name"]
-        branches = sb.table("branches").select("id").eq("city", city_name).execute()
-        if branches.data:
-            raise HTTPException(400, "لا يمكن حذف مدينة تحتوي على فروع")
+        # Detach branches from this city — keep branches and all their data, just remove the city label
+        sb.table("branches").update({"city": None}).eq("city", city_name).execute()
     sb.table("cities").delete().eq("id", city_id).execute()
     return {"message": "تم حذف المدينة"}
