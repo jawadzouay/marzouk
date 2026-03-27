@@ -254,6 +254,21 @@ def delete_bonus(bonus_id: str, user=Depends(get_current_user)):
     return {"message": "تم حذف المكافأة"}
 
 
+@router.patch("/{agent_id}/rename")
+def rename_agent(agent_id: str, body: dict, admin=Depends(require_admin)):
+    sb = get_client()
+    new_name = (body.get("name") or "").strip()
+    if not new_name:
+        raise HTTPException(400, "الاسم فارغ")
+    existing = sb.table("agents").select("id").eq("name", new_name).execute()
+    if existing.data and existing.data[0]["id"] != agent_id:
+        raise HTTPException(400, "هذا الاسم مستخدم مسبقاً")
+    result = sb.table("agents").update({"name": new_name}).eq("id", agent_id).execute()
+    if not result.data:
+        raise HTTPException(404, "الوكيل غير موجود")
+    return result.data[0]
+
+
 @router.patch("/{agent_id}/branch")
 def transfer_agent_branch(agent_id: str, body: dict, admin=Depends(require_admin)):
     branch_id = body.get("branch_id") or None

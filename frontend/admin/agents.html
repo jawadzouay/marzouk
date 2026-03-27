@@ -60,6 +60,9 @@
     .transfer-panel { margin-top: 10px; padding: 10px 12px; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .transfer-panel select { flex: 1; min-width: 160px; padding: 7px 10px; font-size: 13px; }
     .transfer-panel .btn-sm { padding: 7px 14px; }
+    .rename-panel { margin-top: 10px; padding: 10px 12px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .rename-panel input { flex: 1; min-width: 160px; padding: 7px 10px; font-size: 13px; border: 2px solid #bfdbfe; border-radius: 8px; font-family: 'Cairo', sans-serif; }
+    .btn-rename { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; font-size: 13px; }
 
     /* Requests */
     .request-row { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
@@ -342,10 +345,17 @@
               ${branchLabel}
             </div>
             <div class="agent-actions">
+              <button class="btn-rename" onclick="toggleRename('${a.id}','${escQ(a.name)}')">✏️ تعديل الاسم</button>
               <button class="btn-transfer" onclick="toggleTransfer('${a.id}')">📦 نقل الفرع</button>
               <button class="btn-fire" onclick="fireAgent('${a.id}','${escQ(a.name)}')">🔴 إيقاف</button>
               <button class="btn-wipe" onclick="fireAndWipe('${a.id}','${escQ(a.name)}')">🗑️ إيقاف ومسح</button>
             </div>
+          </div>
+          <div class="rename-panel" id="rename-${a.id}" style="display:none">
+            <span style="font-size:13px;font-weight:600;color:#1d4ed8">✏️ الاسم الجديد:</span>
+            <input type="text" id="rename-inp-${a.id}" placeholder="اكتب الاسم الجديد..." />
+            <button class="btn-sm btn-save" onclick="confirmRename('${a.id}')">✅ حفظ</button>
+            <button class="btn-sm btn-cancel" onclick="toggleRename('${a.id}')">إلغاء</button>
           </div>
           <div class="transfer-panel" id="transfer-${a.id}" style="display:none">
             <span style="font-size:13px;font-weight:600">نقل إلى فرع:</span>
@@ -358,6 +368,30 @@
           </div>
         </div>`;
       }).join('');
+    }
+
+    function toggleRename(agentId, currentName) {
+      const panel = document.getElementById(`rename-${agentId}`);
+      const isHidden = panel.style.display === 'none';
+      panel.style.display = isHidden ? 'flex' : 'none';
+      if (isHidden) {
+        const inp = document.getElementById(`rename-inp-${agentId}`);
+        inp.value = currentName || '';
+        inp.focus();
+        inp.select();
+      }
+    }
+
+    async function confirmRename(agentId) {
+      const newName = document.getElementById(`rename-inp-${agentId}`).value.trim();
+      if (!newName) return;
+      const { ok, data } = await callAPI(`${API}/agents/${agentId}/rename`, { method: 'PATCH', body: JSON.stringify({ name: newName }) });
+      if (ok) {
+        showAlert('alert', `تم تغيير الاسم إلى "${newName}"`, true);
+        loadAgents();
+      } else {
+        showAlert('alert', data.detail || 'خطأ في التعديل', false);
+      }
     }
 
     function toggleTransfer(agentId) {
