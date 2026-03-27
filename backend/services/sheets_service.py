@@ -6,11 +6,22 @@ import json
 
 load_dotenv()
 
-SHEET_ID = os.getenv("GOOGLE_SHEET_ID")
 SCOPES = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive"
 ]
+
+
+def get_sheet_id() -> str:
+    """DB setting takes precedence over env var so admin can change it from dashboard."""
+    try:
+        from services.supabase_service import get_client
+        row = get_client().table("settings").select("value").eq("key", "google_sheet_id").execute()
+        if row.data:
+            return row.data[0]["value"]
+    except Exception:
+        pass
+    return os.getenv("GOOGLE_SHEET_ID", "")
 
 
 def get_sheets_service():
@@ -24,24 +35,16 @@ def get_sheets_service():
     return build("sheets", "v4", credentials=creds)
 
 
-def ensure_sheet_tab(service, tab_name: str):
-    spreadsheet = service.spreadsheets().get(spreadsheetId=SHEET_ID).execute()
+def ensure_sheet_tab(service, sheet_id: str, tab_name: str):
+    spreadsheet = service.spreadsheets().get(spreadsheetId=sheet_id).execute()
     sheets = [s["properties"]["title"] for s in spreadsheet["sheets"]]
 
     if tab_name not in sheets:
-        body = {
-            "requests": [{
-                "addSheet": {
-                    "properties": {"title": tab_name}
-                }
-            }]
-        }
-        service.spreadsheets().batchUpdate(spreadsheetId=SHEET_ID, body=body).execute()
-
-        # Add header row
+        body = {"requests": [{"addSheet": {"properties": {"title": tab_name}}}]}
+        service.spreadsheets().batchUpdate(spreadsheetId=sheet_id, body=body).execute()
         headers = [["Date", "Agent", "#", "Phone", "Name", "Level", "City", "Status", "Swap Count", "Submitted At"]]
         service.spreadsheets().values().update(
-            spreadsheetId=SHEET_ID,
+            spreadsheetId=sheet_id,
             range=f"{tab_name}!A1",
             valueInputOption="RAW",
             body={"values": headers}
@@ -49,69 +52,52 @@ def ensure_sheet_tab(service, tab_name: str):
 
 
 def append_leads_to_sheet(agent_name: str, leads: list, submission_date: str):
+    sheet_id = get_sheet_id()
+    if not sheet_id:
+        return
     service = get_sheets_service()
-    ensure_sheet_tab(service, agent_name)
-    ensure_sheet_tab(service, "All Leads")
+    ensure_sheet_tab(service, sheet_id, agent_name)
+    ensure_sheet_tab(service, sheet_id, "All Leads")
 
     rows = []
     for i, lead in enumerate(leads, start=1):
-        row = [
-            submission_date,
-            agent_name,
-            i,
-            lead.get("phone", ""),
-            lead.get("name", ""),
-            lead.get("level", ""),
-            lead.get("city", ""),
-            lead.get("status", ""),
-            lead.get("swap_count", 0),
-            lead.get("submitted_at", ""),
-        ]
-        rows.append(row)
+        rows.append([
+            submission_date, agent_name, i,
+            lead.get("phone", ""), lead.get("name", ""), lead.get("level", ""),
+            lead.get("city", ""), lead.get("status", ""),
+            lead.get("swap_count", 0), lead.get("submitted_at", ""),
+        ])
 
-    # Append to agent tab
     service.spreadsheets().values().append(
-        spreadsheetId=SHEET_ID,
-        range=f"{agent_name}!A1",
-        valueInputOption="RAW",
-        insertDataOption="INSERT_ROWS",
+        spreadsheetId=sheet_id, range=f"{agent_name}!A1",
+        valueInputOption="RAW", insertDataOption="INSERT_ROWS",
         body={"values": rows}
     ).execute()
-
-    # Append to All Leads tab
     service.spreadsheets().values().append(
-        spreadsheetId=SHEET_ID,
-        range="All Leads!A1",
-        valueInputOption="RAW",
-        insertDataOption="INSERT_ROWS",
+        spreadsheetId=sheet_id, range="All Leads!A1",
+        valueInputOption="RAW", insertDataOption="INSERT_ROWS",
         body={"values": rows}
     ).execute()
 
 
 def append_to_archive(agent_name: str, leads: list, submission_date: str):
+    sheet_id = get_sheet_id()
+    if not sheet_id:
+        return
     service = get_sheets_service()
-    ensure_sheet_tab(service, "Archive")
+    ensure_sheet_tab(service, sheet_id, "Archive")
 
     rows = []
     for i, lead in enumerate(leads, start=1):
-        row = [
-            submission_date,
-            agent_name,
-            i,
-            lead.get("phone", ""),
-            lead.get("name", ""),
-            lead.get("level", ""),
-            lead.get("city", ""),
-            lead.get("status", ""),
-            lead.get("swap_count", 0),
-            lead.get("submitted_at", ""),
-        ]
-        rows.append(row)
+        rows.append([
+            submission_date, agent_name, i,
+            lead.get("phone", ""), lead.get("name", ""), lead.get("level", ""),
+            lead.get("city", ""), lead.get("status", ""),
+            lead.get("swap_count", 0), lead.get("submitted_at", ""),
+        ])
 
     service.spreadsheets().values().append(
-        spreadsheetId=SHEET_ID,
-        range="Archive!A1",
-        valueInputOption="RAW",
-        insertDataOption="INSERT_ROWS",
+        spreadsheetId=sheet_id, range="Archive!A1",
+        valueInputOption="RAW", insertDataOption="INSERT_ROWS",
         body={"values": rows}
     ).execute()

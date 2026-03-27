@@ -247,6 +247,49 @@ def submission_calendar(admin=Depends(require_admin)):
     return result.data
 
 
+@router.get("/sheets-config")
+def get_sheets_config(admin=Depends(require_admin)):
+    sb = get_client()
+    env_id = os.getenv("GOOGLE_SHEET_ID", "")
+    try:
+        row = sb.table("settings").select("value").eq("key", "google_sheet_id").execute()
+        db_id = row.data[0]["value"] if row.data else None
+    except Exception:
+        db_id = None
+    sheet_id = db_id or env_id
+    sheet_url = f"https://docs.google.com/spreadsheets/d/{sheet_id}" if sheet_id else None
+    return {
+        "sheet_id":   sheet_id,
+        "sheet_url":  sheet_url,
+        "source":     "db" if db_id else ("env" if env_id else "none"),
+        "env_id":     env_id,
+    }
+
+
+@router.put("/sheets-config")
+def set_sheets_config(body: dict, admin=Depends(require_admin)):
+    raw = (body.get("sheet_id") or "").strip()
+    if not raw:
+        raise HTTPException(400, "يرجى إدخال معرّف الجدول أو الرابط")
+    # Accept full URL or bare ID
+    if "spreadsheets/d/" in raw:
+        parts = raw.split("spreadsheets/d/")
+        raw = parts[1].split("/")[0].split("?")[0]
+    if not raw:
+        raise HTTPException(400, "لم يتم التعرف على معرّف الجدول")
+    sb = get_client()
+    sb.table("settings").upsert({"key": "google_sheet_id", "value": raw, "updated_at": datetime.utcnow().isoformat()}).execute()
+    return {"sheet_id": raw, "sheet_url": f"https://docs.google.com/spreadsheets/d/{raw}"}
+
+
+@router.delete("/sheets-config")
+def delete_sheets_config(admin=Depends(require_admin)):
+    sb = get_client()
+    sb.table("settings").delete().eq("key", "google_sheet_id").execute()
+    env_id = os.getenv("GOOGLE_SHEET_ID", "")
+    return {"message": "تمت إزالة الجدول من قاعدة البيانات", "fallback_env": bool(env_id)}
+
+
 @router.get("/stats/overview")
 def stats_overview(admin=Depends(require_admin)):
     sb = get_client()

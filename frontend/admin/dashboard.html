@@ -231,6 +231,30 @@
     .toggle-chevron.open { transform: rotate(180deg); }
     .ethics-body { padding: 0 14px 14px; border-top: 1px solid #f3f4f6; }
 
+    /* ── Google Sheets Card ── */
+    .sheet-card {
+      background: white; border-radius: 14px; padding: 14px 16px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      border-right: 4px solid #16a34a;
+    }
+    .sheet-card-title { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .sheet-link-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .sheet-url-link { font-size: 13px; color: #16a34a; font-weight: 600; text-decoration: none; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; }
+    .sheet-url-link:hover { text-decoration: underline; }
+    .sheet-source-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
+    .source-db  { background: #dbeafe; color: #1d4ed8; }
+    .source-env { background: #fef9c3; color: #854d0e; }
+    .sheet-btn { padding: 6px 12px; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; border: none; }
+    .btn-change { background: #f3f4f6; color: #374151; }
+    .btn-unlink { background: #fef2f2; color: #dc2626; }
+    .sheet-input-row { display: none; margin-top: 10px; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .sheet-input-row.show { display: flex; }
+    .sheet-inp { flex: 1; min-width: 200px; padding: 8px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; direction: ltr; }
+    .btn-save-sheet { padding: 8px 16px; background: #16a34a; color: white; border: none; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .btn-cancel-sheet { padding: 8px 12px; background: #f3f4f6; color: #374151; border: none; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; }
+    .sheet-no-link { font-size: 13px; color: #9ca3af; }
+    .btn-add-sheet { padding: 7px 16px; background: #16a34a; color: white; border: none; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+
     .flag-card {
       border-radius: 10px; padding: 12px; margin-bottom: 8px;
     }
@@ -387,6 +411,29 @@
   <!-- Today submissions -->
   <div class="section-title">إرسال اليوم</div>
   <div class="subs-grid" id="subs-grid"></div>
+
+  <!-- Google Sheets card -->
+  <div class="sheet-card" id="sheet-card">
+    <div class="sheet-card-title">📊 Google Sheet المرتبط</div>
+    <div id="sheet-linked-view" style="display:none">
+      <div class="sheet-link-row">
+        <a id="sheet-url-link" class="sheet-url-link" target="_blank" href="#">—</a>
+        <span id="sheet-source-badge" class="sheet-source-badge source-db">DB</span>
+        <button class="sheet-btn btn-change" onclick="showSheetInput()">✏️ تغيير</button>
+        <button class="sheet-btn btn-unlink" onclick="unlinkSheet()">🗑 فصل</button>
+      </div>
+    </div>
+    <div id="sheet-empty-view" style="display:none">
+      <div class="sheet-no-link">لا يوجد جدول مرتبط حالياً</div>
+      <button class="btn-add-sheet" onclick="showSheetInput()">+ ربط جدول</button>
+    </div>
+    <div class="sheet-input-row" id="sheet-input-row">
+      <input id="sheet-inp" class="sheet-inp" type="text" placeholder="الصق رابط الجدول أو معرّفه هنا..." />
+      <button class="btn-save-sheet" onclick="saveSheet()">✅ حفظ</button>
+      <button class="btn-cancel-sheet" onclick="cancelSheetInput()">إلغاء</button>
+    </div>
+    <div id="sheet-msg" style="font-size:12px;margin-top:6px"></div>
+  </div>
 
   <!-- Ethics monitor -->
   <div class="ethics-wrap">
@@ -790,10 +837,72 @@
     if (state.ethicsOpen && !state.ethicsLoaded) loadEthics();
   }
 
+  // ── Google Sheets Config ───────────────────────────────
+  async function loadSheetConfig() {
+    try {
+      const res  = await fetch(`${API}/admin/sheets-config`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.sheet_id) {
+        document.getElementById('sheet-linked-view').style.display = 'block';
+        document.getElementById('sheet-empty-view').style.display  = 'none';
+        const link = document.getElementById('sheet-url-link');
+        link.href        = data.sheet_url;
+        link.textContent = data.sheet_url;
+        const badge = document.getElementById('sheet-source-badge');
+        badge.textContent  = data.source === 'db' ? 'مخصص' : 'Railway';
+        badge.className    = `sheet-source-badge ${data.source === 'db' ? 'source-db' : 'source-env'}`;
+      } else {
+        document.getElementById('sheet-linked-view').style.display = 'none';
+        document.getElementById('sheet-empty-view').style.display  = 'block';
+      }
+    } catch(e) {
+      document.getElementById('sheet-empty-view').style.display = 'block';
+    }
+  }
+
+  function showSheetInput() {
+    document.getElementById('sheet-input-row').classList.add('show');
+    document.getElementById('sheet-inp').focus();
+  }
+  function cancelSheetInput() {
+    document.getElementById('sheet-input-row').classList.remove('show');
+    document.getElementById('sheet-inp').value = '';
+    document.getElementById('sheet-msg').innerHTML = '';
+  }
+
+  async function saveSheet() {
+    const val = document.getElementById('sheet-inp').value.trim();
+    const msg = document.getElementById('sheet-msg');
+    if (!val) { msg.innerHTML = '<span style="color:#dc2626">يرجى إدخال الرابط أو المعرّف</span>'; return; }
+    const res  = await fetch(`${API}/admin/sheets-config`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sheet_id: val })
+    });
+    const data = await res.json();
+    if (res.ok) {
+      msg.innerHTML = '<span style="color:#16a34a">✅ تم الحفظ</span>';
+      document.getElementById('sheet-inp').value = '';
+      setTimeout(() => { cancelSheetInput(); loadSheetConfig(); }, 800);
+    } else {
+      msg.innerHTML = `<span style="color:#dc2626">${data.detail || 'خطأ في الحفظ'}</span>`;
+    }
+  }
+
+  async function unlinkSheet() {
+    if (!confirm('هل تريد فصل هذا الجدول؟ سيتوقف التزامن حتى تربط جدولاً جديداً.')) return;
+    const res = await fetch(`${API}/admin/sheets-config`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (res.ok) loadSheetConfig();
+  }
+
   function logout() { localStorage.clear(); window.location.href = '/index.html'; }
 
   // ── Init ───────────────────────────────────────────────
   loadData();
+  loadSheetConfig();
 </script>
 </body>
 </html>

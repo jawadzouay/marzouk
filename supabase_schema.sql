@@ -160,6 +160,13 @@ INSERT INTO swap_settings (id, swap_level) VALUES (1, 1) ON CONFLICT (id) DO NOT
 ALTER TABLE ad_spend ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES branches(id);
 ALTER TABLE ad_spend ADD COLUMN IF NOT EXISTS adset_name TEXT;
 
+-- APP SETTINGS (key-value store for admin-configurable values)
+CREATE TABLE IF NOT EXISTS settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL,
+  updated_at TIMESTAMP DEFAULT now()
+);
+
 -- AGENT REGISTRATION REQUESTS (self-signup flow)
 CREATE TABLE IF NOT EXISTS agent_requests (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
