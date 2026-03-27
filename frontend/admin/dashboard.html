@@ -325,9 +325,9 @@
   <!-- Sort bar -->
   <div class="sort-row">
     <span class="sort-lbl">ترتيب حسب:</span>
-    <button class="sort-btn active" data-sort="rdv_count"           onclick="setSort(this,'rdv_count')">RDV</button>
-    <button class="sort-btn"         data-sort="total_leads"         onclick="setSort(this,'total_leads')">العملاء</button>
-    <button class="sort-btn"         data-sort="registered_students" onclick="setSort(this,'registered_students')">مسجلين</button>
+    <button class="sort-btn"        data-sort="rdv_count"           onclick="setSort(this,'rdv_count')">RDV</button>
+    <button class="sort-btn"        data-sort="total_leads"         onclick="setSort(this,'total_leads')">العملاء</button>
+    <button class="sort-btn active" data-sort="registered_students" onclick="setSort(this,'registered_students')">مسجلين</button>
     <button class="sort-btn"         data-sort="showed_up"           onclick="setSort(this,'showed_up')">حضروا</button>
     <button class="sort-btn"         data-sort="bv_count"            onclick="setSort(this,'bv_count')">B.V</button>
     <button class="sort-btn"         data-sort="nr_count"            onclick="setSort(this,'nr_count')">N.R</button>
@@ -352,7 +352,7 @@
   <!-- Bar chart -->
   <div class="chart-card">
     <div class="chart-hdr">
-      <div class="chart-title" id="chart-title">📊 ترتيب الوكلاء — RDV</div>
+      <div class="chart-title" id="chart-title">📊 ترتيب الوكلاء — مسجلين</div>
     </div>
     <div style="position:relative"><canvas id="bar-chart"></canvas></div>
   </div>
@@ -420,7 +420,7 @@
 
   const state = {
     period: 'today', dateFrom: null, dateTo: null,
-    selectedId: null, sortBy: 'rdv_count', search: '',
+    selectedId: null, sortBy: 'registered_students', search: '',
     leaderboard: [], agents: [], ethicsLoaded: false, ethicsOpen: false
   };
 

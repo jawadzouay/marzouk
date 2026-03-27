@@ -51,11 +51,14 @@
     .ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .ai-result { margin-top: 14px; padding: 14px; background: #f8fafc; border-radius: 10px; font-size: 13px; color: #374151; line-height: 2; white-space: pre-wrap; border-right: 3px solid #e63329; }
 
-    /* Agent selector pills */
-    .agent-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    /* Filter pills */
+    .pills-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; align-items: center; }
+    .pills-lbl { font-size: 11px; color: #9ca3af; font-weight: 700; white-space: nowrap; padding-left: 4px; }
     .agent-pill { padding: 6px 14px; border-radius: 20px; border: 1.5px solid #e5e7eb; font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700; background: white; color: #6b7280; cursor: pointer; }
     .agent-pill.active { background: #e63329; color: white; border-color: #e63329; }
     .agent-pill.all { background: #1a1a1a; color: white; border-color: #1a1a1a; }
+    .agent-pill.city-pill.active { background: #0369a1; border-color: #0369a1; color: white; }
+    .agent-pill.branch-pill.active { background: #059669; border-color: #059669; color: white; }
   </style>
 </head>
 <body>
@@ -82,8 +85,21 @@
     </div>
   </div>
 
+  <!-- City filter -->
+  <div class="pills-row" id="city-pills-row" style="display:none">
+    <span class="pills-lbl">📍 المدينة:</span>
+    <div id="city-pills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+  </div>
+  <!-- Branch filter -->
+  <div class="pills-row" id="branch-pills-row" style="display:none">
+    <span class="pills-lbl">🏢 الفرع:</span>
+    <div id="branch-pills" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+  </div>
   <!-- Agent pills -->
-  <div class="agent-pills" id="agent-pills"></div>
+  <div class="pills-row">
+    <span class="pills-lbl">👤 الوكيل:</span>
+    <div class="agent-pills" id="agent-pills" style="margin-bottom:0"></div>
+  </div>
 
   <!-- Metrics cards -->
   <div class="metrics-grid" id="metrics-grid">
@@ -155,10 +171,14 @@
   const token = localStorage.getItem('token');
   if (!token || localStorage.getItem('role') !== 'admin') window.location.href = '/index.html';
 
-  let allMetrics   = [];
-  let selectedAgent = null;
-  let period       = 'week';
-  let charts       = {};
+  let allMetrics    = [];
+  let allAgentsMeta = [];  // [{id, branch_id}]
+  let allBranches   = [];  // [{id, name, city}]
+  let selectedAgent  = null;
+  let selectedCity   = null;
+  let selectedBranch = null;
+  let period = 'week';
+  let charts = {};
 
   function getPeriodDates() {
     const today = new Date(); const fmt = d => d.toISOString().split('T')[0];
@@ -180,21 +200,91 @@
     const p = new URLSearchParams();
     if (from) p.set('date_from', from);
     if (to)   p.set('date_to', to);
-    const res = await fetch(`${API}/analytics/metrics?${p}`, { headers: { Authorization: `Bearer ${token}` } });
-    allMetrics = await res.json();
+    const [mRes, aRes, bRes] = await Promise.all([
+      fetch(`${API}/analytics/metrics?${p}`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${API}/agents/`,                 { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${API}/branches/`,               { headers: { Authorization: `Bearer ${token}` } }),
+    ]);
+    allMetrics    = mRes.ok ? await mRes.json() : [];
+    allAgentsMeta = aRes.ok ? await aRes.json() : [];
+    allBranches   = bRes.ok ? await bRes.json() : [];
+    renderCityPills();
+    renderBranchPills();
     renderAgentPills();
     renderAll();
   }
 
-  function getDisplayData() {
-    if (selectedAgent) return allMetrics.filter(a => a.agent_id === selectedAgent);
-    return allMetrics;
+  // Build agent_id → {branch_id, city} lookup
+  function agentBranchMap() {
+    const branchById = {};
+    allBranches.forEach(b => { branchById[b.id] = b; });
+    const map = {};
+    allAgentsMeta.forEach(a => {
+      const b = a.branch_id ? branchById[a.branch_id] : null;
+      map[a.id] = { branch_id: a.branch_id || null, city: b ? b.city : null };
+    });
+    return map;
   }
 
+  function getDisplayData() {
+    const abm = agentBranchMap();
+    return allMetrics.filter(a => {
+      const info = abm[a.agent_id] || {};
+      if (selectedAgent  && a.agent_id     !== selectedAgent)  return false;
+      if (selectedBranch && info.branch_id  !== selectedBranch) return false;
+      if (selectedCity   && info.city       !== selectedCity)   return false;
+      return true;
+    });
+  }
+
+  // ── City pills ──────────────────────────────────────────
+  function renderCityPills() {
+    const cities = [...new Set(allBranches.map(b => b.city).filter(Boolean))];
+    const row = document.getElementById('city-pills-row');
+    if (!cities.length) { row.style.display = 'none'; return; }
+    row.style.display = 'flex';
+    document.getElementById('city-pills').innerHTML =
+      `<button class="agent-pill city-pill ${!selectedCity?'all active':''}" onclick="selectCity(null)">الكل</button>` +
+      cities.map(c => `<button class="agent-pill city-pill ${selectedCity===c?'active':''}" onclick="selectCity('${c}')">${c}</button>`).join('');
+  }
+
+  function selectCity(city) {
+    selectedCity   = city;
+    selectedBranch = null;
+    selectedAgent  = null;
+    renderCityPills();
+    renderBranchPills();
+    renderAgentPills();
+    renderAll();
+  }
+
+  // ── Branch pills ────────────────────────────────────────
+  function renderBranchPills() {
+    const branches = selectedCity
+      ? allBranches.filter(b => b.city === selectedCity)
+      : allBranches;
+    const row = document.getElementById('branch-pills-row');
+    if (!branches.length) { row.style.display = 'none'; return; }
+    row.style.display = 'flex';
+    document.getElementById('branch-pills').innerHTML =
+      `<button class="agent-pill branch-pill ${!selectedBranch?'all active':''}" onclick="selectBranch(null)">الكل</button>` +
+      branches.map(b => `<button class="agent-pill branch-pill ${selectedBranch===b.id?'active':''}" onclick="selectBranch('${b.id}')">${b.name}</button>`).join('');
+  }
+
+  function selectBranch(branchId) {
+    selectedBranch = branchId;
+    selectedAgent  = null;
+    renderBranchPills();
+    renderAgentPills();
+    renderAll();
+  }
+
+  // ── Agent pills ─────────────────────────────────────────
   function renderAgentPills() {
+    const visible = getDisplayData();
     const el = document.getElementById('agent-pills');
     el.innerHTML = `<button class="agent-pill all ${!selectedAgent?'active':''}" onclick="selectAgent(null)">👥 الكل</button>` +
-      allMetrics.map(a => `<button class="agent-pill ${selectedAgent===a.agent_id?'active':''}" onclick="selectAgent('${a.agent_id}')">${a.agent_name}</button>`).join('');
+      visible.map(a => `<button class="agent-pill ${selectedAgent===a.agent_id?'active':''}" onclick="selectAgent('${a.agent_id}')">${a.agent_name}</button>`).join('');
   }
 
   function selectAgent(id) {
