@@ -265,7 +265,7 @@ def transfer_agent_branch(agent_id: str, body: dict, admin=Depends(require_admin
 
 
 @router.get("/{agent_id}/stats")
-def agent_stats(agent_id: str):
+def agent_stats(agent_id: str, user=Depends(get_current_user)):
     sb = get_client()
 
     leads = sb.table("leads").select("status, swap_count, submitted_at").eq("original_agent", agent_id).execute()

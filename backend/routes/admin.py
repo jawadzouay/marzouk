@@ -157,7 +157,7 @@ def ethics_check(admin=Depends(require_admin)):
 
     for agent in agents.data:
         agent_flags = []
-        leads = sb.table("leads").select("phone, status, submitted_at, city").eq("original_agent", agent["id"]).execute()
+        leads = sb.table("leads").select("phone, status, submitted_at, city, swap_count").eq("original_agent", agent["id"]).execute()
         total = len(leads.data)
         rdv_count = sum(1 for l in leads.data if l["status"] == "RDV")
 
@@ -182,15 +182,7 @@ def ethics_check(admin=Depends(require_admin)):
                 "message": f"إرسال {subs.data[0]['leads_count']} عميل في يوم واحد ({subs.data[0]['submission_date']})"
             })
 
-        # Check 3: All leads from the same city
-        if total >= 10:
-            cities = [l["city"] for l in leads.data if l.get("city")]
-            if cities and len(set(cities)) == 1:
-                agent_flags.append({
-                    "type": "same_city",
-                    "severity": "medium",
-                    "message": f"كل العملاء من نفس المدينة: {cities[0]}"
-                })
+        # Check 3: REMOVED — agents are assigned one city only, same-city is normal
 
         # Check 4: Sequential phone numbers (possible fabricated list)
         phones = [l["phone"] for l in leads.data if l.get("phone") and l["phone"].isdigit() and len(l["phone"]) == 10]
@@ -212,6 +204,27 @@ def ethics_check(admin=Depends(require_admin)):
                 "type": "zero_rdv",
                 "severity": "medium",
                 "message": f"لا يوجد أي RDV رغم {total} عميل — أداء أو بيانات مشكوك فيها"
+            })
+
+        # Check 6: Wrong number / Blacklist — leads originally submitted by this agent
+        # that were later marked as wrong number by another agent after swap
+        all_agent_leads = sb.table("leads").select("status, swap_count") \
+            .eq("original_agent", agent["id"]).execute()
+        wrong_numbers = sum(
+            1 for l in all_agent_leads.data
+            if l.get("status") == "Blacklist" and (l.get("swap_count") or 0) > 0
+        )
+        if wrong_numbers >= 3:
+            agent_flags.append({
+                "type": "wrong_numbers",
+                "severity": "high",
+                "message": f"{wrong_numbers} رقم خاطئ — عملاء قدّمهم ثم صنّفهم الوكيل الجديد كـ 'رقم خاطئ'"
+            })
+        elif wrong_numbers >= 1:
+            agent_flags.append({
+                "type": "wrong_numbers",
+                "severity": "medium",
+                "message": f"{wrong_numbers} رقم مشكوك فيه — صُنِّف كـ 'رقم خاطئ' بعد التبادل"
             })
 
         if agent_flags:

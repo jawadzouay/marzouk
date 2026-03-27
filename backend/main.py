@@ -35,16 +35,6 @@ app.include_router(cities.router,   prefix="/cities",   tags=["cities"])
 def health():
     return {"status": "ok"}
 
-@app.get("/debug-env")
-def debug_env():
-    pin = (os.getenv("ADMIN_PIN") or "").strip()
-    return {
-        "admin_pin_set": bool(pin),
-        "admin_pin_length": len(pin),
-        "admin_pin_value": pin,
-        "all_env_keys": sorted(os.environ.keys())
-    }
-
 # Serve frontend static files with no-cache headers
 from fastapi import Request
 from fastapi.responses import Response
