@@ -42,11 +42,12 @@ def add_city(body: dict, admin=Depends(require_admin)):
     if not name:
         raise HTTPException(400, "اسم المدينة فارغ")
     sb = get_client()
-    try:
-        result = sb.table("cities").insert({"name": name}).execute()
-        return result.data[0]
-    except Exception:
+    # Explicit check — do NOT use try/except which hides real errors
+    existing = sb.table("cities").select("id").eq("name", name).execute()
+    if existing.data:
         raise HTTPException(400, "المدينة موجودة مسبقاً")
+    result = sb.table("cities").insert({"name": name}).execute()
+    return result.data[0]
 
 
 @router.put("/{city_id}")
@@ -60,7 +61,7 @@ def rename_city(city_id: str, body: dict, admin=Depends(require_admin)):
         raise HTTPException(404, "المدينة غير موجودة")
     old_name = old.data[0]["name"]
     result = sb.table("cities").update({"name": new_name}).eq("id", city_id).execute()
-    # Cascade rename in branches
+    # Cascade rename to all branches that had this city
     sb.table("branches").update({"city": new_name}).eq("city", old_name).execute()
     return result.data[0]
 
@@ -68,10 +69,15 @@ def rename_city(city_id: str, body: dict, admin=Depends(require_admin)):
 @router.delete("/{city_id}")
 def delete_city(city_id: str, admin=Depends(require_admin)):
     sb = get_client()
-    city = sb.table("cities").select("name").eq("id", city_id).execute()
-    if city.data:
-        city_name = city.data[0]["name"]
-        # Detach branches from this city — keep branches and all their data, just remove the city label
-        sb.table("branches").update({"city": None}).eq("city", city_name).execute()
+    city = sb.table("cities").select("id,name").eq("id", city_id).execute()
+    if not city.data:
+        # Already gone — not an error
+        return {"message": "تم الحذف"}
+    city_name = city.data[0]["name"]
+    # Detach all branches from this city (data stays intact)
+    sb.table("branches").update({"city": None}).eq("city", city_name).execute()
+    # Delete the city name itself
     sb.table("cities").delete().eq("id", city_id).execute()
+    # Final safety: delete any remaining row with this name (avoids ghost rows)
+    sb.table("cities").delete().eq("name", city_name).execute()
     return {"message": "تم حذف المدينة"}
