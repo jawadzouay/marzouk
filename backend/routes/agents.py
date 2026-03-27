@@ -254,6 +254,16 @@ def delete_bonus(bonus_id: str, user=Depends(get_current_user)):
     return {"message": "تم حذف المكافأة"}
 
 
+@router.patch("/{agent_id}/branch")
+def transfer_agent_branch(agent_id: str, body: dict, admin=Depends(require_admin)):
+    branch_id = body.get("branch_id") or None
+    sb = get_client()
+    result = sb.table("agents").update({"branch_id": branch_id}).eq("id", agent_id).execute()
+    if not result.data:
+        raise HTTPException(404, "الوكيل غير موجود")
+    return result.data[0]
+
+
 @router.get("/{agent_id}/stats")
 def agent_stats(agent_id: str):
     sb = get_client()

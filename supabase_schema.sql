@@ -118,6 +118,13 @@ CREATE INDEX IF NOT EXISTS idx_ad_spend_period ON ad_spend(period_start, period_
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS avatar_url TEXT;
 ALTER TABLE agents ADD COLUMN IF NOT EXISTS goals JSONB DEFAULT '[]'::jsonb;
 
+-- CITIES (top-level, managed independently)
+CREATE TABLE IF NOT EXISTS cities (
+  id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name       TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMP DEFAULT now()
+);
+
 -- BRANCHES
 CREATE TABLE IF NOT EXISTS branches (
   id         UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

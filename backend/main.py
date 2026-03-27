@@ -7,7 +7,7 @@ import os
 
 load_dotenv()
 
-from routes import auth, agents, leads, rdv, swap, admin, blacklist, spend, analytics, branches
+from routes import auth, agents, leads, rdv, swap, admin, blacklist, spend, analytics, branches, cities
 
 app = FastAPI(title="Marzouk Academy CRM")
 
@@ -29,6 +29,7 @@ app.include_router(blacklist.router, prefix="/blacklist", tags=["blacklist"])
 app.include_router(spend.router,     prefix="/spend",     tags=["spend"])
 app.include_router(analytics.router, prefix="/analytics", tags=["analytics"])
 app.include_router(branches.router, prefix="/branches", tags=["branches"])
+app.include_router(cities.router,   prefix="/cities",   tags=["cities"])
 
 @app.get("/health")
 def health():

@@ -63,6 +63,18 @@ def create_branch(branch: BranchCreate, admin=Depends(require_admin)):
     return result.data[0]
 
 
+@router.put("/{branch_id}")
+def rename_branch(branch_id: str, body: dict, admin=Depends(require_admin)):
+    name = (body.get("name") or "").strip()
+    if not name:
+        raise HTTPException(400, "اسم الفرع فارغ")
+    sb = get_client()
+    result = sb.table("branches").update({"name": name}).eq("id", branch_id).execute()
+    if not result.data:
+        raise HTTPException(404, "الفرع غير موجود")
+    return result.data[0]
+
+
 @router.delete("/{branch_id}")
 def delete_branch(branch_id: str, admin=Depends(require_admin)):
     sb = get_client()

@@ -13,33 +13,57 @@
     .container { padding: 20px; max-width: 800px; margin: 0 auto; }
     .card { background: white; border-radius: 12px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
     .card h2 { margin-bottom: 16px; font-size: 16px; color: #1a1a1a; }
-    .form-row { display: flex; gap: 12px; flex-wrap: wrap; }
+    .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
     input, select { flex: 1; min-width: 120px; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 15px; font-family: 'Cairo', sans-serif; }
     input:focus, select:focus { outline: none; border-color: #1a1a1a; }
-    .btn-add { background: #1a1a1a; color: white; border: none; border-radius: 8px; padding: 10px 20px; font-family: 'Cairo', sans-serif; font-size: 15px; cursor: pointer; font-weight: 700; white-space: nowrap; }
-    .btn-red { background: #e63329; color: white; border: none; border-radius: 8px; padding: 10px 20px; font-family: 'Cairo', sans-serif; font-size: 15px; cursor: pointer; font-weight: 700; }
-    .agent-row { background: white; border-radius: 10px; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .btn-add  { background: #1a1a1a; color: white; border: none; border-radius: 8px; padding: 10px 20px; font-family: 'Cairo', sans-serif; font-size: 15px; cursor: pointer; font-weight: 700; white-space: nowrap; }
+    .btn-red  { background: #e63329; color: white; border: none; border-radius: 8px; padding: 10px 20px; font-family: 'Cairo', sans-serif; font-size: 15px; cursor: pointer; font-weight: 700; white-space: nowrap; }
+    .btn-sm   { border: none; border-radius: 6px; padding: 5px 12px; font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 12px; font-weight: 600; }
+    .btn-edit   { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .btn-save   { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+    .btn-cancel { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+    .btn-delete { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .btn-fire   { background: #fef2f2; color: #dc2626; border: 2px solid #fecaca; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; }
+    .btn-wipe   { background: #1a1a1a; color: white; border: 2px solid #1a1a1a; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; }
+    .btn-transfer { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; font-size: 13px; }
+    .alert { padding: 12px 16px; border-radius: 10px; margin-bottom: 14px; font-size: 14px; }
+    .alert-success { background: #dcfce7; color: #166534; }
+    .alert-error   { background: #fef2f2; color: #dc2626; }
+    .empty-state { text-align: center; color: #9ca3af; padding: 20px; font-size: 14px; }
+    .section-title { font-size: 16px; font-weight: 700; color: #374151; margin: 0 0 12px; }
+
+    /* Cities list */
+    .city-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #f9fafb; border-radius: 8px; margin-bottom: 8px; border: 1px solid #e5e7eb; }
+    .city-item-name { font-weight: 700; font-size: 14px; color: #1a1a1a; }
+    .city-item-actions { display: flex; gap: 6px; }
+    .city-item-edit { display: flex; gap: 6px; align-items: center; width: 100%; }
+    .city-item-edit input { padding: 6px 10px; font-size: 14px; }
+
+    /* Branches grouped */
+    .city-group { margin-bottom: 14px; }
+    .city-group-header { background: #1a1a1a; color: white; border-radius: 10px 10px 0 0; padding: 10px 16px; display: flex; justify-content: space-between; align-items: center; }
+    .city-group-header span { font-weight: 700; font-size: 14px; }
+    .city-group-body { border: 2px solid #1a1a1a; border-top: none; border-radius: 0 0 10px 10px; padding: 8px; background: #f9fafb; }
+    .branch-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: white; border-radius: 8px; margin-bottom: 6px; border: 1px solid #e5e7eb; }
+    .branch-item:last-child { margin-bottom: 0; }
+    .branch-item-name { font-weight: 600; font-size: 14px; }
+    .branch-item-edit { display: flex; gap: 6px; align-items: center; width: 100%; }
+    .branch-item-edit input { padding: 6px 10px; font-size: 14px; }
+
+    /* Agents */
+    .agent-row { background: white; border-radius: 10px; padding: 14px 16px; margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .agent-main { display: flex; justify-content: space-between; align-items: flex-start; }
     .agent-info .agent-name { font-weight: 700; }
     .agent-info .agent-meta { font-size: 12px; color: #9ca3af; margin-top: 2px; }
     .branch-tag { display: inline-block; background: #e0f2fe; color: #0369a1; border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600; margin-top: 4px; }
-    .city-group { margin-bottom: 14px; }
-    .city-header { display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; color: white; border-radius: 10px 10px 0 0; padding: 10px 16px; }
-    .city-header-name { font-weight: 700; font-size: 15px; }
-    .city-branches { border: 2px solid #1a1a1a; border-top: none; border-radius: 0 0 10px 10px; padding: 8px; background: #f9fafb; }
-    .branch-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: white; border-radius: 8px; margin-bottom: 6px; border: 1px solid #e5e7eb; }
-    .branch-row:last-child { margin-bottom: 0; }
-    .branch-name { font-weight: 600; font-size: 14px; }
-    .btn-delete-branch { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; border-radius: 6px; padding: 5px 12px; font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 12px; }
-    .btn-fire { background: #fef2f2; color: #dc2626; border: 2px solid #fecaca; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; }
-    .btn-wipe { background: #1a1a1a; color: white; border: 2px solid #1a1a1a; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; }
     .agent-actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
-    .alert { padding: 12px 16px; border-radius: 10px; margin-bottom: 16px; font-size: 14px; }
-    .alert-success { background: #dcfce7; color: #166534; }
-    .alert-error { background: #fef2f2; color: #dc2626; }
-    .section-title { font-size: 16px; font-weight: 700; color: #374151; margin: 0 0 12px; }
-    .empty-state { text-align: center; color: #9ca3af; padding: 20px; font-size: 14px; }
+    .transfer-panel { margin-top: 10px; padding: 10px 12px; background: #f0fdf4; border-radius: 8px; border: 1px solid #bbf7d0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .transfer-panel select { flex: 1; min-width: 160px; padding: 7px 10px; font-size: 13px; }
+    .transfer-panel .btn-sm { padding: 7px 14px; }
+
+    /* Requests */
     .request-row { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
-    .request-row .req-name { font-weight: 700; font-size: 15px; color: #1a1a1a; }
+    .request-row .req-name { font-weight: 700; font-size: 15px; }
     .request-row .req-pass { font-size: 13px; color: #6b7280; margin-top: 3px; direction: ltr; text-align: right; }
     .request-row .req-pass span { background: #f3f4f6; padding: 2px 8px; border-radius: 4px; font-family: monospace; color: #374151; }
     .request-row .req-date { font-size: 11px; color: #9ca3af; margin-top: 2px; }
@@ -58,39 +82,52 @@
 
   <div class="container">
 
-    <!-- Pending Registration Requests -->
-    <div class="card" id="requests-card" style="border: 2px solid #fbbf24;">
-      <h2>🔔 طلبات إنشاء الحساب <span id="requests-badge" style="background:#e63329;color:white;border-radius:20px;padding:2px 10px;font-size:13px;margin-right:8px">0</span></h2>
-      <div id="requests-list"><div class="empty-state">لا يوجد طلبات معلقة</div></div>
+    <!-- ① Cities -->
+    <div class="card">
+      <h2>📍 إدارة المدن</h2>
+      <div id="city-alert"></div>
+      <div class="form-row" style="margin-bottom:16px">
+        <input type="text" id="new-city-name" placeholder="اسم المدينة (مثال: طنجة)" />
+        <button class="btn-add" onclick="addCity()">+ إضافة مدينة</button>
+      </div>
+      <div id="cities-list"><div class="empty-state">لا يوجد مدن بعد</div></div>
     </div>
 
-    <!-- Branch Management -->
+    <!-- ② Branches -->
     <div class="card">
       <h2>🏢 إدارة الفروع</h2>
       <div id="branch-alert"></div>
       <div class="form-row" style="margin-bottom:16px">
         <input type="text" id="new-branch-name" placeholder="اسم الفرع (مثال: النجمة)" />
-        <input type="text" id="new-branch-city" list="cities-list" placeholder="المدينة (مثال: طنجة)" />
-        <datalist id="cities-list"></datalist>
+        <select id="new-branch-city">
+          <option value="">— اختر المدينة —</option>
+        </select>
         <button class="btn-red" onclick="addBranch()">+ إضافة فرع</button>
       </div>
       <div id="branches-list"><div class="empty-state">لا يوجد فروع بعد</div></div>
     </div>
 
-    <!-- Add Agent -->
+    <!-- ③ Registration Requests -->
+    <div class="card" id="requests-card" style="border: 2px solid #fbbf24;">
+      <h2>🔔 طلبات إنشاء الحساب <span id="requests-badge" style="background:#e63329;color:white;border-radius:20px;padding:2px 10px;font-size:13px;margin-right:8px">0</span></h2>
+      <div id="requests-list"><div class="empty-state">لا يوجد طلبات معلقة</div></div>
+    </div>
+
+    <!-- ④ Add Agent -->
     <div class="card">
       <h2>إضافة وكيل جديد</h2>
       <div id="alert"></div>
       <div class="form-row">
         <input type="text" id="new-name" placeholder="اسم الوكيل" />
-        <input type="text" id="new-pin" placeholder="PIN (4 أرقام)" maxlength="6" />
+        <input type="text" id="new-pin" placeholder="كلمة المرور / PIN" maxlength="20" />
         <select id="new-branch">
-          <option value="">— اختر الفرع —</option>
+          <option value="">— الفرع (اختياري) —</option>
         </select>
         <button class="btn-add" onclick="addAgent()">إضافة</button>
       </div>
     </div>
 
+    <!-- ⑤ Agents List -->
     <div class="section-title">الوكلاء النشطون</div>
     <div id="agents-list"></div>
   </div>
@@ -100,78 +137,183 @@
     const token = localStorage.getItem('token');
     if (!token || localStorage.getItem('role') !== 'admin') window.location.href = '/index.html';
 
-    let branchMap = {}; // id -> name
+    let allCities   = [];   // [{id, name}]
+    let allBranches = [];   // [{id, name, city}]
+    let branchMap   = {};   // id -> branch obj
 
+    // ─── CITIES ────────────────────────────────────────────
+    async function loadCities() {
+      const res = await fetch(`${API}/cities/`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      allCities = await res.json();
+
+      const list = document.getElementById('cities-list');
+      if (!allCities.length) {
+        list.innerHTML = '<div class="empty-state">لا يوجد مدن بعد — أضف مدينة أولاً</div>';
+      } else {
+        list.innerHTML = allCities.map(c => renderCityRow(c)).join('');
+      }
+
+      // Refresh city dropdown in branch form
+      const sel = document.getElementById('new-branch-city');
+      sel.innerHTML = '<option value="">— اختر المدينة —</option>' +
+        allCities.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+    }
+
+    function renderCityRow(c) {
+      return `<div class="city-item" id="city-item-${c.id}">
+        <span class="city-item-name">📍 ${c.name}</span>
+        <div class="city-item-actions">
+          <button class="btn-sm btn-edit" onclick="startEditCity('${c.id}','${escQ(c.name)}')">✏️ تعديل</button>
+          <button class="btn-sm btn-delete" onclick="deleteCity('${c.id}','${escQ(c.name)}')">حذف</button>
+        </div>
+      </div>`;
+    }
+
+    function startEditCity(id, name) {
+      document.getElementById(`city-item-${id}`).outerHTML = `
+        <div class="city-item" id="city-item-${id}">
+          <div class="city-item-edit">
+            <input type="text" id="city-edit-${id}" value="${name}" style="flex:1" />
+            <button class="btn-sm btn-save"   onclick="saveEditCity('${id}')">✅ حفظ</button>
+            <button class="btn-sm btn-cancel" onclick="loadCities()">إلغاء</button>
+          </div>
+        </div>`;
+      document.getElementById(`city-edit-${id}`).focus();
+    }
+
+    async function saveEditCity(id) {
+      const name = document.getElementById(`city-edit-${id}`).value.trim();
+      if (!name) return;
+      const res = await fetch(`${API}/cities/${id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      const data = await res.json();
+      if (res.ok) { loadCities(); loadBranches(); }
+      else showAlert('city-alert', data.detail || 'خطأ', false);
+    }
+
+    async function addCity() {
+      const name = document.getElementById('new-city-name').value.trim();
+      if (!name) return showAlert('city-alert', 'يرجى إدخال اسم المدينة', false);
+      const res = await fetch(`${API}/cities/`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        document.getElementById('new-city-name').value = '';
+        showAlert('city-alert', `تم إضافة مدينة "${name}"`, true);
+        loadCities();
+      } else {
+        showAlert('city-alert', data.detail || 'خطأ', false);
+      }
+    }
+
+    async function deleteCity(id, name) {
+      if (!confirm(`هل أنت متأكد من حذف مدينة "${name}"؟`)) return;
+      const res = await fetch(`${API}/cities/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (res.ok) loadCities();
+      else showAlert('city-alert', data.detail || 'خطأ', false);
+    }
+
+    // ─── BRANCHES ──────────────────────────────────────────
     async function loadBranches() {
       const res = await fetch(`${API}/branches/`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) return;
-      const branches = await res.json();
+      allBranches = await res.json();
       branchMap = {};
-      branches.forEach(b => { branchMap[b.id] = b.name; });
+      allBranches.forEach(b => { branchMap[b.id] = b; });
 
-      // Update branch list UI — grouped by city
       const list = document.getElementById('branches-list');
-      if (!branches.length) {
+      if (!allBranches.length) {
         list.innerHTML = '<div class="empty-state">لا يوجد فروع بعد</div>';
       } else {
         // Group by city
-        const cityGroups = {};
-        branches.forEach(b => {
+        const groups = {};
+        allBranches.forEach(b => {
           const city = b.city || '— بدون مدينة —';
-          if (!cityGroups[city]) cityGroups[city] = [];
-          cityGroups[city].push(b);
+          if (!groups[city]) groups[city] = [];
+          groups[city].push(b);
         });
-
-        list.innerHTML = Object.entries(cityGroups).map(([city, cityBranches]) => `
+        list.innerHTML = Object.entries(groups).map(([city, branches]) => `
           <div class="city-group">
-            <div class="city-header">
-              <span class="city-header-name">📍 ${city}</span>
-              <span style="font-size:12px;opacity:0.7">${cityBranches.length} فرع</span>
+            <div class="city-group-header">
+              <span>📍 ${city}</span>
+              <span style="font-size:12px;opacity:0.7">${branches.length} فرع</span>
             </div>
-            <div class="city-branches">
-              ${cityBranches.map(b => `
-                <div class="branch-row">
-                  <span class="branch-name">🏢 ${b.name}</span>
-                  <button class="btn-delete-branch" onclick="deleteBranch('${b.id}', '${b.name}')">حذف</button>
-                </div>`).join('')}
+            <div class="city-group-body">
+              ${branches.map(b => renderBranchRow(b)).join('')}
             </div>
           </div>`).join('');
       }
 
-      // Update cities datalist
-      const cities = [...new Set(branches.map(b => b.city).filter(Boolean))];
-      document.getElementById('cities-list').innerHTML = cities.map(c => `<option value="${c}">`).join('');
-
-      // Update branch dropdown in add form
+      // Update branch dropdown in add-agent form
       const sel = document.getElementById('new-branch');
-      sel.innerHTML = '<option value="">— اختر الفرع (اختياري) —</option>' +
-        branches.map(b => `<option value="${b.id}">${b.city ? b.city + ' — ' : ''}${b.name}</option>`).join('');
+      sel.innerHTML = '<option value="">— الفرع (اختياري) —</option>' +
+        allBranches.map(b => `<option value="${b.id}">${b.city ? b.city + ' — ' : ''}${b.name}</option>`).join('');
+    }
+
+    function renderBranchRow(b) {
+      return `<div class="branch-item" id="branch-item-${b.id}">
+        <span class="branch-item-name">🏢 ${b.name}</span>
+        <div style="display:flex;gap:6px">
+          <button class="btn-sm btn-edit" onclick="startEditBranch('${b.id}','${escQ(b.name)}')">✏️ تعديل</button>
+          <button class="btn-sm btn-delete" onclick="deleteBranch('${b.id}','${escQ(b.name)}')">حذف</button>
+        </div>
+      </div>`;
+    }
+
+    function startEditBranch(id, name) {
+      document.getElementById(`branch-item-${id}`).outerHTML = `
+        <div class="branch-item" id="branch-item-${id}">
+          <div class="branch-item-edit">
+            <input type="text" id="branch-edit-${id}" value="${name}" style="flex:1" />
+            <button class="btn-sm btn-save"   onclick="saveEditBranch('${id}')">✅ حفظ</button>
+            <button class="btn-sm btn-cancel" onclick="loadBranches()">إلغاء</button>
+          </div>
+        </div>`;
+      document.getElementById(`branch-edit-${id}`).focus();
+    }
+
+    async function saveEditBranch(id) {
+      const name = document.getElementById(`branch-edit-${id}`).value.trim();
+      if (!name) return;
+      const res = await fetch(`${API}/branches/${id}`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name })
+      });
+      const data = await res.json();
+      if (res.ok) { loadBranches(); loadAgents(); }
+      else showAlert('branch-alert', data.detail || 'خطأ', false);
     }
 
     async function addBranch() {
       const name = document.getElementById('new-branch-name').value.trim();
-      const alertEl = document.getElementById('branch-alert');
-      if (!name) {
-        alertEl.className = 'alert alert-error';
-        alertEl.textContent = 'يرجى إدخال اسم الفرع';
-        return;
-      }
-      const city = document.getElementById('new-branch-city').value.trim();
+      const city = document.getElementById('new-branch-city').value;
+      if (!name) return showAlert('branch-alert', 'يرجى إدخال اسم الفرع', false);
+      if (!city) return showAlert('branch-alert', 'يرجى اختيار المدينة', false);
       const res = await fetch(`${API}/branches/`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, city: city || null })
+        body: JSON.stringify({ name, city })
       });
       const data = await res.json();
       if (res.ok) {
-        alertEl.className = 'alert alert-success';
-        alertEl.textContent = `تم إضافة فرع "${name}" بنجاح`;
         document.getElementById('new-branch-name').value = '';
         document.getElementById('new-branch-city').value = '';
+        showAlert('branch-alert', `تم إضافة فرع "${name}"`, true);
         loadBranches();
       } else {
-        alertEl.className = 'alert alert-error';
-        alertEl.textContent = data.detail || 'خطأ في الإضافة';
+        showAlert('branch-alert', data.detail || 'خطأ', false);
       }
     }
 
@@ -182,101 +324,107 @@
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      if (res.ok) {
-        loadBranches();
-        loadAgents();
-      } else {
-        const alertEl = document.getElementById('branch-alert');
-        alertEl.className = 'alert alert-error';
-        alertEl.textContent = data.detail || 'خطأ في الحذف';
-      }
+      if (res.ok) { loadBranches(); loadAgents(); }
+      else showAlert('branch-alert', data.detail || 'خطأ', false);
     }
 
+    // ─── AGENTS ────────────────────────────────────────────
     async function loadAgents() {
       const res = await fetch(`${API}/agents/`, { headers: { Authorization: `Bearer ${token}` } });
       const agents = await res.json();
       const list = document.getElementById('agents-list');
-      list.innerHTML = '';
-
       const active = agents.filter(a => a.is_active);
       if (!active.length) {
         list.innerHTML = '<div class="empty-state">لا يوجد وكلاء نشطون</div>';
         return;
       }
+      list.innerHTML = active.map(a => {
+        const branch = a.branch_id ? branchMap[a.branch_id] : null;
+        const branchLabel = branch
+          ? `<span class="branch-tag">🏢 ${branch.city ? branch.city + ' — ' : ''}${branch.name}</span>`
+          : '';
+        return `<div class="agent-row" id="agent-row-${a.id}">
+          <div class="agent-main">
+            <div class="agent-info">
+              <div class="agent-name">${a.name}</div>
+              <div class="agent-meta">تاريخ الإضافة: ${new Date(a.created_at).toLocaleDateString('ar-MA')}</div>
+              ${branchLabel}
+            </div>
+            <div class="agent-actions">
+              <button class="btn-transfer" onclick="toggleTransfer('${a.id}')">📦 نقل الفرع</button>
+              <button class="btn-fire" onclick="fireAgent('${a.id}','${escQ(a.name)}')">🔴 إيقاف</button>
+              <button class="btn-wipe" onclick="fireAndWipe('${a.id}','${escQ(a.name)}')">🗑️ إيقاف ومسح</button>
+            </div>
+          </div>
+          <div class="transfer-panel" id="transfer-${a.id}" style="display:none">
+            <span style="font-size:13px;font-weight:600">نقل إلى فرع:</span>
+            <select id="transfer-sel-${a.id}">
+              <option value="">— بدون فرع —</option>
+              ${allBranches.map(b => `<option value="${b.id}" ${b.id === a.branch_id ? 'selected' : ''}>${b.city ? b.city + ' — ' : ''}${b.name}</option>`).join('')}
+            </select>
+            <button class="btn-sm btn-save" onclick="confirmTransfer('${a.id}')">✅ تأكيد</button>
+            <button class="btn-sm btn-cancel" onclick="toggleTransfer('${a.id}')">إلغاء</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
 
-      active.forEach(agent => {
-        const branchName = agent.branch_id ? branchMap[agent.branch_id] : null;
-        const div = document.createElement('div');
-        div.className = 'agent-row';
-        div.innerHTML = `
-          <div class="agent-info">
-            <div class="agent-name">${agent.name}</div>
-            <div class="agent-meta">تاريخ الإضافة: ${new Date(agent.created_at).toLocaleDateString('ar-MA')}</div>
-            ${branchName ? `<span class="branch-tag">🏢 ${branchName}</span>` : ''}
-          </div>
-          <div class="agent-actions">
-            <button class="btn-fire" onclick="fireAgent('${agent.id}', '${agent.name}')">🔴 إيقاف</button>
-            <button class="btn-wipe" onclick="fireAndWipe('${agent.id}', '${agent.name}')">🗑️ إيقاف ومسح الاسم</button>
-          </div>
-        `;
-        list.appendChild(div);
+    function toggleTransfer(agentId) {
+      const panel = document.getElementById(`transfer-${agentId}`);
+      panel.style.display = panel.style.display === 'none' ? 'flex' : 'none';
+    }
+
+    async function confirmTransfer(agentId) {
+      const branch_id = document.getElementById(`transfer-sel-${agentId}`).value || null;
+      const res = await fetch(`${API}/agents/${agentId}/branch`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ branch_id })
       });
+      if (res.ok) {
+        showAlert('alert', 'تم نقل الوكيل بنجاح', true);
+        loadAgents();
+      } else {
+        const data = await res.json();
+        showAlert('alert', data.detail || 'خطأ في النقل', false);
+      }
     }
 
     async function addAgent() {
       const name = document.getElementById('new-name').value.trim();
-      const pin = document.getElementById('new-pin').value.trim();
+      const pin  = document.getElementById('new-pin').value.trim();
       const branch_id = document.getElementById('new-branch').value || null;
-      const alertEl = document.getElementById('alert');
-
-      if (!name || !pin) {
-        alertEl.className = 'alert alert-error';
-        alertEl.textContent = 'يرجى إدخال الاسم ورمز PIN';
-        return;
-      }
-
+      if (!name || !pin) return showAlert('alert', 'يرجى إدخال الاسم وكلمة المرور', false);
       const res = await fetch(`${API}/agents/`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, pin, branch_id })
       });
       const data = await res.json();
-
       if (res.ok) {
-        alertEl.className = 'alert alert-success';
-        alertEl.textContent = `تم إضافة الوكيل ${name} بنجاح`;
+        showAlert('alert', `تم إضافة الوكيل ${name}`, true);
         document.getElementById('new-name').value = '';
         document.getElementById('new-pin').value = '';
         document.getElementById('new-branch').value = '';
         loadAgents();
       } else {
-        alertEl.className = 'alert alert-error';
-        alertEl.textContent = data.detail || 'خطأ في الإضافة';
+        showAlert('alert', data.detail || 'خطأ', false);
       }
     }
 
     async function fireAgent(id, name) {
-      if (!confirm(`هل أنت متأكد من إيقاف الوكيل "${name}"؟ سيتم إعادة توزيع عملائه فوراً.`)) return;
-      const res = await fetch(`${API}/agents/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      if (!confirm(`هل أنت متأكد من إيقاف الوكيل "${name}"؟ سيتم إعادة توزيع عملائه.`)) return;
+      const res = await fetch(`${API}/agents/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
       if (res.ok) loadAgents();
     }
 
     async function fireAndWipe(id, name) {
-      if (!confirm(`هل أنت متأكد من إيقاف ومسح اسم الوكيل "${name}"؟\nسيتم حذف الاسم نهائياً حتى يمكن إعادة استخدامه.`)) return;
-      const res = await fetch(`${API}/agents/${id}/wipe`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        document.getElementById('alert').className = 'alert alert-success';
-        document.getElementById('alert').textContent = `تم إيقاف ومسح اسم الوكيل "${name}" بنجاح`;
-        loadAgents();
-      }
+      if (!confirm(`إيقاف ومسح اسم "${name}"؟ سيُحذف الاسم نهائياً.`)) return;
+      const res = await fetch(`${API}/agents/${id}/wipe`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) { showAlert('alert', `تم إيقاف ومسح "${name}"`, true); loadAgents(); }
     }
 
+    // ─── REQUESTS ──────────────────────────────────────────
     async function loadRequests() {
       const res = await fetch(`${API}/agents/requests`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) return;
@@ -299,12 +447,12 @@
             <input type="text" id="fname-${r.id}" value="${r.requested_name}" placeholder="الاسم النهائي" />
             <select id="fbranch-${r.id}">
               <option value="">— بدون فرع —</option>
-              ${Object.entries(branchMap).map(([id, name]) => `<option value="${id}">${name}</option>`).join('')}
+              ${allBranches.map(b => `<option value="${b.id}">${b.city ? b.city + ' — ' : ''}${b.name}</option>`).join('')}
             </select>
           </div>
           <div class="req-actions">
             <button class="btn-approve" onclick="approveRequest('${r.id}')">✅ قبول</button>
-            <button class="btn-reject" onclick="rejectRequest('${r.id}', '${r.requested_name}')">❌ رفض</button>
+            <button class="btn-reject"  onclick="rejectRequest('${r.id}','${escQ(r.requested_name)}')">❌ رفض</button>
           </div>
         </div>`).join('');
     }
@@ -312,34 +460,40 @@
     async function approveRequest(id) {
       const final_name = document.getElementById(`fname-${id}`).value.trim();
       const branch_id  = document.getElementById(`fbranch-${id}`).value || null;
-      const alertEl = document.getElementById('alert');
       const res = await fetch(`${API}/agents/requests/${id}/approve`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ final_name, branch_id })
       });
       const data = await res.json();
-      if (res.ok) {
-        alertEl.className = 'alert alert-success';
-        alertEl.textContent = data.message;
-        loadRequests();
-        loadAgents();
-      } else {
-        alertEl.className = 'alert alert-error';
-        alertEl.textContent = data.detail || 'خطأ في القبول';
-      }
+      if (res.ok) { showAlert('alert', data.message, true); loadRequests(); loadAgents(); }
+      else showAlert('alert', data.detail || 'خطأ', false);
     }
 
     async function rejectRequest(id, name) {
       if (!confirm(`رفض طلب "${name}"؟`)) return;
-      await fetch(`${API}/agents/requests/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await fetch(`${API}/agents/requests/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
       loadRequests();
     }
 
-    loadBranches().then(() => { loadAgents(); loadRequests(); });
+    // ─── UTILS ─────────────────────────────────────────────
+    function showAlert(id, msg, success) {
+      const el = document.getElementById(id);
+      el.className = 'alert ' + (success ? 'alert-success' : 'alert-error');
+      el.textContent = msg;
+      setTimeout(() => { el.className = ''; el.textContent = ''; }, 4000);
+    }
+
+    function escQ(s) { return (s || '').replace(/'/g, "\\'"); }
+
+    // ─── INIT ──────────────────────────────────────────────
+    async function init() {
+      await loadCities();
+      await loadBranches();
+      await loadAgents();
+      await loadRequests();
+    }
+    init();
   </script>
 </body>
 </html>
