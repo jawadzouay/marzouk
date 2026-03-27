@@ -33,7 +33,10 @@ def get_current_user(creds: HTTPAuthorizationCredentials = Depends(security)):
 @router.get("/")
 def list_cities(user=Depends(get_current_user)):
     sb = get_client()
-    return sb.table("cities").select("*").order("name").execute().data
+    try:
+        return sb.table("cities").select("*").order("name").execute().data or []
+    except Exception:
+        return []
 
 
 @router.post("/")
@@ -42,12 +45,18 @@ def add_city(body: dict, admin=Depends(require_admin)):
     if not name:
         raise HTTPException(400, "اسم المدينة فارغ")
     sb = get_client()
-    # Explicit check — do NOT use try/except which hides real errors
-    existing = sb.table("cities").select("id").eq("name", name).execute()
-    if existing.data:
-        raise HTTPException(400, "المدينة موجودة مسبقاً")
-    result = sb.table("cities").insert({"name": name}).execute()
-    return result.data[0]
+    try:
+        existing = sb.table("cities").select("id").eq("name", name).execute()
+        if existing.data:
+            raise HTTPException(400, "المدينة موجودة مسبقاً — احذفها أولاً ثم أعد الإضافة")
+        result = sb.table("cities").insert({"name": name}).execute()
+        if not result.data:
+            raise HTTPException(500, "فشل الحفظ — تأكد من تنفيذ SQL لإنشاء جدول cities في Supabase")
+        return result.data[0]
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(500, "خطأ في قاعدة البيانات — يجب تنفيذ SQL: CREATE TABLE cities في Supabase")
 
 
 @router.put("/{city_id}")
@@ -56,28 +65,31 @@ def rename_city(city_id: str, body: dict, admin=Depends(require_admin)):
     if not new_name:
         raise HTTPException(400, "اسم المدينة فارغ")
     sb = get_client()
-    old = sb.table("cities").select("name").eq("id", city_id).execute()
-    if not old.data:
-        raise HTTPException(404, "المدينة غير موجودة")
-    old_name = old.data[0]["name"]
-    result = sb.table("cities").update({"name": new_name}).eq("id", city_id).execute()
-    # Cascade rename to all branches that had this city
-    sb.table("branches").update({"city": new_name}).eq("city", old_name).execute()
-    return result.data[0]
+    try:
+        old = sb.table("cities").select("name").eq("id", city_id).execute()
+        if not old.data:
+            raise HTTPException(404, "المدينة غير موجودة")
+        old_name = old.data[0]["name"]
+        result = sb.table("cities").update({"name": new_name}).eq("id", city_id).execute()
+        sb.table("branches").update({"city": new_name}).eq("city", old_name).execute()
+        return result.data[0]
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(500, "خطأ في قاعدة البيانات")
 
 
 @router.delete("/{city_id}")
 def delete_city(city_id: str, admin=Depends(require_admin)):
     sb = get_client()
-    city = sb.table("cities").select("id,name").eq("id", city_id).execute()
-    if not city.data:
-        # Already gone — not an error
-        return {"message": "تم الحذف"}
-    city_name = city.data[0]["name"]
-    # Detach all branches from this city (data stays intact)
-    sb.table("branches").update({"city": None}).eq("city", city_name).execute()
-    # Delete the city name itself
-    sb.table("cities").delete().eq("id", city_id).execute()
-    # Final safety: delete any remaining row with this name (avoids ghost rows)
-    sb.table("cities").delete().eq("name", city_name).execute()
-    return {"message": "تم حذف المدينة"}
+    try:
+        city = sb.table("cities").select("id,name").eq("id", city_id).execute()
+        if not city.data:
+            return {"message": "تم الحذف"}
+        city_name = city.data[0]["name"]
+        sb.table("branches").update({"city": None}).eq("city", city_name).execute()
+        sb.table("cities").delete().eq("id", city_id).execute()
+        sb.table("cities").delete().eq("name", city_name).execute()
+        return {"message": "تم حذف المدينة"}
+    except Exception:
+        raise HTTPException(500, "خطأ في الحذف")
