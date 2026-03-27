@@ -65,7 +65,8 @@
       <h2>🏢 إدارة الفروع</h2>
       <div id="branch-alert"></div>
       <div class="form-row" style="margin-bottom:16px">
-        <input type="text" id="new-branch-name" placeholder="اسم الفرع (مثال: فرع طنجة)" />
+        <input type="text" id="new-branch-name" placeholder="اسم الفرع (مثال: فرع طنجة — المدينة 1)" />
+        <input type="text" id="new-branch-city" placeholder="المدينة (مثال: طنجة)" />
         <button class="btn-red" onclick="addBranch()">+ إضافة فرع</button>
       </div>
       <div id="branches-list"><div class="empty-state">لا يوجد فروع بعد</div></div>
@@ -112,6 +113,7 @@
           <div class="branch-row">
             <div>
               <div class="branch-name">🏢 ${b.name}</div>
+              ${b.city ? `<div style="font-size:11px;color:#6b7280;margin-top:2px">📍 ${b.city}</div>` : ''}
             </div>
             <button class="btn-delete-branch" onclick="deleteBranch('${b.id}', '${b.name}')">حذف</button>
           </div>`).join('');
@@ -131,16 +133,18 @@
         alertEl.textContent = 'يرجى إدخال اسم الفرع';
         return;
       }
+      const city = document.getElementById('new-branch-city').value.trim();
       const res = await fetch(`${API}/branches/`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name })
+        body: JSON.stringify({ name, city: city || null })
       });
       const data = await res.json();
       if (res.ok) {
         alertEl.className = 'alert alert-success';
         alertEl.textContent = `تم إضافة فرع "${name}" بنجاح`;
         document.getElementById('new-branch-name').value = '';
+        document.getElementById('new-branch-city').value = '';
         loadBranches();
       } else {
         alertEl.className = 'alert alert-error';

@@ -139,6 +139,20 @@ CREATE TABLE IF NOT EXISTS bonuses (
 
 CREATE INDEX IF NOT EXISTS idx_bonuses_agent ON bonuses(agent_id);
 
+-- Add city to branches
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS city TEXT;
+
+-- Swap level settings (single row)
+CREATE TABLE IF NOT EXISTS swap_settings (
+  id         INT PRIMARY KEY DEFAULT 1,
+  swap_level INT DEFAULT 1
+);
+INSERT INTO swap_settings (id, swap_level) VALUES (1, 1) ON CONFLICT (id) DO NOTHING;
+
+-- Add branch_id and adset_name to ad_spend
+ALTER TABLE ad_spend ADD COLUMN IF NOT EXISTS branch_id UUID REFERENCES branches(id);
+ALTER TABLE ad_spend ADD COLUMN IF NOT EXISTS adset_name TEXT;
+
 -- AGENT REGISTRATION REQUESTS (self-signup flow)
 CREATE TABLE IF NOT EXISTS agent_requests (
   id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),

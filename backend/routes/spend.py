@@ -80,7 +80,7 @@ async def confirm_spend(body: dict, admin=Depends(require_admin)):
     for row in rows:
         if not row.get("agent_id"):
             continue
-        sb.table("ad_spend").insert({
+        record = {
             "agent_id":        row["agent_id"],
             "spend":           float(row.get("spend", 0)),
             "ad_results":      int(row.get("ad_results", 0)),
@@ -88,7 +88,12 @@ async def confirm_spend(body: dict, admin=Depends(require_admin)):
             "period_start":    period_start,
             "period_end":      period_end,
             "raw_name":        row.get("raw_name", ""),
-        }).execute()
+        }
+        if row.get("branch_id"):
+            record["branch_id"] = row["branch_id"]
+        if row.get("adset_name"):
+            record["adset_name"] = row.get("adset_name") or row.get("raw_name", "")
+        sb.table("ad_spend").insert(record).execute()
         saved += 1
 
     return {"saved": saved}

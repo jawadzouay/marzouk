@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from jose import jwt
 from services.supabase_service import get_client
 from dotenv import load_dotenv
+from typing import Optional
 import os
 
 load_dotenv()
@@ -34,13 +35,22 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
 
 class BranchCreate(BaseModel):
     name: str
+    city: Optional[str] = None
 
 
 @router.get("/")
 def list_branches(user=Depends(get_current_user)):
     sb = get_client()
-    result = sb.table("branches").select("*").order("name").execute()
+    result = sb.table("branches").select("*").order("city").order("name").execute()
     return result.data
+
+
+@router.get("/cities")
+def list_cities(user=Depends(get_current_user)):
+    sb = get_client()
+    result = sb.table("branches").select("city").execute()
+    cities = sorted({r["city"] for r in result.data if r.get("city")})
+    return cities
 
 
 @router.post("/")
@@ -49,7 +59,7 @@ def create_branch(branch: BranchCreate, admin=Depends(require_admin)):
     existing = sb.table("branches").select("id").eq("name", branch.name).execute()
     if existing.data:
         raise HTTPException(status_code=400, detail="اسم الفرع موجود مسبقاً")
-    result = sb.table("branches").insert({"name": branch.name}).execute()
+    result = sb.table("branches").insert({"name": branch.name, "city": branch.city}).execute()
     return result.data[0]
 
 

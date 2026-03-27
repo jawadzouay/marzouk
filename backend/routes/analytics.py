@@ -58,14 +58,72 @@ def analytics_metrics(
     date_from: str = Query(None),
     date_to:   str = Query(None),
     agent_id:  str = Query(None),
+    branch_id: str = Query(None),
+    city:      str = Query(None),
     admin=Depends(require_admin)
 ):
     sb = get_client()
     agents, leads, rdvs, spend = fetch_all(sb, date_from, date_to)
+
+    if branch_id:
+        branch_agents = sb.table("agents").select("id").eq("branch_id", branch_id).execute().data
+        ids = {a["id"] for a in branch_agents}
+        agents = [a for a in agents if a["id"] in ids]
+    elif city:
+        city_branches = sb.table("branches").select("id").eq("city", city).execute().data
+        city_branch_ids = [b["id"] for b in city_branches]
+        if city_branch_ids:
+            city_agents = sb.table("agents").select("id").in_("branch_id", city_branch_ids).execute().data
+            ids = {a["id"] for a in city_agents}
+            agents = [a for a in agents if a["id"] in ids]
+        else:
+            agents = []
+
     if agent_id:
         agents = [a for a in agents if a["id"] == agent_id]
+
     metrics = compute_metrics(agents, leads, rdvs, spend)
     return metrics
+
+
+@router.get("/branches-summary")
+def branches_summary(
+    date_from: str = Query(None),
+    date_to:   str = Query(None),
+    admin=Depends(require_admin)
+):
+    """Returns cost metrics grouped by branch and city for comparison."""
+    sb = get_client()
+    branches = sb.table("branches").select("*").execute().data
+    agents_all = sb.table("agents").select("id,name,branch_id").eq("is_active", True).execute().data
+    _, leads, rdvs, spend = fetch_all(sb, date_from, date_to)
+
+    result = []
+    for branch in branches:
+        branch_agent_ids = {a["id"] for a in agents_all if a.get("branch_id") == branch["id"]}
+        b_agents = [a for a in agents_all if a["id"] in branch_agent_ids]
+        metrics = compute_metrics(b_agents, leads, rdvs, spend)
+        total_spend = sum(m.get("spend", 0) for m in metrics)
+        total_leads = sum(m.get("total", 0) for m in metrics)
+        total_rdv   = sum(m.get("rdv_booked", 0) for m in metrics)
+        total_show  = sum(m.get("showed_up", 0) for m in metrics)
+        total_reg   = sum(m.get("registered", 0) for m in metrics)
+        result.append({
+            "branch_id":   branch["id"],
+            "branch_name": branch["name"],
+            "city":        branch.get("city", "—"),
+            "agents":      len(b_agents),
+            "spend":       total_spend,
+            "leads":       total_leads,
+            "rdv":         total_rdv,
+            "visits":      total_show,
+            "registered":  total_reg,
+            "cpl":  round(total_spend / total_leads, 0)      if total_leads and total_spend else 0,
+            "cp_rdv": round(total_spend / total_rdv, 0)      if total_rdv and total_spend else 0,
+            "cp_visit": round(total_spend / total_show, 0)   if total_show and total_spend else 0,
+            "cp_reg": round(total_spend / total_reg, 0)      if total_reg and total_spend else 0,
+        })
+    return result
 
 
 @router.get("/warnings")

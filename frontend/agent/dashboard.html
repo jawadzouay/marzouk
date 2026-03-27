@@ -713,7 +713,7 @@
 
     const STATUS_CLASS = {
       'RDV': 's-rdv', 'B.V': 's-bv', 'N.R': 's-nr',
-      'P.I': 's-pi', 'Autre ville': 's-av',
+      'P.I': 's-pi', 'Autre ville': 's-av', 'Blacklist': 's-pi',
       'visited_center':   's-bv',
       'cancelled_visit':  's-nr',
       'cancelled_rdv':    's-nr',
@@ -1129,6 +1129,7 @@
                 <option value="N.R">N.R — لم يرد</option>
                 <option value="P.I">P.I — غير مهتم</option>
                 <option value="Autre ville">Autre ville</option>
+                <option value="Blacklist">🚫 بلاك ليست — رقم خاطئ / لا يرغب</option>
               </select>
               <button onclick="event.stopPropagation();updateLeadStatusFromRdv('${leadId}','${rdv.id}')" style="padding:6px 10px;background:#e63329;color:white;border:none;border-radius:8px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">تحديث</button>
             </div>
@@ -1673,6 +1674,7 @@
                   <option value="N.R"              ${lead.status==='N.R'?'selected':''}>N.R — لم يرد</option>
                   <option value="P.I"              ${lead.status==='P.I'?'selected':''}>P.I — غير مهتم</option>
                   <option value="Autre ville"      ${lead.status==='Autre ville'?'selected':''}>Autre ville — مدينة أخرى</option>
+                  <option value="Blacklist"        ${lead.status==='Blacklist'?'selected':''}>🚫 بلاك ليست — رقم خاطئ / لا يرغب</option>
                   <option value="__custom__">✏️ نص مخصص...</option>
                 </select>
                 <button class="btn-update-status" id="upd-${lead.id}" onclick="event.stopPropagation();updateStatus('${lead.id}')">تحديث</button>
