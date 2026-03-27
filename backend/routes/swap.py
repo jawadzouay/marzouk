@@ -69,6 +69,49 @@ def manual_swap(body: dict, admin=Depends(require_admin)):
     return {"message": "تم التعيين بنجاح"}
 
 
+@router.post("/manual-bulk")
+def manual_bulk_swap(body: dict, admin=Depends(require_admin)):
+    """Transfer ALL eligible leads from one agent to another."""
+    from_agent_id = body.get("from_agent_id")
+    to_agent_id   = body.get("to_agent_id")
+    if not from_agent_id or not to_agent_id:
+        raise HTTPException(400, "from_agent_id و to_agent_id مطلوبان")
+    if from_agent_id == to_agent_id:
+        raise HTTPException(400, "لا يمكن النقل إلى نفس الوكيل")
+
+    sb = get_client()
+    from datetime import datetime, timedelta
+
+    now = datetime.utcnow().isoformat()
+    leads = sb.table("leads").select("*") \
+        .eq("current_agent", from_agent_id) \
+        .in_("status", ["B.V", "N.R"]) \
+        .lte("swap_eligible_at", now) \
+        .lt("swap_count", 3) \
+        .execute().data
+
+    transferred = 0
+    for lead in leads:
+        new_swap_count = lead["swap_count"] + 1
+        updates = {"current_agent": to_agent_id, "swap_count": new_swap_count}
+        if new_swap_count < 3:
+            updates["swap_eligible_at"] = (datetime.utcnow() + timedelta(days=4)).isoformat()
+        else:
+            updates["swap_eligible_at"] = None
+        sb.table("leads").update(updates).eq("id", lead["id"]).execute()
+        sb.table("lead_history").insert({
+            "lead_id":      lead["id"],
+            "agent_id":     to_agent_id,
+            "action":       "swapped",
+            "status_before": lead["status"],
+            "status_after":  lead["status"],
+            "note": f"Swap #{new_swap_count} — Bulk manual by admin"
+        }).execute()
+        transferred += 1
+
+    return {"transferred": transferred, "message": f"تم نقل {transferred} عميل بنجاح"}
+
+
 @router.get("/pool")
 def get_swap_pool(admin=Depends(require_admin)):
     sb = get_client()

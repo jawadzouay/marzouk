@@ -93,6 +93,29 @@
       </div>
     </div>
 
+    <!-- Bulk Manual Transfer -->
+    <div class="level-card" style="border:2px solid #7c3aed">
+      <h2 style="color:#7c3aed">📦 نقل جميع العملاء المؤهلين — من وكيل إلى وكيل</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:10px;align-items:end;margin-top:12px">
+        <div>
+          <div style="font-size:12px;color:#6b7280;margin-bottom:4px">من وكيل</div>
+          <select id="bulk-from" onchange="updateBulkCount()" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-family:'Cairo',sans-serif;font-size:13px">
+            <option value="">— اختر الوكيل —</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:12px;color:#6b7280;margin-bottom:4px">إلى وكيل</div>
+          <select id="bulk-to" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:8px;font-family:'Cairo',sans-serif;font-size:13px">
+            <option value="">— اختر الوكيل —</option>
+          </select>
+        </div>
+        <button onclick="runBulkTransfer()" style="background:#7c3aed;color:white;border:none;border-radius:8px;padding:10px 18px;font-family:'Cairo',sans-serif;font-weight:700;cursor:pointer;font-size:14px;white-space:nowrap">
+          نقل الكل
+        </button>
+      </div>
+      <div id="bulk-count" style="margin-top:10px;font-size:13px;color:#6b7280"></div>
+    </div>
+
     <button class="run-btn" id="run-btn" onclick="runSwap()">▶️ تشغيل التبادل التلقائي</button>
     <div id="pool-list"></div>
   </div>
@@ -115,8 +138,60 @@
         currentLevel = s.swap_level;
         updateLevelUI();
       }
-      if (agentsRes.ok) allAgents = await agentsRes.json();
+      if (agentsRes.ok) {
+        allAgents = await agentsRes.json();
+        populateBulkDropdowns();
+      }
       loadPool();
+    }
+
+    function populateBulkDropdowns() {
+      const options = allAgents.map(a =>
+        `<option value="${a.id}">${a.name} — ${a.branch_name} (${a.city})</option>`
+      ).join('');
+      document.getElementById('bulk-from').innerHTML = '<option value="">— اختر الوكيل —</option>' + options;
+      document.getElementById('bulk-to').innerHTML   = '<option value="">— اختر الوكيل —</option>' + options;
+    }
+
+    async function updateBulkCount() {
+      const fromId = document.getElementById('bulk-from').value;
+      if (!fromId) { document.getElementById('bulk-count').textContent = ''; return; }
+      const res = await fetch(`${API}/swap/pool`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      const leads = await res.json();
+      const now = new Date();
+      const eligible = leads.filter(l =>
+        l.current_agent === fromId &&
+        l.swap_eligible_at && new Date(l.swap_eligible_at) <= now
+      );
+      const agentName = allAgents.find(a => a.id === fromId)?.name || '';
+      document.getElementById('bulk-count').textContent =
+        eligible.length ? `✅ ${eligible.length} عميل مؤهل للنقل من ${agentName}` : `❌ لا يوجد عملاء مؤهلون من ${agentName}`;
+    }
+
+    async function runBulkTransfer() {
+      const fromId = document.getElementById('bulk-from').value;
+      const toId   = document.getElementById('bulk-to').value;
+      if (!fromId || !toId) { showAlert('اختر الوكيلين أولاً', 'error'); return; }
+      if (fromId === toId)  { showAlert('لا يمكن النقل إلى نفس الوكيل', 'error'); return; }
+
+      const fromName = allAgents.find(a => a.id === fromId)?.name || '';
+      const toName   = allAgents.find(a => a.id === toId)?.name   || '';
+      if (!confirm(`نقل جميع العملاء المؤهلين من "${fromName}" إلى "${toName}"؟`)) return;
+
+      const res = await fetch(`${API}/swap/manual-bulk`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from_agent_id: fromId, to_agent_id: toId })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showAlert(data.message, 'success');
+        document.getElementById('bulk-count').textContent = '';
+        loadPool();
+      } else {
+        showAlert(data.detail || 'خطأ', 'error');
+      }
     }
 
     function updateLevelUI() {
