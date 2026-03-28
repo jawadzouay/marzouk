@@ -29,7 +29,12 @@ def get_sheets_service():
     if not creds_json:
         raise Exception("GOOGLE_CREDENTIALS_JSON غير مضبوط في Railway — يرجى لصق محتوى ملف JSON كاملاً")
 
-    # Support raw JSON content OR a file path
+    # Strip any "Name: ... Value: " prefix that appears when copying from Railway UI
+    if not creds_json.startswith("{"):
+        brace_pos = creds_json.find("{")
+        if brace_pos != -1:
+            creds_json = creds_json[brace_pos:]
+
     if creds_json.startswith("{"):
         try:
             creds_info = json.loads(creds_json)
