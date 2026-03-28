@@ -25,7 +25,7 @@ app.add_middleware(
 )
 
 # ── Background scheduler ────────────────────────────────────────────────────
-from apscheduler.schedulers.background import BackgroundScheduler
+logging.basicConfig(level=logging.INFO)
 
 def run_auto_swap():
     """Auto-assign all swap-eligible leads every 6 hours."""
@@ -49,7 +49,6 @@ def run_noshow_repool():
         from datetime import datetime, timedelta
         sb = get_client()
         now = datetime.utcnow().isoformat()
-        # Find leads with expired no-show repool timer
         leads = sb.table("leads").select("id, original_agent") \
             .eq("status", "N.R") \
             .lte("swap_eligible_at", now) \
@@ -57,17 +56,18 @@ def run_noshow_repool():
             .execute().data
         if leads:
             logging.info(f"[REPOOL] {len(leads)} no-show leads re-entering swap pool")
-            # Their swap_eligible_at is already past — swap_service will pick them up
-            # next auto-swap run. Just log so it's visible.
     except Exception as e:
         logging.error(f"[REPOOL ERROR] {e}")
 
-scheduler = BackgroundScheduler(timezone="UTC")
-scheduler.add_job(run_auto_swap,    "interval", hours=6,   id="auto_swap",    replace_existing=True)
-scheduler.add_job(run_noshow_repool,"interval", hours=1,   id="noshow_repool",replace_existing=True)
-scheduler.start()
-logging.basicConfig(level=logging.INFO)
-logging.info("[SCHEDULER] Auto-swap (6h) and no-show repool (1h) jobs started")
+try:
+    from apscheduler.schedulers.background import BackgroundScheduler
+    scheduler = BackgroundScheduler(timezone="UTC")
+    scheduler.add_job(run_auto_swap,    "interval", hours=6, id="auto_swap",    replace_existing=True)
+    scheduler.add_job(run_noshow_repool,"interval", hours=1, id="noshow_repool",replace_existing=True)
+    scheduler.start()
+    logging.info("[SCHEDULER] Auto-swap (6h) and no-show repool (1h) jobs started")
+except ImportError:
+    logging.warning("[SCHEDULER] apscheduler not installed — auto-swap disabled. Add apscheduler to requirements.txt")
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(agents.router, prefix="/agents", tags=["agents"])
