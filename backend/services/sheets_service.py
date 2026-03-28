@@ -25,10 +25,26 @@ def get_sheet_id() -> str:
 
 
 def get_sheets_service():
-    creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+    creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON", "").strip()
     if not creds_json:
-        raise Exception("GOOGLE_CREDENTIALS_JSON environment variable not set")
-    creds_info = json.loads(creds_json)
+        raise Exception("GOOGLE_CREDENTIALS_JSON غير مضبوط في Railway — يرجى لصق محتوى ملف JSON كاملاً")
+
+    # Support raw JSON content OR a file path
+    if creds_json.startswith("{"):
+        try:
+            creds_info = json.loads(creds_json)
+        except json.JSONDecodeError as e:
+            raise Exception(f"GOOGLE_CREDENTIALS_JSON يحتوي على JSON غير صالح: {e}")
+    else:
+        # Treat as file path
+        try:
+            with open(creds_json, "r") as f:
+                creds_info = json.load(f)
+        except FileNotFoundError:
+            raise Exception(f"ملف بيانات الاعتماد غير موجود: {creds_json}")
+        except json.JSONDecodeError as e:
+            raise Exception(f"خطأ في ملف بيانات الاعتماد: {e}")
+
     creds = service_account.Credentials.from_service_account_info(
         creds_info, scopes=SCOPES
     )

@@ -285,6 +285,30 @@ def set_sheets_config(body: dict, admin=Depends(require_admin)):
     return {"sheet_id": raw, "sheet_url": f"https://docs.google.com/spreadsheets/d/{raw}"}
 
 
+@router.get("/sheets-test")
+def test_sheets_connection(admin=Depends(require_admin)):
+    """Test Google Sheets connectivity and return a clear diagnosis."""
+    import os as _os
+    from services.sheets_service import get_sheet_id, get_sheets_service
+    creds_raw = _os.getenv("GOOGLE_CREDENTIALS_JSON", "").strip()
+    sheet_id  = get_sheet_id()
+    diag = {
+        "has_credentials": bool(creds_raw),
+        "credentials_looks_like_json": creds_raw.startswith("{") if creds_raw else False,
+        "credentials_preview": creds_raw[:60] + "..." if len(creds_raw) > 60 else creds_raw,
+        "sheet_id": sheet_id,
+    }
+    try:
+        svc = get_sheets_service()
+        result = svc.spreadsheets().get(spreadsheetId=sheet_id, fields="spreadsheetId,properties/title").execute()
+        diag["connection"] = "ok"
+        diag["sheet_title"] = result.get("properties", {}).get("title", "")
+    except Exception as e:
+        diag["connection"] = "error"
+        diag["error"] = str(e)
+    return diag
+
+
 @router.delete("/sheets-config")
 def delete_sheets_config(admin=Depends(require_admin)):
     sb = get_client()
