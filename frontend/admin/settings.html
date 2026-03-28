@@ -116,6 +116,7 @@
   async function loadCurrentCredentials() {
     try {
       const res  = await fetch(`${API}/admin/credentials`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) { document.getElementById('current-username').textContent = 'admin'; return; }
       const data = await res.json();
       document.getElementById('current-username').textContent = data.username || 'admin';
     } catch(e) {
@@ -142,12 +143,18 @@
     const btn = document.querySelector('.btn-save');
     btn.disabled = true;
     try {
+      const body = {};
+      if (username) body.username = username;
+      if (password) body.password = password;
+
       const res  = await fetch(`${API}/admin/credentials`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username || undefined, password: password || undefined })
+        body: JSON.stringify(body)
       });
-      const data = await res.json();
+      let data = {};
+      try { data = await res.json(); } catch { /* non-JSON response */ }
+
       if (res.ok) {
         showMsg('admin-msg', '✅ تم الحفظ — سيتم تسجيل خروجك الآن', true);
         document.getElementById('new-username').value = '';
@@ -155,10 +162,10 @@
         document.getElementById('confirm-password').value = '';
         setTimeout(() => { localStorage.clear(); window.location.href = '/index.html'; }, 2000);
       } else {
-        showMsg('admin-msg', data.detail || 'خطأ في الحفظ', false);
+        showMsg('admin-msg', data.detail || `خطأ ${res.status} — تأكد من تشغيل SQL Migration`, false);
       }
     } catch(e) {
-      showMsg('admin-msg', 'تعذر الاتصال بالخادم', false);
+      showMsg('admin-msg', 'تعذر الاتصال بالخادم — تأكد من أن الخادم يعمل', false);
     }
     btn.disabled = false;
   }

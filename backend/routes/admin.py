@@ -324,9 +324,12 @@ def update_admin_credentials(body: dict, admin=Depends(require_admin)):
     if not new_username and not new_password:
         raise HTTPException(400, "يرجى إدخال اسم المستخدم أو كلمة المرور الجديدة")
     now = datetime.utcnow().isoformat()
-    if new_username:
-        sb.table("settings").upsert({"key": "admin_username", "value": new_username, "updated_at": now}).execute()
-    if new_password:
-        hashed = pwd_context.hash(new_password)
-        sb.table("settings").upsert({"key": "admin_password_hash", "value": hashed, "updated_at": now}).execute()
+    try:
+        if new_username:
+            sb.table("settings").upsert({"key": "admin_username", "value": new_username, "updated_at": now}).execute()
+        if new_password:
+            hashed = pwd_context.hash(new_password)
+            sb.table("settings").upsert({"key": "admin_password_hash", "value": hashed, "updated_at": now}).execute()
+    except Exception as e:
+        raise HTTPException(500, f"خطأ في قاعدة البيانات — تأكد من وجود جدول settings: {str(e)}")
     return {"message": "تم تحديث بيانات الدخول"}
