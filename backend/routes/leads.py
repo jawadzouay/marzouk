@@ -3,7 +3,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt
 from services.supabase_service import get_client
 from services.claude_service import extract_leads_from_image
-from services.sheets_service import append_leads_to_sheet, append_to_archive
+from services.sheets_service import append_leads_to_sheet, append_to_archive, update_lead_in_sheet
 from models.lead import LeadSubmit
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -177,6 +177,14 @@ def update_lead_status(lead_id: str, body: dict, agent=Depends(get_current_agent
         "note": f"Agent updated status"
     }).execute()
 
+    # Sync status update to Google Sheets (fire-and-forget)
+    try:
+        agent_row = sb.table("agents").select("name").eq("id", lead_row["original_agent"]).execute()
+        agent_name = agent_row.data[0]["name"] if agent_row.data else "Unknown"
+        update_lead_in_sheet(agent_name, lead_id, new_status=new_status)
+    except Exception as e:
+        print(f"[SHEETS STATUS SYNC] {e}")
+
     return {"message": "تم تحديث الحالة"}
 
 
@@ -250,7 +258,18 @@ def update_lead_note(lead_id: str, body: dict, agent=Depends(get_current_agent))
     lead = sb.table("leads").select("id").eq("id", lead_id).execute()
     if not lead.data:
         raise HTTPException(status_code=404, detail="Lead not found")
+    lead_full = sb.table("leads").select("original_agent").eq("id", lead_id).execute()
     sb.table("leads").update({"note": note}).eq("id", lead_id).execute()
+
+    # Sync note to Google Sheets
+    try:
+        if lead_full.data:
+            agent_row = sb.table("agents").select("name").eq("id", lead_full.data[0]["original_agent"]).execute()
+            agent_name = agent_row.data[0]["name"] if agent_row.data else "Unknown"
+            update_lead_in_sheet(agent_name, lead_id, note=note)
+    except Exception as e:
+        print(f"[SHEETS NOTE SYNC] {e}")
+
     return {"message": "تم حفظ الملاحظة"}
 
 
