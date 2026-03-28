@@ -8,7 +8,7 @@ from services.swap_service import get_swap_days
 from models.lead import LeadSubmit
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
-import os
+import os, re
 
 load_dotenv()
 
@@ -298,6 +298,69 @@ def update_lead_note(lead_id: str, body: dict, agent=Depends(get_current_agent))
         print(f"[SHEETS NOTE SYNC] {e}")
 
     return {"message": "تم حفظ الملاحظة"}
+
+
+@router.patch("/{lead_id}/info")
+def update_lead_info(lead_id: str, body: dict, agent=Depends(get_current_agent)):
+    sb = get_client()
+    agent_id = agent["sub"]
+
+    lead = sb.table("leads").select("*").eq("id", lead_id).execute()
+    if not lead.data:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    lead_row = lead.data[0]
+
+    if agent_id != "admin" and lead_row.get("current_agent") != agent_id:
+        raise HTTPException(status_code=403, detail="ليس لديك صلاحية تعديل هذا العميل")
+
+    updates = {}
+    name  = (body.get("name")  or "").strip()
+    phone = (body.get("phone") or "").strip()
+    level = (body.get("level") or "").strip()
+    city  = (body.get("city")  or "").strip()
+
+    if name:  updates["name"]  = name
+    if level: updates["level"] = level
+    if city:  updates["city"]  = city
+    if phone:
+        if not re.match(r'^(06|07)\d{8}$', phone):
+            raise HTTPException(status_code=400, detail="رقم الهاتف يجب أن يكون 10 أرقام ويبدأ بـ 06 أو 07")
+        dup = sb.table("leads").select("id").eq("phone", phone).neq("id", lead_id).execute()
+        if dup.data:
+            raise HTTPException(status_code=400, detail="هذا الرقم موجود مسبقاً لعميل آخر")
+        updates["phone"] = phone
+
+    if not updates:
+        raise HTTPException(status_code=400, detail="لا توجد تغييرات")
+
+    sb.table("leads").update(updates).eq("id", lead_id).execute()
+
+    sb.table("lead_history").insert({
+        "lead_id": lead_id,
+        "agent_id": agent_id,
+        "action": "info_updated",
+        "status_before": lead_row["status"],
+        "status_after": lead_row["status"],
+        "note": f"Updated: {', '.join(updates.keys())}"
+    }).execute()
+
+    try:
+        agent_row = sb.table("agents").select("name, branches(name)").eq("id", lead_row["original_agent"]).execute()
+        agent_name = agent_row.data[0]["name"] if agent_row.data else "Unknown"
+        b_info = agent_row.data[0].get("branches") if agent_row.data else None
+        b_name = b_info.get("name", "") if b_info else ""
+        update_lead_in_sheet(
+            agent_name, lead_id, branch_name=b_name,
+            new_name=updates.get("name"),
+            new_phone=updates.get("phone"),
+            new_level=updates.get("level"),
+            new_city=updates.get("city")
+        )
+    except Exception as e:
+        print(f"[SHEETS INFO SYNC] {e}")
+
+    return {"message": "تم تحديث بيانات العميل", "updates": updates}
 
 
 @router.get("/submissions-today")

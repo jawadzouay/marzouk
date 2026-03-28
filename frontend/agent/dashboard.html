@@ -174,6 +174,25 @@
     .action-btn.secondary { background: #1a1a1a; }
     .action-btn:active { opacity: 0.85; transform: scale(0.98); }
 
+    /* ===== Edit Lead Icon ===== */
+    .edit-lead-icon {
+      background: none; border: none; cursor: pointer;
+      font-size: 13px; color: #9ca3af; padding: 2px 4px;
+      line-height: 1; vertical-align: middle;
+      transition: color 0.15s;
+    }
+    .edit-lead-icon:hover { color: #e63329; }
+
+    /* ===== Edit Lead Popup ===== */
+    .edit-popup-field { margin-bottom: 12px; }
+    .edit-popup-label { font-size: 12px; font-weight: 700; color: #6b7280; margin-bottom: 4px; display: block; }
+    .edit-popup-input {
+      width: 100%; padding: 11px 14px; border: 2px solid #e5e7eb;
+      border-radius: 10px; font-size: 15px; font-family: 'Cairo', sans-serif;
+      direction: rtl; background: white; transition: border-color 0.15s;
+    }
+    .edit-popup-input:focus { outline: none; border-color: #e63329; }
+
     /* ===== Call Progress Bar ===== */
     .call-progress-card {
       background: white; border-radius: 14px; padding: 12px 14px;
@@ -667,6 +686,31 @@
     <label class="form-label">تاريخ ووقت الموعد</label>
     <input type="datetime-local" id="rdv-date-input" class="popup-input" />
     <button class="popup-btn popup-btn-primary" onclick="confirmRdv()">✅ تأكيد الموعد</button>
+    <button class="popup-btn popup-btn-cancel" onclick="closeAllPopups()">إلغاء</button>
+  </div>
+
+  <!-- Edit Lead Popup -->
+  <div class="popup-sheet" id="edit-lead-popup">
+    <div class="popup-handle"></div>
+    <div class="popup-title">✏️ تعديل بيانات العميل</div>
+    <input type="hidden" id="edit-lead-id" />
+    <div class="edit-popup-field">
+      <label class="edit-popup-label">الاسم</label>
+      <input type="text" id="edit-name" class="edit-popup-input" placeholder="اسم العميل" />
+    </div>
+    <div class="edit-popup-field">
+      <label class="edit-popup-label">رقم الهاتف</label>
+      <input type="tel" id="edit-phone" class="edit-popup-input" placeholder="06XXXXXXXX" dir="ltr" />
+    </div>
+    <div class="edit-popup-field">
+      <label class="edit-popup-label">المستوى</label>
+      <input type="text" id="edit-level" class="edit-popup-input" placeholder="Bac, Bac+2, ..." />
+    </div>
+    <div class="edit-popup-field">
+      <label class="edit-popup-label">المدينة</label>
+      <input type="text" id="edit-city" class="edit-popup-input" placeholder="Casablanca, Tanger, ..." />
+    </div>
+    <button class="popup-btn popup-btn-primary" onclick="saveLeadInfo()">💾 حفظ التعديلات</button>
     <button class="popup-btn popup-btn-cancel" onclick="closeAllPopups()">إلغاء</button>
   </div>
 
@@ -1730,7 +1774,7 @@
           <div class="lead-main">
             <div class="lead-top">
               <div style="min-width:0;flex:1">
-                <div class="lead-name">${lead.name || '—'} ${getAgeTag(lead)}</div>
+                <div class="lead-name">${lead.name || '—'} ${getAgeTag(lead)}<button class="edit-lead-icon" onclick="event.stopPropagation();openEditLeadPopup('${lead.id}')" title="تعديل البيانات">✏️</button></div>
                 <div class="lead-phone">${lead.phone}</div>
                 ${notePreview}
               </div>
@@ -1979,6 +2023,56 @@
       }
     }
 
+    // ===== Edit Lead Popup =====
+    function openEditLeadPopup(leadId) {
+      const lead = allLeads.find(l => l.id === leadId);
+      if (!lead) return;
+      document.getElementById('edit-lead-id').value = leadId;
+      document.getElementById('edit-name').value  = lead.name  || '';
+      document.getElementById('edit-phone').value = lead.phone || '';
+      document.getElementById('edit-level').value = lead.level || '';
+      document.getElementById('edit-city').value  = lead.city  || '';
+      showPopup('edit-lead-popup');
+    }
+
+    async function saveLeadInfo() {
+      const leadId = document.getElementById('edit-lead-id').value;
+      const name   = document.getElementById('edit-name').value.trim();
+      const phone  = document.getElementById('edit-phone').value.trim();
+      const level  = document.getElementById('edit-level').value.trim();
+      const city   = document.getElementById('edit-city').value.trim();
+
+      const btn = document.querySelector('#edit-lead-popup .popup-btn-primary');
+      btn.disabled = true;
+      btn.textContent = '⏳ جاري الحفظ...';
+
+      try {
+        const res = await fetch(`${API}/leads/${leadId}/info`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, phone, level, city })
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.detail || 'حدث خطأ'); return; }
+
+        // Update local copy
+        const lead = allLeads.find(l => l.id === leadId);
+        if (lead) {
+          if (name)  lead.name  = name;
+          if (phone) lead.phone = phone;
+          if (level) lead.level = level;
+          if (city)  lead.city  = city;
+        }
+        closeAllPopups();
+        applyFilters();
+      } catch (e) {
+        alert('خطأ في الاتصال بالخادم');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '💾 حفظ التعديلات';
+      }
+    }
+
     // ===== Call Popup =====
     function openCallPopup(phone, name) {
       document.getElementById('popup-name').textContent = name || phone;
@@ -2015,7 +2109,7 @@
       document.getElementById('overlay').classList.add('show');
     }
     function closeAllPopups() {
-      ['call-popup','rdv-popup','register-popup','goal-popup'].forEach(id =>
+      ['call-popup','rdv-popup','register-popup','goal-popup','edit-lead-popup'].forEach(id =>
         document.getElementById(id).classList.remove('show')
       );
       document.getElementById('overlay').classList.remove('show');

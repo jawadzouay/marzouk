@@ -16,6 +16,10 @@ SCOPES = [
 # I=Status  J=SwapCount  K=SubmittedAt  L=Note  M=LeadID
 HEADERS = ["Date", "Agent", "Branch", "#", "Phone", "Name", "Level", "City",
            "Status", "Swap Count", "Submitted At", "Note", "Lead ID"]
+COL_PHONE   = "E"   # column E
+COL_NAME    = "F"   # column F
+COL_LEVEL   = "G"   # column G
+COL_CITY    = "H"   # column H
 COL_STATUS  = "I"   # column I
 COL_NOTE    = "L"   # column L
 COL_LEAD_ID = "M"   # column M (used for lookups)
@@ -119,12 +123,13 @@ def append_leads_to_sheet(agent_name: str, leads: list, submission_date: str, br
     ).execute()
 
 
-def update_lead_in_sheet(agent_name: str, lead_id: str, new_status: str = None, note: str = None, branch_name: str = ""):
+def update_lead_in_sheet(agent_name: str, lead_id: str, new_status: str = None, note: str = None, branch_name: str = "",
+                         new_name: str = None, new_phone: str = None, new_level: str = None, new_city: str = None):
     """Find lead rows by Lead ID (col M) in agent tab + All Leads and update Status/Note."""
     sheet_id = get_sheet_id()
     if not sheet_id:
         return
-    if new_status is None and note is None:
+    if new_status is None and note is None and new_name is None and new_phone is None and new_level is None and new_city is None:
         return
 
     service = get_sheets_service()
@@ -159,6 +164,14 @@ def update_lead_in_sheet(agent_name: str, lead_id: str, new_status: str = None, 
                         "range": f"'{tab}'!{COL_NOTE}{row_num}",
                         "values": [[note]]
                     })
+                if new_name is not None:
+                    updates.append({"range": f"'{tab}'!{COL_NAME}{row_num}", "values": [[new_name]]})
+                if new_phone is not None:
+                    updates.append({"range": f"'{tab}'!{COL_PHONE}{row_num}", "values": [[new_phone]]})
+                if new_level is not None:
+                    updates.append({"range": f"'{tab}'!{COL_LEVEL}{row_num}", "values": [[new_level]]})
+                if new_city is not None:
+                    updates.append({"range": f"'{tab}'!{COL_CITY}{row_num}", "values": [[new_city]]})
                 if updates:
                     try:
                         service.spreadsheets().values().batchUpdate(
