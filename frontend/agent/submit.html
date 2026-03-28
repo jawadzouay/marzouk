@@ -360,7 +360,11 @@
         }
         showAlert(msg,'success');
         document.getElementById('table-section').style.display='none';
-        setTimeout(()=>window.location.href='dashboard.html',2000);
+        if (data.sheets_error) {
+          setTimeout(() => showAlert(`⚠️ تم الحفظ لكن فشل إرسال البيانات إلى Google Sheet: ${data.sheets_error}`, 'warn'), 500);
+        } else {
+          setTimeout(()=>window.location.href='dashboard.html',2000);
+        }
       } catch(err) { showAlert(err.message,'error'); }
     }
 

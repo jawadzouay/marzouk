@@ -688,12 +688,20 @@
   function renderSubmissions() {
     const grid = document.getElementById('subs-grid');
     grid.innerHTML = '';
+    const todayDow = new Date().getDay(); // 0=Sun…6=Sat
     (state.agents || []).forEach(a => {
+      const isOffToday = (a.day_off != null) && (a.day_off === todayDow);
+      let statusHtml;
+      if (a.submitted_today) {
+        statusHtml = `<span class="sub-yes">✅</span>`;
+      } else if (isOffToday) {
+        statusHtml = `<span style="color:#854d0e;font-weight:700">🏖️ إجازة</span>`;
+      } else {
+        statusHtml = `<span class="sub-no">❌</span>`;
+      }
       const div = document.createElement('div');
       div.className = 'sub-card';
-      div.innerHTML = `
-        <span class="sub-name">${a.name}</span>
-        <span class="${a.submitted_today?'sub-yes':'sub-no'}">${a.submitted_today?'✅':'❌'}</span>`;
+      div.innerHTML = `<span class="sub-name">${a.name}</span>${statusHtml}`;
       grid.appendChild(div);
     });
   }

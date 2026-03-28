@@ -35,7 +35,7 @@ def admin_dashboard(
     sb = get_client()
     today = datetime.utcnow().date().isoformat()
 
-    agents = sb.table("agents").select("id, name, is_active").eq("is_active", True).execute()
+    agents = sb.table("agents").select("id, name, is_active, day_off").eq("is_active", True).execute()
     submissions_today = sb.table("submissions").select("agent_id").eq("submission_date", today).execute()
     submitted_ids = {s["agent_id"] for s in submissions_today.data}
 
@@ -44,7 +44,8 @@ def admin_dashboard(
         agent_status.append({
             "id": agent["id"],
             "name": agent["name"],
-            "submitted_today": agent["id"] in submitted_ids
+            "submitted_today": agent["id"] in submitted_ids,
+            "day_off": agent.get("day_off")  # 0=Sun … 6=Sat, None=no fixed day off
         })
 
     leads_q = sb.table("leads").select("id", count="exact")

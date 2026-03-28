@@ -287,6 +287,19 @@ def delete_bonus(bonus_id: str, user=Depends(get_current_user)):
     return {"message": "تم حذف المكافأة"}
 
 
+@router.patch("/{agent_id}/day-off")
+def set_day_off(agent_id: str, body: dict, admin=Depends(require_admin)):
+    """Set or clear an agent's weekly day off. day_off: 0=Sun,1=Mon,...,6=Sat, null=none."""
+    sb = get_client()
+    day_off = body.get("day_off")  # None clears it
+    if day_off is not None and day_off not in range(7):
+        raise HTTPException(400, "day_off يجب أن يكون بين 0 و 6")
+    result = sb.table("agents").update({"day_off": day_off}).eq("id", agent_id).execute()
+    if not result.data:
+        raise HTTPException(404, "الوكيل غير موجود")
+    return result.data[0]
+
+
 @router.patch("/{agent_id}/rename")
 def rename_agent(agent_id: str, body: dict, admin=Depends(require_admin)):
     sb = get_client()

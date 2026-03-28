@@ -63,6 +63,10 @@
     .rename-panel { margin-top: 10px; padding: 10px 12px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .rename-panel input { flex: 1; min-width: 160px; padding: 7px 10px; font-size: 13px; border: 2px solid #bfdbfe; border-radius: 8px; font-family: 'Cairo', sans-serif; }
     .btn-rename { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; font-size: 13px; }
+    .dayoff-tag { display: inline-block; background: #fef9c3; color: #854d0e; border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600; margin-top: 4px; }
+    .btn-dayoff { background: #fef9c3; color: #854d0e; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; font-size: 13px; }
+    .dayoff-panel { margin-top: 10px; padding: 10px 12px; background: #fefce8; border-radius: 8px; border: 1px solid #fde68a; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .dayoff-panel select { flex: 1; min-width: 160px; padding: 7px 10px; font-size: 13px; border: 2px solid #fde68a; border-radius: 8px; font-family: 'Cairo', sans-serif; }
 
     /* Requests */
     .request-row { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; }
@@ -337,19 +341,40 @@
         const branchLabel = branch
           ? `<span class="branch-tag">🏢 ${branch.city ? branch.city + ' — ' : ''}${branch.name}</span>`
           : '';
+        const DAY_NAMES = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+        const dayOffLabel = (a.day_off != null)
+          ? `<span class="dayoff-tag">🏖️ إجازة: ${DAY_NAMES[a.day_off]}</span>`
+          : '';
         return `<div class="agent-row" id="agent-row-${a.id}">
           <div class="agent-main">
             <div class="agent-info">
               <div class="agent-name">${a.name}</div>
               <div class="agent-meta">تاريخ الإضافة: ${new Date(a.created_at).toLocaleDateString('ar-MA')}</div>
               ${branchLabel}
+              ${dayOffLabel}
             </div>
             <div class="agent-actions">
+              <button class="btn-dayoff" onclick="toggleDayOff('${a.id}',${a.day_off ?? 'null'})">🏖️ يوم إجازة</button>
               <button class="btn-rename" onclick="toggleRename('${a.id}','${escQ(a.name)}')">✏️ تعديل الاسم</button>
               <button class="btn-transfer" onclick="toggleTransfer('${a.id}')">📦 نقل الفرع</button>
               <button class="btn-fire" onclick="fireAgent('${a.id}','${escQ(a.name)}')">🔴 إيقاف</button>
               <button class="btn-wipe" onclick="fireAndWipe('${a.id}','${escQ(a.name)}')">🗑️ إيقاف ومسح</button>
             </div>
+          </div>
+          <div class="dayoff-panel" id="dayoff-${a.id}" style="display:none">
+            <span style="font-size:13px;font-weight:600;color:#854d0e">🏖️ يوم الإجازة الأسبوعية:</span>
+            <select id="dayoff-sel-${a.id}">
+              <option value="">— بدون إجازة ثابتة —</option>
+              <option value="0">الأحد</option>
+              <option value="1">الاثنين</option>
+              <option value="2">الثلاثاء</option>
+              <option value="3">الأربعاء</option>
+              <option value="4">الخميس</option>
+              <option value="5">الجمعة</option>
+              <option value="6">السبت</option>
+            </select>
+            <button class="btn-sm btn-save" onclick="confirmDayOff('${a.id}')">✅ حفظ</button>
+            <button class="btn-sm btn-cancel" onclick="toggleDayOff('${a.id}')">إلغاء</button>
           </div>
           <div class="rename-panel" id="rename-${a.id}" style="display:none">
             <span style="font-size:13px;font-weight:600;color:#1d4ed8">✏️ الاسم الجديد:</span>
@@ -368,6 +393,32 @@
           </div>
         </div>`;
       }).join('');
+    }
+
+    function toggleDayOff(agentId, currentDayOff) {
+      const panel = document.getElementById(`dayoff-${agentId}`);
+      const isHidden = panel.style.display === 'none';
+      panel.style.display = isHidden ? 'flex' : 'none';
+      if (isHidden) {
+        const sel = document.getElementById(`dayoff-sel-${agentId}`);
+        sel.value = (currentDayOff != null) ? String(currentDayOff) : '';
+      }
+    }
+
+    async function confirmDayOff(agentId) {
+      const val = document.getElementById(`dayoff-sel-${agentId}`).value;
+      const day_off = val === '' ? null : parseInt(val);
+      const { ok, data } = await callAPI(`${API}/agents/${agentId}/day-off`, {
+        method: 'PATCH', body: JSON.stringify({ day_off })
+      });
+      if (ok) {
+        const DAY_NAMES = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+        const msg = day_off != null ? `تم تعيين إجازة ${DAY_NAMES[day_off]}` : 'تم إلغاء الإجازة الثابتة';
+        showAlert('alert', msg, true);
+        loadAgents();
+      } else {
+        showAlert('alert', data.detail || 'خطأ', false);
+      }
     }
 
     function toggleRename(agentId, currentName) {
