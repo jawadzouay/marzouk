@@ -12,13 +12,21 @@ SCOPES = [
 ]
 
 # Column layout (1-indexed for Sheets API, 0-indexed for list)
-# A=Date  B=Agent  C=#  D=Phone  E=Name  F=Level  G=City
-# H=Status  I=SwapCount  J=SubmittedAt  K=Note  L=LeadID
-HEADERS = ["Date", "Agent", "#", "Phone", "Name", "Level", "City",
+# A=Date  B=Agent  C=Branch  D=#  E=Phone  F=Name  G=Level  H=City
+# I=Status  J=SwapCount  K=SubmittedAt  L=Note  M=LeadID
+HEADERS = ["Date", "Agent", "Branch", "#", "Phone", "Name", "Level", "City",
            "Status", "Swap Count", "Submitted At", "Note", "Lead ID"]
-COL_STATUS  = "H"   # column H
-COL_NOTE    = "K"   # column K
-COL_LEAD_ID = "L"   # column L (used for lookups)
+COL_STATUS  = "I"   # column I
+COL_NOTE    = "L"   # column L
+COL_LEAD_ID = "M"   # column M (used for lookups)
+LEAD_ID_INDEX = 12  # 0-indexed position of Lead ID in row list
+
+
+def make_tab_name(agent_name: str, branch_name: str = "") -> str:
+    """Returns a unique tab name. Includes branch when provided to avoid name collisions."""
+    if branch_name and branch_name.strip():
+        return f"{agent_name} ({branch_name.strip()})"
+    return agent_name
 
 
 def get_sheet_id() -> str:
@@ -79,18 +87,19 @@ def ensure_sheet_tab(service, sheet_id: str, tab_name: str):
         ).execute()
 
 
-def append_leads_to_sheet(agent_name: str, leads: list, submission_date: str):
+def append_leads_to_sheet(agent_name: str, leads: list, submission_date: str, branch_name: str = ""):
     sheet_id = get_sheet_id()
     if not sheet_id:
         return
     service = get_sheets_service()
-    ensure_sheet_tab(service, sheet_id, agent_name)
+    tab_name = make_tab_name(agent_name, branch_name)
+    ensure_sheet_tab(service, sheet_id, tab_name)
     ensure_sheet_tab(service, sheet_id, "All Leads")
 
     rows = []
     for i, lead in enumerate(leads, start=1):
         rows.append([
-            submission_date, agent_name, i,
+            submission_date, agent_name, branch_name or "", i,
             lead.get("phone", ""),  lead.get("name", ""),  lead.get("level", ""),
             lead.get("city", ""),   lead.get("status", ""),
             lead.get("swap_count", 0), lead.get("submitted_at", ""),
@@ -99,7 +108,7 @@ def append_leads_to_sheet(agent_name: str, leads: list, submission_date: str):
         ])
 
     service.spreadsheets().values().append(
-        spreadsheetId=sheet_id, range=f"'{agent_name}'!A1",
+        spreadsheetId=sheet_id, range=f"'{tab_name}'!A1",
         valueInputOption="RAW", insertDataOption="INSERT_ROWS",
         body={"values": rows}
     ).execute()
@@ -110,8 +119,8 @@ def append_leads_to_sheet(agent_name: str, leads: list, submission_date: str):
     ).execute()
 
 
-def update_lead_in_sheet(agent_name: str, lead_id: str, new_status: str = None, note: str = None):
-    """Find lead rows by Lead ID (col L) in agent tab + All Leads and update Status/Note."""
+def update_lead_in_sheet(agent_name: str, lead_id: str, new_status: str = None, note: str = None, branch_name: str = ""):
+    """Find lead rows by Lead ID (col M) in agent tab + All Leads and update Status/Note."""
     sheet_id = get_sheet_id()
     if not sheet_id:
         return
@@ -119,21 +128,25 @@ def update_lead_in_sheet(agent_name: str, lead_id: str, new_status: str = None, 
         return
 
     service = get_sheets_service()
-    tabs = [agent_name, "All Leads"]
+    tab_name = make_tab_name(agent_name, branch_name)
+    # Also try the plain agent name tab for backwards compatibility with rows written before branch support
+    tabs_to_try = list(dict.fromkeys([tab_name, agent_name, "All Leads"]))
 
-    for tab in tabs:
+    for tab in tabs_to_try:
         try:
             result = service.spreadsheets().values().get(
                 spreadsheetId=sheet_id,
-                range=f"'{tab}'!A:L"
+                range=f"'{tab}'!A:M"
             ).execute()
             rows = result.get("values", [])
         except Exception:
             continue
 
         for i, row in enumerate(rows):
-            # Lead ID is column L (index 11)
-            if len(row) > 11 and row[11] == lead_id:
+            # Lead ID is column M (index 12); fall back to old index 11 for pre-migration rows
+            found = (len(row) > LEAD_ID_INDEX and row[LEAD_ID_INDEX] == lead_id) or \
+                    (len(row) > 11 and len(row) <= LEAD_ID_INDEX and row[11] == lead_id)
+            if found:
                 row_num = i + 1  # Sheets rows are 1-indexed
                 updates = []
                 if new_status is not None:
@@ -157,7 +170,7 @@ def update_lead_in_sheet(agent_name: str, lead_id: str, new_status: str = None, 
                 break  # Found and updated — stop searching this tab
 
 
-def append_to_archive(agent_name: str, leads: list, submission_date: str):
+def append_to_archive(agent_name: str, leads: list, submission_date: str, branch_name: str = ""):
     sheet_id = get_sheet_id()
     if not sheet_id:
         return
@@ -167,7 +180,7 @@ def append_to_archive(agent_name: str, leads: list, submission_date: str):
     rows = []
     for i, lead in enumerate(leads, start=1):
         rows.append([
-            submission_date, agent_name, i,
+            submission_date, agent_name, branch_name or "", i,
             lead.get("phone", ""),  lead.get("name", ""),  lead.get("level", ""),
             lead.get("city", ""),   lead.get("status", ""),
             lead.get("swap_count", 0), lead.get("submitted_at", ""),

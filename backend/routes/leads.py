@@ -55,9 +55,11 @@ async def submit_leads(submission: LeadSubmit, agent=Depends(get_current_agent))
     if submissions_done >= 3:
         raise HTTPException(status_code=400, detail="وصلت للحد الأقصى اليوم — 3 إرسالات فقط مسموح بها")
 
-    # Get agent name
-    agent_row = sb.table("agents").select("name").eq("id", agent_id).execute()
+    # Get agent name and branch
+    agent_row = sb.table("agents").select("name, branches(name)").eq("id", agent_id).execute()
     agent_name = agent_row.data[0]["name"] if agent_row.data else "Unknown"
+    branch_info = agent_row.data[0].get("branches") if agent_row.data else None
+    branch_name = branch_info.get("name", "") if branch_info else ""
 
     # Get blacklist
     blacklist = sb.table("blacklist").select("phone").execute()
@@ -129,7 +131,7 @@ async def submit_leads(submission: LeadSubmit, agent=Depends(get_current_agent))
     sheets_error = None
     if saved_leads:
         try:
-            append_leads_to_sheet(agent_name, saved_leads, today)
+            append_leads_to_sheet(agent_name, saved_leads, today, branch_name=branch_name)
         except Exception as e:
             sheets_error = str(e)
             print(f"[SHEETS ERROR] {e}")
@@ -186,9 +188,11 @@ def update_lead_status(lead_id: str, body: dict, agent=Depends(get_current_agent
 
     # Sync status update to Google Sheets (fire-and-forget)
     try:
-        agent_row = sb.table("agents").select("name").eq("id", lead_row["original_agent"]).execute()
+        agent_row = sb.table("agents").select("name, branches(name)").eq("id", lead_row["original_agent"]).execute()
         agent_name = agent_row.data[0]["name"] if agent_row.data else "Unknown"
-        update_lead_in_sheet(agent_name, lead_id, new_status=new_status)
+        b_info = agent_row.data[0].get("branches") if agent_row.data else None
+        b_name = b_info.get("name", "") if b_info else ""
+        update_lead_in_sheet(agent_name, lead_id, new_status=new_status, branch_name=b_name)
     except Exception as e:
         print(f"[SHEETS STATUS SYNC] {e}")
 
@@ -283,9 +287,11 @@ def update_lead_note(lead_id: str, body: dict, agent=Depends(get_current_agent))
     # Sync note to Google Sheets
     try:
         if lead_full.data:
-            agent_row = sb.table("agents").select("name").eq("id", lead_full.data[0]["original_agent"]).execute()
+            agent_row = sb.table("agents").select("name, branches(name)").eq("id", lead_full.data[0]["original_agent"]).execute()
             agent_name = agent_row.data[0]["name"] if agent_row.data else "Unknown"
-            update_lead_in_sheet(agent_name, lead_id, note=note)
+            b_info = agent_row.data[0].get("branches") if agent_row.data else None
+            b_name = b_info.get("name", "") if b_info else ""
+            update_lead_in_sheet(agent_name, lead_id, note=note, branch_name=b_name)
     except Exception as e:
         print(f"[SHEETS NOTE SYNC] {e}")
 
