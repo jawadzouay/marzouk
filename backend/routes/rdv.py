@@ -28,6 +28,13 @@ def book_rdv(rdv: RDVCreate, user=Depends(get_current_user)):
     sb = get_client()
     agent_id = user["sub"]
 
+    # Ownership check — only current_agent or admin can book RDV on a lead
+    lead_check = sb.table("leads").select("current_agent").eq("id", rdv.lead_id).execute()
+    if not lead_check.data:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    if agent_id != "admin" and lead_check.data[0].get("current_agent") != agent_id:
+        raise HTTPException(status_code=403, detail="ليس لديك صلاحية حجز موعد لهذا العميل")
+
     # Update lead status to RDV
     sb.table("leads").update({
         "status": "RDV",
@@ -64,6 +71,10 @@ def update_rdv(rdv_id: str, update: RDVUpdate, user=Depends(get_current_user)):
         raise HTTPException(status_code=404, detail="RDV not found")
 
     rdv_row = rdv_result.data[0]
+
+    # Ownership check — only the RDV's agent or admin can update it
+    if agent_id != "admin" and rdv_row.get("agent_id") != agent_id:
+        raise HTTPException(status_code=403, detail="ليس لديك صلاحية تعديل هذا الموعد")
 
     if update.status == "no_show":
         # Lead goes back to pool after 10 days from RDV date

@@ -4,6 +4,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 import os
+import logging
 
 load_dotenv()
 
@@ -11,13 +12,62 @@ from routes import auth, agents, leads, rdv, swap, admin, blacklist, spend, anal
 
 app = FastAPI(title="Marzouk Academy CRM")
 
+# CORS — restrict to same origin in production; Railway serves frontend + API on same domain
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "").split(",")
+ALLOWED_ORIGINS = [o.strip() for o in ALLOWED_ORIGINS if o.strip()] or ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ── Background scheduler ────────────────────────────────────────────────────
+from apscheduler.schedulers.background import BackgroundScheduler
+
+def run_auto_swap():
+    """Auto-assign all swap-eligible leads every 6 hours."""
+    try:
+        from services.swap_service import get_eligible_leads_for_swap, assign_swap
+        eligible = get_eligible_leads_for_swap()
+        if eligible:
+            logging.info(f"[AUTO-SWAP] {len(eligible)} leads eligible — running swap")
+            for lead in eligible:
+                try:
+                    assign_swap(lead)
+                except Exception as e:
+                    logging.warning(f"[AUTO-SWAP] lead {lead['id']}: {e}")
+    except Exception as e:
+        logging.error(f"[AUTO-SWAP ERROR] {e}")
+
+def run_noshow_repool():
+    """Move no-show leads back to swap pool when their 10-day timer expires."""
+    try:
+        from services.supabase_service import get_client
+        from datetime import datetime, timedelta
+        sb = get_client()
+        now = datetime.utcnow().isoformat()
+        # Find leads with expired no-show repool timer
+        leads = sb.table("leads").select("id, original_agent") \
+            .eq("status", "N.R") \
+            .lte("swap_eligible_at", now) \
+            .lt("swap_count", 3) \
+            .execute().data
+        if leads:
+            logging.info(f"[REPOOL] {len(leads)} no-show leads re-entering swap pool")
+            # Their swap_eligible_at is already past — swap_service will pick them up
+            # next auto-swap run. Just log so it's visible.
+    except Exception as e:
+        logging.error(f"[REPOOL ERROR] {e}")
+
+scheduler = BackgroundScheduler(timezone="UTC")
+scheduler.add_job(run_auto_swap,    "interval", hours=6,   id="auto_swap",    replace_existing=True)
+scheduler.add_job(run_noshow_repool,"interval", hours=1,   id="noshow_repool",replace_existing=True)
+scheduler.start()
+logging.basicConfig(level=logging.INFO)
+logging.info("[SCHEDULER] Auto-swap (6h) and no-show repool (1h) jobs started")
 
 app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(agents.router, prefix="/agents", tags=["agents"])

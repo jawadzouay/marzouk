@@ -157,6 +157,11 @@ def update_lead_status(lead_id: str, body: dict, agent=Depends(get_current_agent
         raise HTTPException(status_code=404, detail="Lead not found")
 
     lead_row = lead.data[0]
+
+    # Ownership check — only current_agent or admin can update
+    if agent_id != "admin" and lead_row.get("current_agent") != agent_id:
+        raise HTTPException(status_code=403, detail="ليس لديك صلاحية تعديل هذا العميل")
+
     old_status = lead_row["status"]
 
     swap_eligible_at = None
@@ -202,6 +207,11 @@ def register_lead(lead_id: str, body: dict, agent=Depends(get_current_agent)):
         raise HTTPException(status_code=404, detail="Lead not found")
 
     lead_row = lead.data[0]
+
+    # Ownership check
+    if agent_id != "admin" and lead_row.get("current_agent") != agent_id:
+        raise HTTPException(status_code=403, detail="ليس لديك صلاحية تسجيل هذا العميل")
+
     if lead_row["status"] in ("registered_logha", "registered_maharat", "registered_takwin"):
         raise HTTPException(status_code=400, detail="هذا الطالب مسجل مسبقاً")
 
@@ -237,9 +247,11 @@ def register_lead(lead_id: str, body: dict, agent=Depends(get_current_agent)):
 def mark_visited_center(lead_id: str, agent=Depends(get_current_agent)):
     sb = get_client()
     agent_id = agent["sub"]
-    lead = sb.table("leads").select("id,status").eq("id", lead_id).execute()
+    lead = sb.table("leads").select("id,status,current_agent").eq("id", lead_id).execute()
     if not lead.data:
         raise HTTPException(status_code=404, detail="Lead not found")
+    if agent_id != "admin" and lead.data[0].get("current_agent") != agent_id:
+        raise HTTPException(status_code=403, detail="ليس لديك صلاحية تعديل هذا العميل")
     sb.table("lead_history").insert({
         "lead_id": lead_id,
         "agent_id": agent_id,
@@ -258,7 +270,12 @@ def update_lead_note(lead_id: str, body: dict, agent=Depends(get_current_agent))
     lead = sb.table("leads").select("id").eq("id", lead_id).execute()
     if not lead.data:
         raise HTTPException(status_code=404, detail="Lead not found")
-    lead_full = sb.table("leads").select("original_agent").eq("id", lead_id).execute()
+    lead_full = sb.table("leads").select("original_agent, current_agent").eq("id", lead_id).execute()
+    if not lead_full.data:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    agent_id = agent["sub"]
+    if agent_id != "admin" and lead_full.data[0].get("current_agent") != agent_id:
+        raise HTTPException(status_code=403, detail="ليس لديك صلاحية تعديل هذا العميل")
     sb.table("leads").update({"note": note}).eq("id", lead_id).execute()
 
     # Sync note to Google Sheets
