@@ -48,12 +48,14 @@ async def submit_leads(submission: LeadSubmit, agent=Depends(get_current_agent))
         raise HTTPException(status_code=403, detail="Admin cannot submit leads")
 
     today = datetime.utcnow().date().isoformat()
+    # Use agent-selected date if provided (for submitting yesterday's list today)
+    submission_date = submission.source_date.isoformat() if submission.source_date else today
 
-    # Allow up to 3 submissions per day
-    existing_sub = sb.table("submissions").select("id").eq("agent_id", agent_id).eq("submission_date", today).execute()
+    # Allow up to 3 submissions per selected date
+    existing_sub = sb.table("submissions").select("id").eq("agent_id", agent_id).eq("submission_date", submission_date).execute()
     submissions_done = len(existing_sub.data)
     if submissions_done >= 3:
-        raise HTTPException(status_code=400, detail="وصلت للحد الأقصى اليوم — 3 إرسالات فقط مسموح بها")
+        raise HTTPException(status_code=400, detail=f"وصلت للحد الأقصى ليوم {submission_date} — 3 إرسالات فقط مسموح بها")
 
     # Get agent name and branch
     agent_row = sb.table("agents").select("name, branches(name)").eq("id", agent_id).execute()
@@ -102,7 +104,7 @@ async def submit_leads(submission: LeadSubmit, agent=Depends(get_current_agent))
             "swap_count": 0,
             "locked": True,
             "is_blacklisted": False,
-            "source_date": submission.source_date.isoformat() if submission.source_date else today,
+            "source_date": submission_date,
             "swap_eligible_at": None if not_swappable else swap_eligible_at
         }
 
@@ -123,7 +125,7 @@ async def submit_leads(submission: LeadSubmit, agent=Depends(get_current_agent))
     # Log submission
     sb.table("submissions").insert({
         "agent_id": agent_id,
-        "submission_date": today,
+        "submission_date": submission_date,
         "leads_count": len(saved_leads)
     }).execute()
 
@@ -131,7 +133,7 @@ async def submit_leads(submission: LeadSubmit, agent=Depends(get_current_agent))
     sheets_error = None
     if saved_leads:
         try:
-            append_leads_to_sheet(agent_name, saved_leads, today, branch_name=branch_name)
+            append_leads_to_sheet(agent_name, saved_leads, submission_date, branch_name=branch_name)
         except Exception as e:
             sheets_error = str(e)
             print(f"[SHEETS ERROR] {e}")
@@ -299,13 +301,13 @@ def update_lead_note(lead_id: str, body: dict, agent=Depends(get_current_agent))
 
 
 @router.get("/submissions-today")
-def get_submissions_today(agent=Depends(get_current_agent)):
+def get_submissions_today(agent=Depends(get_current_agent), date: str = None):
     sb = get_client()
     agent_id = agent["sub"]
-    today = datetime.utcnow().date().isoformat()
-    result = sb.table("submissions").select("id,leads_count,submitted_at").eq("agent_id", agent_id).eq("submission_date", today).execute()
+    check_date = date if date else datetime.utcnow().date().isoformat()
+    result = sb.table("submissions").select("id,leads_count,submitted_at").eq("agent_id", agent_id).eq("submission_date", check_date).execute()
     count = len(result.data)
-    return {"count": count, "remaining": max(0, 3 - count)}
+    return {"count": count, "remaining": max(0, 3 - count), "date": check_date}
 
 
 @router.get("/my")

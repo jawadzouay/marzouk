@@ -70,6 +70,24 @@
     .delete-btn { background: #fef2f2; color: #dc2626; border: none; border-radius: 6px; padding: 5px 8px; cursor: pointer; font-size: 11px; }
     .src-badge { font-size: 10px; color: #9ca3af; }
 
+    /* Date picker */
+    .date-picker-card {
+      background: white; border-radius: 12px; padding: 14px 16px;
+      margin-bottom: 14px; display: flex; align-items: center; gap: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    }
+    .date-picker-card label { font-size: 14px; font-weight: 700; color: #374151; white-space: nowrap; }
+    .date-picker-card input[type=date] {
+      flex: 1; padding: 9px 12px; border: 2px solid #e5e7eb; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; font-size: 14px; outline: none;
+      direction: ltr; transition: border 0.15s;
+    }
+    .date-picker-card input[type=date]:focus { border-color: #e63329; }
+    .date-past-warn {
+      background: #fef3c7; color: #92400e; border-radius: 8px;
+      padding: 8px 12px; font-size: 12px; margin-bottom: 10px;
+    }
+
     /* Submission counter */
     .sub-counter {
       border-radius: 12px; padding: 12px 16px; margin-bottom: 14px;
@@ -101,6 +119,15 @@
   </header>
 
   <div class="container">
+    <!-- Date picker -->
+    <div class="date-picker-card">
+      <label>📅 تاريخ القائمة:</label>
+      <input type="date" id="submission-date" onchange="onDateChange()" />
+    </div>
+    <div id="date-past-warn" class="date-past-warn" style="display:none">
+      ⚠️ أنت تُرسل قائمة بتاريخ سابق — تأكد من اختيار التاريخ الصحيح
+    </div>
+
     <!-- Submission counter -->
     <div class="sub-counter ok" id="sub-counter" style="display:none">
       <span id="sub-counter-text">جاري التحقق...</span>
@@ -161,9 +188,26 @@
     let submissionsToday = 0;
     const statusClass   = { 'RDV':'s-rdv','B.V':'s-bv','N.R':'s-nr','P.I':'s-pi','Autre ville':'s-av' };
 
+    // Set date picker to today by default
+    function todayISO() {
+      return new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+    }
+    const dateInput = document.getElementById('submission-date');
+    dateInput.value = todayISO();
+    dateInput.max   = todayISO(); // Cannot pick a future date
+
+    function getSelectedDate() { return dateInput.value || todayISO(); }
+
+    function onDateChange() {
+      const warn = document.getElementById('date-past-warn');
+      warn.style.display = dateInput.value && dateInput.value < todayISO() ? 'block' : 'none';
+      checkSubmissionCount();
+    }
+
     async function checkSubmissionCount() {
       try {
-        const res  = await fetch(`${API}/leads/submissions-today`, { headers: { Authorization: `Bearer ${token}` } });
+        const date = getSelectedDate();
+        const res  = await fetch(`${API}/leads/submissions-today?date=${date}`, { headers: { Authorization: `Bearer ${token}` } });
         const data = await res.json();
         submissionsToday = data.count || 0;
         updateCounter(submissionsToday);
@@ -334,7 +378,7 @@
           res2 = await fetch(`${API}/leads/submit`,{
             method:'POST',
             headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-            body:JSON.stringify({leads:extractedLeads})
+            body:JSON.stringify({leads:extractedLeads, source_date:getSelectedDate()})
           });
           if (res2.status !== 503) break;
           attempt2++;

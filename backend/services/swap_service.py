@@ -3,6 +3,24 @@ from datetime import datetime, timedelta
 from services.supabase_service import get_client
 
 
+def get_swap_enabled() -> bool:
+    """Returns whether the swap system is active (default True)."""
+    try:
+        sb = get_client()
+        row = sb.table("settings").select("value").eq("key", "swap_enabled").execute()
+        if row.data:
+            return row.data[0]["value"].lower() not in ("false", "0", "off", "no")
+    except Exception:
+        pass
+    return True
+
+
+def set_swap_enabled(enabled: bool):
+    sb = get_client()
+    from datetime import datetime as _dt
+    sb.table("settings").upsert({"key": "swap_enabled", "value": "true" if enabled else "false", "updated_at": _dt.utcnow().isoformat()}).execute()
+
+
 def get_swap_days() -> int:
     """Returns configurable swap eligibility window in days (default 4)."""
     try:
@@ -95,6 +113,9 @@ def get_eligible_leads_for_swap():
 
 
 def assign_swap(lead: dict, level: int = None):
+    if not get_swap_enabled():
+        return None
+
     sb = get_client()
 
     if level is None:

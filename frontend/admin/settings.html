@@ -60,6 +60,27 @@
     .msg-ok  { background: #dcfce7; color: #166534; }
     .msg-err { background: #fef2f2; color: #dc2626; }
 
+    /* Toggle switch */
+    .toggle-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 14px 0;
+    }
+    .toggle-label { font-size: 14px; color: #374151; }
+    .toggle-label small { display: block; font-size: 12px; color: #9ca3af; margin-top: 2px; }
+    .toggle-switch { position: relative; width: 52px; height: 28px; flex-shrink: 0; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute; inset: 0; background: #d1d5db; border-radius: 99px;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .toggle-track::after {
+      content: ''; position: absolute; top: 3px; right: 3px;
+      width: 22px; height: 22px; background: white; border-radius: 50%;
+      transition: transform 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .toggle-switch input:checked + .toggle-track { background: #10b981; }
+    .toggle-switch input:checked + .toggle-track::after { transform: translateX(-24px); }
+
     .warn-box {
       background: #fef3c7; border-radius: 10px; padding: 12px 14px;
       font-size: 12px; color: #92400e; margin-bottom: 16px;
@@ -104,6 +125,23 @@
 
     <button class="btn-save" onclick="saveAdminCredentials()">💾 حفظ بيانات الإدارة</button>
     <div id="admin-msg"></div>
+  </div>
+
+  <!-- Swap on/off toggle -->
+  <div class="section-card">
+    <div class="section-title">🔄 نظام التبادل التلقائي (Swap)</div>
+
+    <div class="toggle-row">
+      <div class="toggle-label">
+        تفعيل التبادل التلقائي
+        <small>عند الإيقاف، لا يُحوَّل أي عميل بين الوكلاء تلقائياً</small>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" id="swap-enabled-toggle" onchange="saveSwapEnabled(this.checked)" />
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+    <div id="swap-enabled-msg"></div>
   </div>
 
   <!-- Swap days configuration -->
@@ -228,6 +266,37 @@
     }
   }
 
+  async function loadSwapEnabled() {
+    try {
+      const res  = await fetch(`${API}/admin/swap-enabled`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      const data = await res.json();
+      document.getElementById('swap-enabled-toggle').checked = data.swap_enabled !== false;
+    } catch(e) {}
+  }
+
+  async function saveSwapEnabled(enabled) {
+    try {
+      const res  = await fetch(`${API}/admin/swap-enabled`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ swap_enabled: enabled })
+      });
+      let data = {};
+      try { data = await res.json(); } catch {}
+      if (res.ok) {
+        showMsg('swap-enabled-msg', enabled ? '✅ التبادل مفعّل' : '⏸️ التبادل موقوف', true);
+      } else {
+        showMsg('swap-enabled-msg', data.detail || `خطأ ${res.status}`, false);
+        // Revert toggle on error
+        document.getElementById('swap-enabled-toggle').checked = !enabled;
+      }
+    } catch(e) {
+      showMsg('swap-enabled-msg', 'تعذر الاتصال بالخادم', false);
+      document.getElementById('swap-enabled-toggle').checked = !enabled;
+    }
+  }
+
   async function loadSwapDays() {
     try {
       const res  = await fetch(`${API}/admin/swap-days`, { headers: { Authorization: `Bearer ${token}` } });
@@ -265,6 +334,7 @@
   }
 
   loadCurrentCredentials();
+  loadSwapEnabled();
   loadSwapDays();
 </script>
 </body>

@@ -329,6 +329,22 @@ def stats_overview(admin=Depends(require_admin)):
     return {"total": total, "breakdown": breakdown}
 
 
+@router.get("/swap-enabled")
+def get_swap_enabled_setting(admin=Depends(require_admin)):
+    from services.swap_service import get_swap_enabled
+    return {"swap_enabled": get_swap_enabled()}
+
+
+@router.patch("/swap-enabled")
+def set_swap_enabled_setting(body: dict, admin=Depends(require_admin)):
+    enabled = body.get("swap_enabled")
+    if not isinstance(enabled, bool):
+        raise HTTPException(400, "swap_enabled يجب أن يكون true أو false")
+    from services.swap_service import set_swap_enabled
+    set_swap_enabled(enabled)
+    return {"swap_enabled": enabled, "message": "تم تفعيل التبادل" if enabled else "تم إيقاف التبادل"}
+
+
 @router.get("/swap-days")
 def get_swap_days_setting(admin=Depends(require_admin)):
     from services.swap_service import get_swap_days

@@ -30,7 +30,10 @@ logging.basicConfig(level=logging.INFO)
 def run_auto_swap():
     """Auto-assign all swap-eligible leads every 6 hours."""
     try:
-        from services.swap_service import get_eligible_leads_for_swap, assign_swap
+        from services.swap_service import get_eligible_leads_for_swap, assign_swap, get_swap_enabled
+        if not get_swap_enabled():
+            logging.info("[AUTO-SWAP] Swap is disabled — skipping")
+            return
         eligible = get_eligible_leads_for_swap()
         if eligible:
             logging.info(f"[AUTO-SWAP] {len(eligible)} leads eligible — running swap")
