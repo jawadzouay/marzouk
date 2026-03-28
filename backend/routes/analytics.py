@@ -150,6 +150,7 @@ def ads_quality(
     date_from: str = Query(None),
     date_to:   str = Query(None),
     agent_id:  str = Query(None),
+    branch_id: str = Query(None),
     admin=Depends(require_admin)
 ):
     """Daily lead-quality breakdown to diagnose ad targeting problems."""
@@ -159,11 +160,27 @@ def ads_quality(
     if not date_to:
         date_to = datetime.utcnow().date().isoformat()
 
+    # Always return full branches list for filter chips
+    try:
+        branches = sb.table("branches").select("id, name").order("name").execute().data
+    except Exception:
+        branches = []
+
+    # Resolve agent IDs for branch filter
+    branch_agent_ids = None
+    if branch_id:
+        ba = sb.table("agents").select("id").eq("branch_id", branch_id).execute().data
+        branch_agent_ids = {a["id"] for a in ba}
+
     leads_q = sb.table("leads").select("status, submitted_at, original_agent") \
         .gte("submitted_at", date_from).lte("submitted_at", date_to + "T23:59:59")
     if agent_id:
         leads_q = leads_q.eq("original_agent", agent_id)
     leads = leads_q.execute().data
+
+    # Apply branch filter client-side (avoids complex join)
+    if branch_agent_ids is not None:
+        leads = [l for l in leads if l.get("original_agent") in branch_agent_ids]
 
     from collections import defaultdict
     daily = defaultdict(lambda: {"total": 0, "rdv": 0, "bv": 0, "nr": 0, "pi": 0, "av": 0, "other": 0})
@@ -192,7 +209,6 @@ def ads_quality(
             "nr":      d["nr"],   "nr_pct":  round(d["nr"]  / total * 100, 1),
             "pi":      d["pi"],   "pi_pct":  round(d["pi"]  / total * 100, 1),
             "av":      d["av"],   "av_pct":  round(d["av"]  / total * 100, 1),
-            # quality score 0-100: penalise av/pi/nr, reward rdv
             "quality_score": max(0, min(100, round(
                 100
                 - (d["av"]  / total * 50)
@@ -202,37 +218,45 @@ def ads_quality(
             ))),
         })
 
-    # Agent-level summary for same period (only when no agent filter)
+    # Agent-level summary (only when no single-agent filter)
     agents_summary = []
     if not agent_id:
-        agents = sb.table("agents").select("id, name").eq("is_active", True).execute().data
+        agents_q = sb.table("agents").select("id, name, branch_id").eq("is_active", True)
+        if branch_id:
+            agents_q = agents_q.eq("branch_id", branch_id)
+        agents = agents_q.execute().data
         for ag in agents:
             ag_leads = [l for l in leads if l.get("original_agent") == ag["id"]]
-            t = len(ag_leads) or 1
-            av_c = sum(1 for l in ag_leads if l.get("status") == "Autre ville")
-            pi_c = sum(1 for l in ag_leads if l.get("status") == "P.I")
-            nr_c = sum(1 for l in ag_leads if l.get("status") == "N.R")
-            rdv_c = sum(1 for l in ag_leads if l.get("status") == "RDV")
             if not ag_leads:
                 continue
+            t     = len(ag_leads)
+            td    = t or 1
+            rdv_c = sum(1 for l in ag_leads if l.get("status") == "RDV")
+            bv_c  = sum(1 for l in ag_leads if l.get("status") == "B.V")
+            nr_c  = sum(1 for l in ag_leads if l.get("status") == "N.R")
+            pi_c  = sum(1 for l in ag_leads if l.get("status") == "P.I")
+            av_c  = sum(1 for l in ag_leads if l.get("status") == "Autre ville")
             agents_summary.append({
                 "agent_id":   ag["id"],
                 "agent_name": ag["name"],
-                "total":      len(ag_leads),
-                "av_pct":     round(av_c / t * 100, 1),
-                "pi_pct":     round(pi_c / t * 100, 1),
-                "nr_pct":     round(nr_c / t * 100, 1),
-                "rdv_pct":    round(rdv_c / t * 100, 1),
+                "branch_id":  ag.get("branch_id"),
+                "total":      t,
+                "rdv":        rdv_c,  "rdv_pct": round(rdv_c / td * 100, 1),
+                "bv":         bv_c,   "bv_pct":  round(bv_c  / td * 100, 1),
+                "nr":         nr_c,   "nr_pct":  round(nr_c  / td * 100, 1),
+                "pi":         pi_c,   "pi_pct":  round(pi_c  / td * 100, 1),
+                "av":         av_c,   "av_pct":  round(av_c  / td * 100, 1),
                 "quality_score": max(0, min(100, round(
-                    100 - (av_c/t*50) - (pi_c/t*30) - (nr_c/t*10) + (rdv_c/t*20)
+                    100 - (av_c/td*50) - (pi_c/td*30) - (nr_c/td*10) + (rdv_c/td*20)
                 ))),
             })
         agents_summary.sort(key=lambda x: x["quality_score"])
 
     return {
-        "days":    result,
-        "agents":  agents_summary,
-        "period":  {"from": date_from, "to": date_to},
+        "days":     result,
+        "agents":   agents_summary,
+        "branches": branches,
+        "period":   {"from": date_from, "to": date_to},
     }
 
 
