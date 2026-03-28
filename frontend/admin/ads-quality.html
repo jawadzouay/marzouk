@@ -234,7 +234,7 @@
   let dateFrom = '', dateTo = '';
   let selectedBranch = null;
   let selectedAgent  = null;
-  let allAgents      = [];  // [{id, name, branch_id}]
+  let allAgents      = [];  // [{id, name, branch_id}] — active agents
 
   // ── Period helpers ─────────────────────────────────────────────────────────
   function isoDate(d) { return d.toISOString().slice(0, 10); }
@@ -274,8 +274,7 @@
     selectedAgent  = null;
     document.querySelectorAll('#branch-chips .fchip').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
-    renderAgentChips();
-    load();
+    loadAgents(branchId).then(() => load());
   }
 
   function selectAgent(agentId, btn) {
@@ -287,7 +286,6 @@
 
   function renderBranchChips(branches) {
     const row = document.getElementById('branch-chips');
-    // keep "الكل" button, remove rest
     row.innerHTML = `<button class="fchip ${selectedBranch === null ? 'active' : ''}" onclick="selectBranch(null,this)">الكل</button>`;
     branches.forEach(b => {
       const btn = document.createElement('button');
@@ -300,11 +298,8 @@
 
   function renderAgentChips() {
     const row = document.getElementById('agent-chips');
-    const filtered = selectedBranch
-      ? allAgents.filter(a => a.branch_id === selectedBranch)
-      : allAgents;
     row.innerHTML = `<button class="fchip ${selectedAgent === null ? 'active' : ''}" onclick="selectAgent(null,this)">الكل</button>`;
-    filtered.forEach(a => {
+    allAgents.forEach(a => {
       const btn = document.createElement('button');
       btn.className = 'fchip' + (selectedAgent === a.id ? ' active' : '');
       btn.textContent = a.name;
@@ -314,9 +309,11 @@
   }
 
   // ── Data loading ────────────────────────────────────────────────────────────
-  async function loadAgents() {
+  async function loadAgents(branchId) {
     try {
-      const res  = await fetch(`${API}/agents`, { headers: { Authorization: `Bearer ${token}` } });
+      let url = `${API}/agents`;
+      if (branchId) url += `?branch_id=${branchId}`;
+      const res  = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       allAgents  = (data || []).map(a => ({ id: a.id, name: a.name, branch_id: a.branch_id || null }));
       renderAgentChips();
@@ -477,8 +474,7 @@
   }
 
   // ── Init ────────────────────────────────────────────────────────────────────
-  loadAgents();
-  load();
+  loadAgents(null).then(() => load());
 </script>
 </body>
 </html>

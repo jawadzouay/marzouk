@@ -48,9 +48,12 @@ class BonusCreate(BaseModel):
 
 
 @router.get("/")
-def list_agents(admin=Depends(require_admin)):
+def list_agents(branch_id: str = None, admin=Depends(require_admin)):
     sb = get_client()
-    result = sb.table("agents").select("id, name, is_active, created_at, fired_at, branch_id").order("created_at").execute()
+    q = sb.table("agents").select("id, name, is_active, created_at, fired_at, branch_id").eq("is_active", True).order("created_at")
+    if branch_id:
+        q = q.eq("branch_id", branch_id)
+    result = q.execute()
     return result.data
 
 
