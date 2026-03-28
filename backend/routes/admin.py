@@ -329,6 +329,22 @@ def stats_overview(admin=Depends(require_admin)):
     return {"total": total, "breakdown": breakdown}
 
 
+@router.get("/swap-days")
+def get_swap_days_setting(admin=Depends(require_admin)):
+    from services.swap_service import get_swap_days
+    return {"swap_days": get_swap_days()}
+
+
+@router.patch("/swap-days")
+def set_swap_days_setting(body: dict, admin=Depends(require_admin)):
+    days = body.get("swap_days")
+    if not isinstance(days, int) or days < 1 or days > 30:
+        raise HTTPException(400, "يجب أن يكون عدد أيام التبادل بين 1 و 30")
+    from services.swap_service import set_swap_days
+    set_swap_days(days)
+    return {"swap_days": days, "message": "تم تحديث مدة التبادل"}
+
+
 @router.get("/credentials")
 def get_admin_credentials(admin=Depends(require_admin)):
     sb = get_client()

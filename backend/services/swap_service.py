@@ -3,6 +3,24 @@ from datetime import datetime, timedelta
 from services.supabase_service import get_client
 
 
+def get_swap_days() -> int:
+    """Returns configurable swap eligibility window in days (default 4)."""
+    try:
+        sb = get_client()
+        row = sb.table("settings").select("value").eq("key", "swap_days").execute()
+        if row.data:
+            return int(row.data[0]["value"])
+    except Exception:
+        pass
+    return 4
+
+
+def set_swap_days(days: int):
+    sb = get_client()
+    from datetime import datetime as _dt
+    sb.table("settings").upsert({"key": "swap_days", "value": str(days), "updated_at": _dt.utcnow().isoformat()}).execute()
+
+
 def get_swap_level():
     sb = get_client()
     try:
@@ -100,7 +118,7 @@ def assign_swap(lead: dict, level: int = None):
             "swap_eligible_at": None
         }).eq("id", lead["id"]).execute()
     else:
-        next_eligible = (datetime.utcnow() + timedelta(days=4)).isoformat()
+        next_eligible = (datetime.utcnow() + timedelta(days=get_swap_days())).isoformat()
         sb.table("leads").update({
             "current_agent": new_agent,
             "swap_count": new_swap_count,
@@ -130,7 +148,7 @@ def manual_assign_swap(lead_id: str, target_agent_id: str):
 
     updates = {"current_agent": target_agent_id, "swap_count": new_swap_count}
     if new_swap_count < 3:
-        updates["swap_eligible_at"] = (datetime.utcnow() + timedelta(days=4)).isoformat()
+        updates["swap_eligible_at"] = (datetime.utcnow() + timedelta(days=get_swap_days())).isoformat()
     else:
         updates["swap_eligible_at"] = None
 

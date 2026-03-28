@@ -4,6 +4,7 @@ from jose import jwt
 from services.supabase_service import get_client
 from services.claude_service import extract_leads_from_image
 from services.sheets_service import append_leads_to_sheet, append_to_archive, update_lead_in_sheet
+from services.swap_service import get_swap_days
 from models.lead import LeadSubmit
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -64,7 +65,8 @@ async def submit_leads(submission: LeadSubmit, agent=Depends(get_current_agent))
 
     saved_leads = []
     skipped = []
-    swap_eligible_at = (datetime.utcnow() + timedelta(days=4)).isoformat()
+    swap_days = get_swap_days()
+    swap_eligible_at = (datetime.utcnow() + timedelta(days=swap_days)).isoformat()
 
     for lead in submission.leads:
         phone = lead.phone
@@ -166,7 +168,7 @@ def update_lead_status(lead_id: str, body: dict, agent=Depends(get_current_agent
 
     swap_eligible_at = None
     if new_status in ("B.V", "N.R"):
-        swap_eligible_at = (datetime.utcnow() + timedelta(days=4)).isoformat()
+        swap_eligible_at = (datetime.utcnow() + timedelta(days=get_swap_days())).isoformat()
 
     sb.table("leads").update({
         "status": new_status,
@@ -304,8 +306,24 @@ def get_submissions_today(agent=Depends(get_current_agent)):
 def get_my_leads(agent=Depends(get_current_agent)):
     sb = get_client()
     agent_id = agent["sub"]
-    result = sb.table("leads").select("*").eq("current_agent", agent_id).order("submitted_at", desc=True).execute()
-    return result.data
+    now = datetime.utcnow().isoformat()
+
+    # Show leads where swap window hasn't expired yet OR it's null (permanent: RDV, registered, Autre ville)
+    # Two queries: no swap timer at all, OR timer is still in the future
+    no_timer = sb.table("leads").select("*").eq("current_agent", agent_id).is_("swap_eligible_at", "null").order("submitted_at", desc=True).execute()
+    still_active = sb.table("leads").select("*").eq("current_agent", agent_id).gt("swap_eligible_at", now).order("submitted_at", desc=True).execute()
+
+    # Combine and deduplicate by id, preserving order (no_timer first so registered leads show at top)
+    seen = set()
+    combined = []
+    for lead in (no_timer.data or []) + (still_active.data or []):
+        if lead["id"] not in seen:
+            seen.add(lead["id"])
+            combined.append(lead)
+
+    # Re-sort combined list by submitted_at desc
+    combined.sort(key=lambda x: x.get("submitted_at") or "", reverse=True)
+    return combined
 
 
 @router.get("/")

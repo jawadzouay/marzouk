@@ -106,6 +106,26 @@
     <div id="admin-msg"></div>
   </div>
 
+  <!-- Swap days configuration -->
+  <div class="section-card">
+    <div class="section-title">🔄 مدة التبادل التلقائي (Swap)</div>
+
+    <div class="current-info">
+      <span class="current-label">المدة الحالية:</span>
+      <span class="current-val" id="current-swap-days">جاري التحميل...</span>
+      <span style="color:#6b7280;font-size:12px"> يوم</span>
+    </div>
+
+    <div class="field">
+      <label>عدد الأيام قبل إدخال العميل إلى مجمع التبادل</label>
+      <input type="number" id="new-swap-days" min="1" max="30" placeholder="مثلاً: 4" style="max-width:120px" />
+      <div class="field-hint">بعد هذه المدة من تسجيل العميل بحالة B.V أو N.R، يدخل تلقائياً إلى مجمع التبادل (من 1 إلى 30 يوم)</div>
+    </div>
+
+    <button class="btn-save" onclick="saveSwapDays()">💾 حفظ مدة التبادل</button>
+    <div id="swap-days-msg"></div>
+  </div>
+
   <!-- Google Sheets diagnostics -->
   <div class="section-card">
     <div class="section-title">📊 تشخيص Google Sheets</div>
@@ -208,7 +228,44 @@
     }
   }
 
+  async function loadSwapDays() {
+    try {
+      const res  = await fetch(`${API}/admin/swap-days`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) { document.getElementById('current-swap-days').textContent = '4'; return; }
+      const data = await res.json();
+      document.getElementById('current-swap-days').textContent = data.swap_days ?? 4;
+      document.getElementById('new-swap-days').value = data.swap_days ?? 4;
+    } catch(e) {
+      document.getElementById('current-swap-days').textContent = '4';
+    }
+  }
+
+  async function saveSwapDays() {
+    const days = parseInt(document.getElementById('new-swap-days').value, 10);
+    if (!days || days < 1 || days > 30) {
+      showMsg('swap-days-msg', 'يرجى إدخال رقم بين 1 و 30', false); return;
+    }
+    try {
+      const res  = await fetch(`${API}/admin/swap-days`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ swap_days: days })
+      });
+      let data = {};
+      try { data = await res.json(); } catch {}
+      if (res.ok) {
+        document.getElementById('current-swap-days').textContent = days;
+        showMsg('swap-days-msg', `✅ تم الحفظ — مدة التبادل الآن ${days} أيام`, true);
+      } else {
+        showMsg('swap-days-msg', data.detail || `خطأ ${res.status}`, false);
+      }
+    } catch(e) {
+      showMsg('swap-days-msg', 'تعذر الاتصال بالخادم', false);
+    }
+  }
+
   loadCurrentCredentials();
+  loadSwapDays();
 </script>
 </body>
 </html>
