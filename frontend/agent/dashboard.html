@@ -174,6 +174,25 @@
     .action-btn.secondary { background: #1a1a1a; }
     .action-btn:active { opacity: 0.85; transform: scale(0.98); }
 
+    /* ===== Call Progress Bar ===== */
+    .call-progress-card {
+      background: white; border-radius: 14px; padding: 12px 14px;
+      margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+      border-right: 4px solid #e63329;
+    }
+    .call-progress-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .call-progress-title { font-size: 13px; font-weight: 700; color: #374151; }
+    .call-progress-count { font-size: 12px; font-weight: 700; color: #6b7280; }
+    .call-progress-bg { background: #e5e7eb; border-radius: 99px; height: 10px; overflow: hidden; margin-bottom: 6px; }
+    .call-progress-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
+    .call-progress-fill.all-done { background: linear-gradient(90deg, #10b981, #34d399); }
+    .call-progress-fill.in-progress { background: linear-gradient(90deg, #e63329, #f59e0b); }
+    .call-progress-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    .cp-chip { font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 99px; }
+    .cp-chip.nr  { background: #FCE4D6; color: #9a3412; }
+    .cp-chip.bv  { background: #FFF2CC; color: #92400e; }
+    .cp-chip.done { background: #dcfce7; color: #166534; }
+
     /* ===== Leads Section ===== */
     .section-header { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 10px; }
     .section-title { font-size: 15px; font-weight: 700; color: #374151; }
@@ -604,6 +623,23 @@
       <div class="section-title">عملائي المحتملون</div>
       <div class="active-filter-label" id="filter-label"></div>
     </div>
+
+    <!-- Call Progress Bar -->
+    <div class="call-progress-card" id="call-progress-card" style="display:none">
+      <div class="call-progress-top">
+        <div class="call-progress-title">📞 تقدم المتابعة</div>
+        <div class="call-progress-count" id="cp-count-text"></div>
+      </div>
+      <div class="call-progress-bg">
+        <div class="call-progress-fill" id="cp-fill" style="width:0%"></div>
+      </div>
+      <div class="call-progress-chips">
+        <span class="cp-chip nr" id="cp-nr" style="display:none"></span>
+        <span class="cp-chip bv" id="cp-bv" style="display:none"></span>
+        <span class="cp-chip done" id="cp-done" style="display:none"></span>
+      </div>
+    </div>
+
     <div class="search-wrap">
       <input class="search-input" id="search-input" placeholder="بحث بالاسم أو رقم الهاتف..." oninput="filterLeads()" />
       <span class="search-icon">🔍</span>
@@ -1547,11 +1583,67 @@
       document.getElementById('search-input').value = '';
       applyFilters();
     }
+    // Priority order for sorting leads (lower = shown first)
+    const STATUS_PRIORITY = {
+      'N.R': 0, 'B.V': 1,
+      'RDV': 2, 'visited_center': 3, 'interested': 4,
+      'cancelled_rdv': 5, 'cancelled_visit': 6,
+      'Autre ville': 7, 'P.I': 8,
+      'registered_logha': 9, 'registered_maharat': 9, 'registered_takwin': 9
+    };
+
+    function updateCallProgress(leadsToShow) {
+      // Always compute from full allLeads (not filtered subset), excluding registered
+      const actionable = allLeads.filter(l => !['registered_logha','registered_maharat','registered_takwin'].includes(l.status));
+      const nrCount   = actionable.filter(l => l.status === 'N.R').length;
+      const bvCount   = actionable.filter(l => l.status === 'B.V').length;
+      const pending   = nrCount + bvCount;
+      const total     = actionable.length;
+      const done      = total - pending;
+
+      const card = document.getElementById('call-progress-card');
+      if (total === 0) { card.style.display = 'none'; return; }
+      card.style.display = 'block';
+
+      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+      const fill = document.getElementById('cp-fill');
+      fill.style.width = pct + '%';
+      fill.className = 'call-progress-fill ' + (pending === 0 ? 'all-done' : 'in-progress');
+
+      document.getElementById('cp-count-text').textContent = pending === 0
+        ? '✅ أنجزت جميع المكالمات!'
+        : `${pending} عميل بانتظار المتابعة`;
+
+      const nrEl = document.getElementById('cp-nr');
+      const bvEl = document.getElementById('cp-bv');
+      const doneEl = document.getElementById('cp-done');
+
+      if (nrCount > 0) { nrEl.style.display = ''; nrEl.textContent = `${nrCount} N.R`; }
+      else nrEl.style.display = 'none';
+
+      if (bvCount > 0) { bvEl.style.display = ''; bvEl.textContent = `${bvCount} B.V`; }
+      else bvEl.style.display = 'none';
+
+      if (done > 0) { doneEl.style.display = ''; doneEl.textContent = `${done} مُنجَز`; }
+      else doneEl.style.display = 'none';
+    }
+
     function applyFilters() {
       const q = document.getElementById('search-input').value.trim().toLowerCase();
       let leads = allLeads;
       if (activeFilter) leads = leads.filter(l => l.status === activeFilter);
       if (q) leads = leads.filter(l => (l.name||'').toLowerCase().includes(q) || (l.phone||'').includes(q));
+
+      // Sort: N.R first, B.V second, then by priority order
+      leads = leads.slice().sort((a, b) => {
+        const pa = STATUS_PRIORITY[a.status] ?? 50;
+        const pb = STATUS_PRIORITY[b.status] ?? 50;
+        if (pa !== pb) return pa - pb;
+        // Within same priority, newer first
+        return (b.submitted_at || '') > (a.submitted_at || '') ? 1 : -1;
+      });
+
+      updateCallProgress(leads);
       renderLeads(leads);
     }
     function filterLeads() { applyFilters(); }

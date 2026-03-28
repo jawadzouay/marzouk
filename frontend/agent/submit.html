@@ -63,6 +63,10 @@
     tr:last-child td { border-bottom: none; }
     .phone-input { border: 2px solid #e5e7eb; border-radius: 6px; padding: 5px 8px; font-family: 'Cairo', sans-serif; font-size: 13px; width: 130px; direction: ltr; }
     .phone-invalid { border-color: #ef4444; background: #fef2f2; }
+    .edit-input { border: 2px solid #e5e7eb; border-radius: 6px; padding: 5px 8px; font-family: 'Cairo', sans-serif; font-size: 13px; width: 100%; min-width: 80px; background: white; }
+    .edit-input:focus { outline: none; border-color: #e63329; }
+    .edit-select { border: 2px solid #e5e7eb; border-radius: 6px; padding: 5px 6px; font-family: 'Cairo', sans-serif; font-size: 12px; background: white; cursor: pointer; width: 100%; }
+    .edit-select:focus { outline: none; border-color: #e63329; }
     .status-badge { padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
     .s-rdv{background:#E2EFDA;color:#2d6a4f} .s-bv{background:#FFF2CC;color:#7d6608}
     .s-nr{background:#FCE4D6;color:#9c2a10} .s-pi{background:#F2CEEF;color:#6d1f6b}
@@ -168,7 +172,7 @@
       <div class="table-wrap">
         <table>
           <thead>
-            <tr><th>#</th><th>الهاتف</th><th>الاسم</th><th>المستوى</th><th>المدينة</th><th>الحالة</th><th>المصدر</th><th>حذف</th></tr>
+            <tr><th>#</th><th>الهاتف</th><th>الاسم</th><th>المستوى</th><th>المدينة</th><th>الحالة</th><th>📷</th><th>🗑</th></tr>
           </thead>
           <tbody id="leads-body"></tbody>
         </table>
@@ -333,24 +337,35 @@
         Object.entries(counts).map(([s,c])=>`<div class="summary-chip">${s}: ${c}</div>`).join('');
 
       extractedLeads.forEach((lead, i) => {
-        const sc = statusClass[lead.status] || '';
         const invalid = lead.flagged;
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${i+1}</td>
           <td>
-            <input class="phone-input ${invalid?'phone-invalid':''}" value="${lead.phone}"
+            <input class="phone-input ${invalid?'phone-invalid':''}" value="${(lead.phone||'').replace(/"/g,'&quot;')}"
               onchange="updatePhone(${i},this.value)" oninput="validatePhoneInput(this)" dir="ltr">
             ${invalid?'<div style="color:#ef4444;font-size:10px">رقم غير صحيح</div>':''}
           </td>
-          <td>${lead.name||'—'}</td>
-          <td>${lead.level||'—'}</td>
-          <td>${lead.city||'—'}</td>
-          <td><span class="status-badge ${sc}">${lead.status}</span></td>
+          <td><input class="edit-input" value="${(lead.name||'').replace(/"/g,'&quot;')}" placeholder="الاسم" onchange="updateField(${i},'name',this.value)"></td>
+          <td><input class="edit-input" value="${(lead.level||'').replace(/"/g,'&quot;')}" placeholder="المستوى" onchange="updateField(${i},'level',this.value)" style="min-width:70px"></td>
+          <td><input class="edit-input" value="${(lead.city||'').replace(/"/g,'&quot;')}" placeholder="المدينة" onchange="updateField(${i},'city',this.value)"></td>
+          <td>
+            <select class="edit-select" onchange="updateField(${i},'status',this.value)">
+              <option value="RDV"         ${lead.status==='RDV'?'selected':''}>RDV</option>
+              <option value="B.V"         ${lead.status==='B.V'?'selected':''}>B.V</option>
+              <option value="N.R"         ${lead.status==='N.R'?'selected':''}>N.R</option>
+              <option value="P.I"         ${lead.status==='P.I'?'selected':''}>P.I</option>
+              <option value="Autre ville" ${lead.status==='Autre ville'?'selected':''}>Autre ville</option>
+            </select>
+          </td>
           <td><span class="src-badge">📷${lead._src||''}</span></td>
           <td><button class="delete-btn" onclick="deleteLead(${i})">🗑️</button></td>`;
         tbody.appendChild(tr);
       });
+    }
+
+    function updateField(i, field, value) {
+      extractedLeads[i][field] = value;
     }
 
     function validatePhoneInput(inp) {

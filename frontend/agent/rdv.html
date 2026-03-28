@@ -2,49 +2,88 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>مواعيد RDV — مرزوق أكاديمي</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Cairo', sans-serif; background: #f0f4f8; min-height: 100vh; }
-    header { background: #1a1a1a; color: white; padding: 16px 20px; display: flex; justify-content: space-between; align-items: center; }
-    .back-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer; }
-    .container { padding: 20px; max-width: 800px; margin: 0 auto; }
-    .rdv-card { background: white; border-radius: 12px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+    header { background: #1a1a1a; color: white; padding: 14px 16px; padding-top: max(14px,env(safe-area-inset-top)); display: flex; justify-content: space-between; align-items: center; position: sticky; top:0; z-index:100; }
+    header h1 { font-size: 16px; font-weight: 700; }
+    .back-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.2); color: white; padding: 7px 14px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; }
+    .container { padding: 14px; max-width: 800px; margin: 0 auto; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+
+    /* ── Section header ─────────────────────── */
+    .section-head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 14px 8px;
+    }
+    .section-label {
+      font-size: 14px; font-weight: 700; color: #374151;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .count-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; border-radius: 99px;
+      font-size: 12px; font-weight: 700; padding: 0 7px; color: white;
+    }
+    .badge-orange { background: #f59e0b; }
+    .badge-green  { background: #10b981; }
+
+    /* ── RDV card ──────────────────────────── */
+    .rdv-card {
+      background: white; border-radius: 14px; padding: 14px 16px;
+      margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .rdv-card.unscheduled { border-right: 4px solid #f59e0b; }
+    .rdv-card.scheduled   { border-right: 4px solid #10b981; }
+
     .rdv-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
-    .rdv-name { font-weight: 700; font-size: 16px; }
-    .rdv-phone { font-size: 13px; color: #6b7280; }
-    .rdv-date { font-size: 13px; color: #e63329; font-weight: 600; }
-    .rdv-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-    .btn-show       { background: #dcfce7; color: #166534; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex: 1; }
-    .btn-noshow     { background: #fef2f2; color: #dc2626; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex: 1; }
-    .btn-registered { background: #10b981; color: white; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; flex: 1; }
-    .btn-registered:disabled { background: #9ca3af; cursor: not-allowed; }
-    .btn-call { background: #e0f2fe; color: #0369a1; border: none; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; font-size: 14px; cursor: pointer; }
+    .rdv-name { font-weight: 700; font-size: 15px; color: #1a1a1a; }
+    .rdv-phone { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .rdv-date { font-size: 13px; color: #10b981; font-weight: 600; margin-top: 4px; }
+
     .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
     .s-scheduled  { background: #E2EFDA; color: #2d6a4f; }
     .s-showed     { background: #dcfce7; color: #166534; }
     .s-noshow     { background: #fef2f2; color: #dc2626; }
     .s-registered { background: #ede9fe; color: #6d28d9; }
     .s-visited    { background: #fef3c7; color: #92400e; }
-    .btn-visited  { background: #fef3c7; color: #92400e; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex: 1; }
-    .empty { text-align: center; color: #9ca3af; padding: 40px; }
+    .s-pending    { background: #fef3c7; color: #92400e; }
 
-    .call-popup { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 20px 20px 0 0; padding: 24px; box-shadow: 0 -4px 20px rgba(0,0,0,0.15); z-index: 1000; }
+    /* ── Action buttons ────────────────────── */
+    .rdv-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .btn-show     { background: #dcfce7; color: #166534; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex:1; }
+    .btn-noshow   { background: #fef2f2; color: #dc2626; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex:1; }
+    .btn-visited  { background: #fef3c7; color: #92400e; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; flex:1; }
+    .btn-register { background: #10b981; color: white; border: none; border-radius: 8px; padding: 8px 10px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; flex:1; }
+    .btn-call     { background: #e0f2fe; color: #0369a1; border: none; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; font-size: 14px; cursor: pointer; }
+
+    /* ── Date picker row ───────────────────── */
+    .date-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+    .date-row input[type=datetime-local] {
+      flex:1; padding: 8px 10px; border: 2px solid #e5e7eb; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; font-size: 13px;
+    }
+    .date-row input[type=datetime-local]:focus { outline:none; border-color:#10b981; }
+    .btn-book { background: #1a1a1a; color: white; border: none; border-radius: 8px; padding: 9px 16px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+
+    .empty { text-align: center; color: #9ca3af; padding: 30px 20px; font-size: 14px; }
+
+    /* ── Popups ───────────────────────────── */
+    .call-popup { display: none; position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 20px 20px 0 0; padding: 24px 20px max(20px,env(safe-area-inset-bottom)); box-shadow: 0 -4px 20px rgba(0,0,0,0.15); z-index: 1000; }
     .call-popup.show { display: block; }
     .call-popup h3 { margin-bottom: 16px; color: #374151; font-size: 18px; }
     .call-option { display: block; width: 100%; padding: 14px; margin-bottom: 10px; border: none; border-radius: 10px; font-size: 16px; font-family: 'Cairo', sans-serif; font-weight: 600; cursor: pointer; text-decoration: none; text-align: center; }
-    .call-normal  { background: #ffe5e3; color: #a61c10; }
-    .call-wa      { background: #dcfce7; color: #166534; }
-    .call-cancel  { background: #f3f4f6; color: #374151; }
-    .reg-logha    { background: #ffe5e3; color: #a61c10; }
-    .reg-maharat  { background: #e0f2fe; color: #075985; }
-    .reg-takwin   { background: #fef3c7; color: #92400e; }
+    .call-normal { background: #ffe5e3; color: #a61c10; }
+    .call-wa     { background: #dcfce7; color: #166534; }
+    .call-cancel { background: #f3f4f6; color: #374151; }
+    .reg-logha   { background: #ffe5e3; color: #a61c10; }
+    .reg-maharat { background: #e0f2fe; color: #075985; }
+    .reg-takwin  { background: #fef3c7; color: #92400e; }
     .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 999; }
     .overlay.show { display: block; }
 
-    /* Money float */
     .money-float { position: fixed; font-size: 32px; pointer-events: none; z-index: 9999; animation: floatMoney 1.5s ease-out forwards; }
     @keyframes floatMoney {
       0%   { transform: translateY(0) scale(0.8) rotate(-10deg); opacity: 1; }
@@ -55,12 +94,12 @@
 </head>
 <body>
   <header>
-    <h1>مواعيد RDV</h1>
+    <h1>📅 مواعيد RDV</h1>
     <button class="back-btn" onclick="window.location.href='dashboard.html'">← رجوع</button>
   </header>
 
-  <div class="container">
-    <div id="rdv-list"></div>
+  <div class="container" id="main-container">
+    <div class="empty" id="loading-msg">⏳ جاري التحميل...</div>
   </div>
 
   <div class="overlay" id="overlay" onclick="closeAllPopups()"></div>
@@ -78,16 +117,13 @@
     <h3>تسجيل الطالب 🎓</h3>
     <p style="color:#6b7280;font-size:13px;margin-bottom:16px" id="register-lead-name"></p>
     <button class="call-option reg-logha" onclick="doRegister('logha')">
-      📚 اللغة فقط
-      <div style="font-size:13px;font-weight:400;margin-top:2px">يُحسب كـ 1 مسجل — 100 درهم</div>
+      📚 اللغة فقط <div style="font-size:13px;font-weight:400;margin-top:2px">يُحسب كـ 1 مسجل — 100 درهم</div>
     </button>
     <button class="call-option reg-maharat" onclick="doRegister('maharat')">
-      🛠️ المهارات فقط
-      <div style="font-size:13px;font-weight:400;margin-top:2px">يُحسب كـ 1 مسجل — 100 درهم</div>
+      🛠️ المهارات فقط <div style="font-size:13px;font-weight:400;margin-top:2px">يُحسب كـ 1 مسجل — 100 درهم</div>
     </button>
     <button class="call-option reg-takwin" onclick="doRegister('takwin')">
-      🎓 كليهما
-      <div style="font-size:13px;font-weight:400;margin-top:2px">يُحسب كـ 2 مسجل — 200 درهم</div>
+      🎓 كليهما <div style="font-size:13px;font-weight:400;margin-top:2px">يُحسب كـ 2 مسجل — 200 درهم</div>
     </button>
     <button class="call-option call-cancel" onclick="closeAllPopups()">إلغاء</button>
   </div>
@@ -101,47 +137,131 @@
     const registeringLeads = new Set();
 
     async function loadRdvs() {
-      const res = await fetch(`${API}/rdv/my`, { headers: { Authorization: `Bearer ${token}` } });
-      const rdvs = await res.json();
-      const list = document.getElementById('rdv-list');
+      const h = { Authorization: `Bearer ${token}` };
+      const [rdvRes, leadsRes] = await Promise.all([
+        fetch(`${API}/rdv/my`, { headers: h }),
+        fetch(`${API}/leads/my`, { headers: h })
+      ]);
 
-      if (!rdvs.length) {
-        list.innerHTML = '<div class="empty">لا توجد مواعيد RDV حالياً</div>';
+      const rdvs  = rdvRes.ok  ? await rdvRes.json()  : [];
+      const leads = leadsRes.ok ? await leadsRes.json() : [];
+
+      // Leads marked RDV via dropdown but never booked a date
+      const bookedLeadIds = new Set(rdvs.map(r => r.lead_id));
+      const unscheduled   = leads.filter(l => l.status === 'RDV' && !bookedLeadIds.has(l.id));
+
+      const container = document.getElementById('main-container');
+      container.innerHTML = '';
+
+      if (!rdvs.length && !unscheduled.length) {
+        container.innerHTML = '<div class="empty">لا توجد مواعيد RDV حالياً</div>';
         return;
       }
 
-      list.innerHTML = '';
-      rdvs.forEach(rdv => {
-        const lead  = rdv.leads || {};
-        const date  = new Date(rdv.rdv_date).toLocaleString('ar-MA', { dateStyle: 'medium', timeStyle: 'short' });
-        const isRegistered = lead.status === 'registered_logha' || lead.status === 'registered_maharat' || lead.status === 'registered_takwin';
-        const scMap = { showed_up: 's-showed', no_show: 's-noshow', visited_center: 's-visited' };
-        const sc    = isRegistered ? 's-registered' : (scMap[rdv.status] || 's-scheduled');
-        const labelMap = { showed_up: 'حضر ✅', no_show: 'لم يحضر ❌', visited_center: 'زار المركز 🏢' };
-        const label = isRegistered ? 'مسجل ⭐' : (labelMap[rdv.status] || 'مجدول');
-
-        const card = document.createElement('div');
-        card.className = 'rdv-card';
-        card.innerHTML = `
-          <div class="rdv-header">
-            <div>
-              <div class="rdv-name">${lead.name || '—'}</div>
-              <div class="rdv-phone">${lead.phone || '—'}</div>
-              <div class="rdv-date">📅 ${date}</div>
+      // ── Section 1: needs date ────────────────────
+      if (unscheduled.length) {
+        container.insertAdjacentHTML('beforeend', `
+          <div class="section-head">
+            <div class="section-label">
+              ⏳ بانتظار تحديد موعد
+              <span class="count-badge badge-orange">${unscheduled.length}</span>
             </div>
-            <span class="status-badge ${sc}">${label}</span>
-          </div>
-          ${!isRegistered ? `
-          <div class="rdv-actions">
-            ${rdv.status === 'scheduled' ? `<button class="btn-show" onclick="updateRdv('${rdv.id}', 'showed_up')">✅ حضر</button>` : ''}
-            ${rdv.status === 'scheduled' ? `<button class="btn-noshow" onclick="updateRdv('${rdv.id}', 'no_show')">❌ لم يحضر</button>` : ''}
-            ${(rdv.status === 'scheduled' || rdv.status === 'showed_up') ? `<button class="btn-visited" onclick="updateRdv('${rdv.id}', 'visited_center')">🏢 زار المركز</button>` : ''}
-            <button class="btn-registered" id="reg-btn-${rdv.lead_id}" onclick="openRegisterPopup('${rdv.lead_id}','${esc(lead.name)}')">⭐ تسجيل</button>
-            <button class="btn-call" onclick="openCallPopup('${lead.phone}','${esc(lead.name)}')">📞</button>
-          </div>` : `<div style="color:#10b981;font-weight:600;font-size:14px;margin-top:8px">⭐ تم تسجيل هذا الطالب</div>`}
-        `;
-        list.appendChild(card);
+          </div>`);
+
+        unscheduled.forEach(lead => {
+          const card = document.createElement('div');
+          card.className = 'rdv-card unscheduled';
+          card.id = `card-unsched-${lead.id}`;
+          card.innerHTML = `
+            <div class="rdv-header">
+              <div>
+                <div class="rdv-name">${lead.name || '—'}</div>
+                <div class="rdv-phone">${lead.phone}</div>
+                <div style="font-size:11px;color:#9ca3af;margin-top:2px">${lead.city || ''} · ${lead.level || ''}</div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+                <span class="status-badge s-pending">⏳ لم يُجدول بعد</span>
+                <button class="btn-call" onclick="openCallPopup('${lead.phone}','${esc(lead.name)}')">📞</button>
+              </div>
+            </div>
+            <div class="date-row">
+              <input type="datetime-local" id="dt-${lead.id}" />
+              <button class="btn-book" onclick="bookRdv('${lead.id}','${esc(lead.name)}')">📅 حجز موعد</button>
+            </div>
+            <div id="book-msg-${lead.id}" style="font-size:12px;margin-top:6px;color:#10b981;display:none">✅ تم حجز الموعد</div>
+          `;
+          container.appendChild(card);
+        });
+      }
+
+      // ── Section 2: scheduled ────────────────────
+      if (rdvs.length) {
+        container.insertAdjacentHTML('beforeend', `
+          <div class="section-head" style="margin-top:${unscheduled.length?'10px':'0'}">
+            <div class="section-label">
+              📅 مواعيد مجدولة
+              <span class="count-badge badge-green">${rdvs.length}</span>
+            </div>
+          </div>`);
+
+        // Sort: upcoming first
+        const sorted = rdvs.slice().sort((a, b) => new Date(a.rdv_date) - new Date(b.rdv_date));
+
+        sorted.forEach(rdv => {
+          const lead = rdv.leads || {};
+          const isReg = ['registered_logha','registered_maharat','registered_takwin'].includes(lead.status);
+          const date  = new Date(rdv.rdv_date).toLocaleString('ar-MA', { dateStyle: 'medium', timeStyle: 'short' });
+          const isPast = new Date(rdv.rdv_date) < new Date();
+
+          const scMap   = { showed_up: 's-showed', no_show: 's-noshow', visited_center: 's-visited' };
+          const sc      = isReg ? 's-registered' : (scMap[rdv.status] || 's-scheduled');
+          const lblMap  = { showed_up: 'حضر ✅', no_show: 'لم يحضر ❌', visited_center: 'زار المركز 🏢' };
+          const label   = isReg ? 'مسجل ⭐' : (lblMap[rdv.status] || 'مجدول');
+
+          const card = document.createElement('div');
+          card.className = 'rdv-card scheduled';
+          card.innerHTML = `
+            <div class="rdv-header">
+              <div>
+                <div class="rdv-name">${lead.name || '—'}</div>
+                <div class="rdv-phone">${lead.phone || '—'}</div>
+                <div class="rdv-date">📅 ${date}</div>
+              </div>
+              <span class="status-badge ${sc}">${label}</span>
+            </div>
+            ${!isReg ? `
+            <div class="rdv-actions">
+              ${rdv.status === 'scheduled' ? `<button class="btn-show" onclick="updateRdv('${rdv.id}','showed_up')">✅ حضر</button>` : ''}
+              ${rdv.status === 'scheduled' ? `<button class="btn-noshow" onclick="updateRdv('${rdv.id}','no_show')">❌ لم يحضر</button>` : ''}
+              ${(rdv.status==='scheduled'||rdv.status==='showed_up') ? `<button class="btn-visited" onclick="updateRdv('${rdv.id}','visited_center')">🏢 زار المركز</button>` : ''}
+              <button class="btn-register" onclick="openRegisterPopup('${rdv.lead_id}','${esc(lead.name)}')">⭐ تسجيل</button>
+              <button class="btn-call" onclick="openCallPopup('${lead.phone}','${esc(lead.name)}')">📞</button>
+            </div>` : `<div style="color:#10b981;font-weight:600;font-size:14px;margin-top:8px">⭐ تم تسجيل هذا الطالب</div>`}
+          `;
+          container.appendChild(card);
+        });
+      }
+    }
+
+    async function bookRdv(leadId, name) {
+      const dtInput = document.getElementById(`dt-${leadId}`);
+      if (!dtInput.value) {
+        dtInput.style.borderColor = '#ef4444';
+        setTimeout(() => dtInput.style.borderColor = '', 2000);
+        return;
+      }
+      const res = await fetch(`${API}/rdv/`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_id: leadId, rdv_date: new Date(dtInput.value).toISOString() })
       });
+      if (res.ok) {
+        document.getElementById(`book-msg-${leadId}`).style.display = 'block';
+        setTimeout(loadRdvs, 800);
+      } else {
+        const d = await res.json();
+        alert(d.detail || 'خطأ في الحجز');
+      }
     }
 
     async function updateRdv(rdvId, status) {
@@ -172,7 +292,6 @@
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ registration_type: type })
       });
-
       registeringLeads.delete(leadId);
 
       if (res.ok) {
@@ -205,30 +324,29 @@
     function playMoneySound() {
       try {
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        [[0, 880], [0.12, 1100], [0.24, 1320]].forEach(([delay, freq]) => {
+        [[0,880],[0.12,1100],[0.24,1320]].forEach(([delay,freq]) => {
           const osc = ctx.createOscillator(), gain = ctx.createGain();
           osc.connect(gain); gain.connect(ctx.destination);
-          osc.frequency.setValueAtTime(freq, ctx.currentTime + delay);
-          osc.frequency.exponentialRampToValueAtTime(freq * 1.5, ctx.currentTime + delay + 0.09);
-          gain.gain.setValueAtTime(0.28, ctx.currentTime + delay);
-          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.28);
-          osc.start(ctx.currentTime + delay); osc.stop(ctx.currentTime + delay + 0.3);
+          osc.frequency.setValueAtTime(freq, ctx.currentTime+delay);
+          osc.frequency.exponentialRampToValueAtTime(freq*1.5, ctx.currentTime+delay+0.09);
+          gain.gain.setValueAtTime(0.28, ctx.currentTime+delay);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime+delay+0.28);
+          osc.start(ctx.currentTime+delay); osc.stop(ctx.currentTime+delay+0.3);
         });
       } catch(e) {}
     }
-
     function spawnMoney(points) {
       const pool = ['💰','💵','💸','🤑'];
-      for (let i = 0; i < Math.min(points * 5, 12); i++) {
+      for (let i = 0; i < Math.min(points*5,12); i++) {
         setTimeout(() => {
           const el = document.createElement('div');
           el.className = 'money-float';
-          el.textContent = pool[Math.floor(Math.random() * pool.length)];
-          el.style.left = (10 + Math.random() * 80) + '%';
-          el.style.top  = (25 + Math.random() * 45) + '%';
+          el.textContent = pool[Math.floor(Math.random()*pool.length)];
+          el.style.left = (10+Math.random()*80)+'%';
+          el.style.top  = (25+Math.random()*45)+'%';
           document.body.appendChild(el);
           setTimeout(() => el.remove(), 1600);
-        }, i * 90);
+        }, i*90);
       }
     }
 
