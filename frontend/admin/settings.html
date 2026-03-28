@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>الإعدادات — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; }
+    header {
+      background: #1a1a1a; color: white;
+      padding: 13px 16px; padding-top: max(13px, env(safe-area-inset-top));
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+    }
+    header h1 { font-size: 16px; font-weight: 700; }
+    .back-btn {
+      background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
+      color: white; padding: 7px 13px; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; text-decoration: none;
+    }
+    .container { padding: 16px; max-width: 600px; margin: 0 auto; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+
+    .section-card {
+      background: white; border-radius: 14px; padding: 20px;
+      margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .section-title {
+      font-size: 15px; font-weight: 700; color: #1a1a1a;
+      margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+    }
+    .current-info {
+      background: #f8fafc; border-radius: 10px; padding: 12px 14px;
+      margin-bottom: 16px; font-size: 13px; color: #374151;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .current-label { color: #9ca3af; font-size: 12px; }
+    .current-val { font-weight: 700; font-size: 14px; }
+
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    .field input {
+      width: 100%; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 10px;
+      font-family: 'Cairo', sans-serif; font-size: 14px; outline: none; transition: border 0.15s;
+    }
+    .field input:focus { border-color: #1a1a1a; }
+    .field-hint { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+    .btn-save {
+      width: 100%; padding: 12px; background: #1a1a1a; color: white; border: none;
+      border-radius: 10px; font-family: 'Cairo', sans-serif; font-size: 14px;
+      font-weight: 700; cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn-save:hover { opacity: 0.85; }
+    .btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .msg { padding: 10px 14px; border-radius: 10px; font-size: 13px; margin-top: 10px; }
+    .msg-ok  { background: #dcfce7; color: #166534; }
+    .msg-err { background: #fef2f2; color: #dc2626; }
+
+    .warn-box {
+      background: #fef3c7; border-radius: 10px; padding: 12px 14px;
+      font-size: 12px; color: #92400e; margin-bottom: 16px;
+      border-right: 3px solid #f59e0b;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>⚙️ الإعدادات</h1>
+  <a href="dashboard.html" class="back-btn">← رجوع</a>
+</header>
+
+<div class="container">
+
+  <!-- Admin login credentials -->
+  <div class="section-card">
+    <div class="section-title">🔐 بيانات دخول الإدارة</div>
+
+    <div class="warn-box">
+      ⚠️ تغيير اسم المستخدم أو كلمة المرور سيُطبّق فوراً. ستحتاج لتسجيل الدخول من جديد بعد الحفظ.
+    </div>
+
+    <div class="current-info">
+      <span class="current-label">اسم المستخدم الحالي:</span>
+      <span class="current-val" id="current-username">جاري التحميل...</span>
+    </div>
+
+    <div class="field">
+      <label>اسم المستخدم الجديد</label>
+      <input type="text" id="new-username" placeholder="اتركه فارغاً إذا لا تريد تغييره" autocomplete="off" />
+    </div>
+    <div class="field">
+      <label>كلمة المرور الجديدة</label>
+      <input type="password" id="new-password" placeholder="اتركها فارغة إذا لا تريد تغييرها" autocomplete="new-password" />
+      <div class="field-hint">يجب أن تكون 4 أحرف على الأقل</div>
+    </div>
+    <div class="field">
+      <label>تأكيد كلمة المرور الجديدة</label>
+      <input type="password" id="confirm-password" placeholder="أعد كتابة كلمة المرور" autocomplete="new-password" />
+    </div>
+
+    <button class="btn-save" onclick="saveAdminCredentials()">💾 حفظ بيانات الإدارة</button>
+    <div id="admin-msg"></div>
+  </div>
+
+</div>
+
+<script>
+  const API   = window.location.origin;
+  const token = localStorage.getItem('token');
+  if (!token || localStorage.getItem('role') !== 'admin') window.location.href = '/index.html';
+
+  async function loadCurrentCredentials() {
+    try {
+      const res  = await fetch(`${API}/admin/credentials`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      document.getElementById('current-username').textContent = data.username || 'admin';
+    } catch(e) {
+      document.getElementById('current-username').textContent = 'admin';
+    }
+  }
+
+  async function saveAdminCredentials() {
+    const username = document.getElementById('new-username').value.trim();
+    const password = document.getElementById('new-password').value.trim();
+    const confirm  = document.getElementById('confirm-password').value.trim();
+    const msg      = document.getElementById('admin-msg');
+
+    if (!username && !password) {
+      showMsg('admin-msg', 'يرجى إدخال اسم مستخدم أو كلمة مرور جديدة', false); return;
+    }
+    if (password && password.length < 4) {
+      showMsg('admin-msg', 'كلمة المرور يجب أن تكون 4 أحرف على الأقل', false); return;
+    }
+    if (password && password !== confirm) {
+      showMsg('admin-msg', 'كلمة المرور وتأكيدها غير متطابقتين', false); return;
+    }
+
+    const btn = document.querySelector('.btn-save');
+    btn.disabled = true;
+    try {
+      const res  = await fetch(`${API}/admin/credentials`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: username || undefined, password: password || undefined })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showMsg('admin-msg', '✅ تم الحفظ — سيتم تسجيل خروجك الآن', true);
+        document.getElementById('new-username').value = '';
+        document.getElementById('new-password').value = '';
+        document.getElementById('confirm-password').value = '';
+        setTimeout(() => { localStorage.clear(); window.location.href = '/index.html'; }, 2000);
+      } else {
+        showMsg('admin-msg', data.detail || 'خطأ في الحفظ', false);
+      }
+    } catch(e) {
+      showMsg('admin-msg', 'تعذر الاتصال بالخادم', false);
+    }
+    btn.disabled = false;
+  }
+
+  function showMsg(id, text, ok) {
+    const el = document.getElementById(id);
+    el.className = 'msg ' + (ok ? 'msg-ok' : 'msg-err');
+    el.textContent = text;
+    if (!ok) setTimeout(() => { el.textContent = ''; el.className = ''; }, 4000);
+  }
+
+  loadCurrentCredentials();
+</script>
+</body>
+</html>

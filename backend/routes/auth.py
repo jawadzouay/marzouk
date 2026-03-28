@@ -32,12 +32,28 @@ def create_token(data: dict, expires_hours: int = 24):
     return jwt.encode(payload, JWT_SECRET, algorithm=ALGORITHM)
 
 
+def _check_admin(name: str, pin: str) -> bool:
+    """Check admin credentials — DB settings override env var."""
+    try:
+        sb = get_client()
+        urow = sb.table("settings").select("value").eq("key", "admin_username").execute()
+        prow = sb.table("settings").select("value").eq("key", "admin_password_hash").execute()
+        admin_username = urow.data[0]["value"] if urow.data else "admin"
+        if name.lower() != admin_username.lower():
+            return False
+        if prow.data:
+            return pwd_context.verify(pin, prow.data[0]["value"])
+        return pin == ADMIN_PIN
+    except Exception:
+        return name.lower() == "admin" and pin == ADMIN_PIN
+
+
 @router.post("/login")
 def login(req: LoginRequest):
     # Check if admin
-    if req.name.lower() == "admin" and req.pin == ADMIN_PIN:
+    if _check_admin(req.name, req.pin):
         token = create_token({"sub": "admin", "role": "admin"})
-        return {"token": token, "role": "admin", "name": "admin"}
+        return {"token": token, "role": "admin", "name": req.name}
 
     # Check agent
     sb = get_client()

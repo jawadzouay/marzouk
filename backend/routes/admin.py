@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt
+from passlib.context import CryptContext
 from services.supabase_service import get_client
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -12,6 +13,7 @@ router = APIRouter()
 security = HTTPBearer()
 JWT_SECRET = os.getenv("JWT_SECRET")
 ALGORITHM = "HS256"
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def require_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -300,3 +302,30 @@ def stats_overview(admin=Depends(require_admin)):
         s = lead["status"]
         breakdown[s] = breakdown.get(s, 0) + 1
     return {"total": total, "breakdown": breakdown}
+
+
+@router.get("/credentials")
+def get_admin_credentials(admin=Depends(require_admin)):
+    sb = get_client()
+    urow = sb.table("settings").select("value").eq("key", "admin_username").execute()
+    username = urow.data[0]["value"] if urow.data else "admin"
+    has_custom_pass = bool(
+        sb.table("settings").select("value").eq("key", "admin_password_hash").execute().data
+    )
+    return {"username": username, "has_custom_password": has_custom_pass}
+
+
+@router.patch("/credentials")
+def update_admin_credentials(body: dict, admin=Depends(require_admin)):
+    sb = get_client()
+    new_username = (body.get("username") or "").strip()
+    new_password = (body.get("password") or "").strip()
+    if not new_username and not new_password:
+        raise HTTPException(400, "يرجى إدخال اسم المستخدم أو كلمة المرور الجديدة")
+    now = datetime.utcnow().isoformat()
+    if new_username:
+        sb.table("settings").upsert({"key": "admin_username", "value": new_username, "updated_at": now}).execute()
+    if new_password:
+        hashed = pwd_context.hash(new_password)
+        sb.table("settings").upsert({"key": "admin_password_hash", "value": hashed, "updated_at": now}).execute()
+    return {"message": "تم تحديث بيانات الدخول"}

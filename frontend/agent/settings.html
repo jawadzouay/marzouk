@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>الإعدادات — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; }
+    header {
+      background: #e63329; color: white;
+      padding: 13px 16px; padding-top: max(13px, env(safe-area-inset-top));
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    header h1 { font-size: 16px; font-weight: 700; }
+    .back-btn {
+      background: rgba(255,255,255,0.2); border: none;
+      color: white; padding: 7px 13px; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; text-decoration: none;
+    }
+    .container { padding: 16px; max-width: 500px; margin: 0 auto; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+
+    .section-card {
+      background: white; border-radius: 14px; padding: 20px;
+      margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .section-title {
+      font-size: 15px; font-weight: 700; color: #1a1a1a;
+      margin-bottom: 16px; display: flex; align-items: center; gap: 8px;
+    }
+    .current-info {
+      background: #f8fafc; border-radius: 10px; padding: 12px 14px;
+      margin-bottom: 16px; font-size: 13px; color: #374151;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .current-label { color: #9ca3af; font-size: 12px; }
+    .current-val { font-weight: 700; font-size: 14px; color: #e63329; }
+
+    .field { margin-bottom: 14px; }
+    .field label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    .field input {
+      width: 100%; padding: 11px 14px; border: 2px solid #e5e7eb; border-radius: 10px;
+      font-family: 'Cairo', sans-serif; font-size: 14px; outline: none; transition: border 0.15s;
+    }
+    .field input:focus { border-color: #e63329; }
+    .field-hint { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+    .btn-save {
+      width: 100%; padding: 13px; background: #e63329; color: white; border: none;
+      border-radius: 10px; font-family: 'Cairo', sans-serif; font-size: 15px;
+      font-weight: 700; cursor: pointer; transition: opacity 0.15s;
+    }
+    .btn-save:hover { opacity: 0.85; }
+    .btn-save:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .msg { padding: 10px 14px; border-radius: 10px; font-size: 13px; margin-top: 10px; }
+    .msg-ok  { background: #dcfce7; color: #166534; }
+    .msg-err { background: #fef2f2; color: #dc2626; }
+
+    .warn-box {
+      background: #fef3c7; border-radius: 10px; padding: 12px 14px;
+      font-size: 12px; color: #92400e; margin-bottom: 16px;
+      border-right: 3px solid #f59e0b; line-height: 1.7;
+    }
+  </style>
+</head>
+<body>
+<header>
+  <h1>⚙️ إعدادات الحساب</h1>
+  <a href="dashboard.html" class="back-btn">← رجوع</a>
+</header>
+
+<div class="container">
+  <div class="section-card">
+    <div class="section-title">🔐 تغيير بيانات تسجيل الدخول</div>
+
+    <div class="current-info">
+      <span class="current-label">اسمك الحالي:</span>
+      <span class="current-val" id="current-name">—</span>
+    </div>
+
+    <div class="warn-box">
+      ⚠️ كلمة مرورك الحالية مطلوبة للتحقق من هويتك قبل أي تعديل.<br>
+      إذا غيّرت اسمك سيتم تسجيل خروجك وتحتاج لتسجيل الدخول بالاسم الجديد.
+    </div>
+
+    <div class="field">
+      <label>كلمة المرور الحالية *</label>
+      <input type="password" id="current-pin" placeholder="أدخل كلمة مرورك الحالية" autocomplete="current-password" />
+    </div>
+
+    <div class="field">
+      <label>الاسم الجديد</label>
+      <input type="text" id="new-name" placeholder="اتركه فارغاً إذا لا تريد تغييره" autocomplete="off" />
+      <div class="field-hint">هذا هو الاسم الذي تستخدمه عند تسجيل الدخول</div>
+    </div>
+
+    <div class="field">
+      <label>كلمة المرور الجديدة</label>
+      <input type="password" id="new-pin" placeholder="اتركها فارغة إذا لا تريد تغييرها" autocomplete="new-password" />
+    </div>
+
+    <div class="field">
+      <label>تأكيد كلمة المرور الجديدة</label>
+      <input type="password" id="confirm-pin" placeholder="أعد كتابة كلمة المرور الجديدة" autocomplete="new-password" />
+    </div>
+
+    <button class="btn-save" id="save-btn" onclick="saveCredentials()">💾 حفظ التغييرات</button>
+    <div id="msg"></div>
+  </div>
+</div>
+
+<script>
+  const API   = window.location.origin;
+  const token = localStorage.getItem('token');
+  if (!token || localStorage.getItem('role') === 'admin') window.location.href = '/index.html';
+
+  // Show current name
+  const storedName = localStorage.getItem('agentName') || localStorage.getItem('name') || '—';
+  document.getElementById('current-name').textContent = storedName;
+
+  async function saveCredentials() {
+    const currentPin = document.getElementById('current-pin').value.trim();
+    const newName    = document.getElementById('new-name').value.trim();
+    const newPin     = document.getElementById('new-pin').value.trim();
+    const confirmPin = document.getElementById('confirm-pin').value.trim();
+
+    if (!currentPin) { showMsg('كلمة مرورك الحالية مطلوبة', false); return; }
+    if (!newName && !newPin) { showMsg('يرجى إدخال اسم أو كلمة مرور جديدة', false); return; }
+    if (newPin && newPin !== confirmPin) { showMsg('كلمة المرور الجديدة وتأكيدها غير متطابقتين', false); return; }
+
+    const btn = document.getElementById('save-btn');
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(`${API}/agents/me/credentials`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_pin: currentPin, new_name: newName || undefined, new_pin: newPin || undefined })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        if (data.name_changed) {
+          showMsg('✅ تم الحفظ — سيتم تسجيل خروجك لتسجيل الدخول بالاسم الجديد', true);
+          setTimeout(() => { localStorage.clear(); window.location.href = '/index.html'; }, 2200);
+        } else {
+          showMsg('✅ تم تحديث كلمة المرور بنجاح', true);
+          document.getElementById('current-pin').value = '';
+          document.getElementById('new-pin').value = '';
+          document.getElementById('confirm-pin').value = '';
+        }
+      } else {
+        showMsg(data.detail || 'خطأ في الحفظ', false);
+      }
+    } catch(e) {
+      showMsg('تعذر الاتصال بالخادم', false);
+    }
+    btn.disabled = false;
+  }
+
+  function showMsg(text, ok) {
+    const el = document.getElementById('msg');
+    el.className = 'msg ' + (ok ? 'msg-ok' : 'msg-err');
+    el.textContent = text;
+    if (!ok) setTimeout(() => { el.textContent = ''; el.className = ''; }, 4000);
+  }
+</script>
+</body>
+</html>

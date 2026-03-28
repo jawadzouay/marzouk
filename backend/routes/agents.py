@@ -162,6 +162,39 @@ def get_my_profile(user=Depends(get_current_user)):
     return res.data[0]
 
 
+@router.patch("/me/credentials")
+def update_my_credentials(body: dict, user=Depends(get_current_user)):
+    sb = get_client()
+    agent_id = user["sub"]
+    if agent_id == "admin":
+        raise HTTPException(400, "استخدم صفحة إعدادات الإدارة")
+    current_pin = (body.get("current_pin") or "").strip()
+    new_name    = (body.get("new_name") or "").strip()
+    new_pin     = (body.get("new_pin") or "").strip()
+    if not current_pin:
+        raise HTTPException(400, "كلمة المرور الحالية مطلوبة للتحقق")
+    if not new_name and not new_pin:
+        raise HTTPException(400, "يرجى إدخال اسم أو كلمة مرور جديدة")
+    agent_row = sb.table("agents").select("id, name, pin").eq("id", agent_id).execute()
+    if not agent_row.data:
+        raise HTTPException(404, "الوكيل غير موجود")
+    agent = agent_row.data[0]
+    if not pwd_context.verify(current_pin, agent["pin"]):
+        raise HTTPException(400, "كلمة المرور الحالية غير صحيحة")
+    updates = {}
+    if new_name and new_name != agent["name"]:
+        existing = sb.table("agents").select("id").eq("name", new_name).execute()
+        if existing.data:
+            raise HTTPException(400, "هذا الاسم مستخدم مسبقاً")
+        updates["name"] = new_name
+    if new_pin:
+        updates["pin"] = pwd_context.hash(new_pin)
+    if not updates:
+        return {"message": "لا يوجد تغيير"}
+    sb.table("agents").update(updates).eq("id", agent_id).execute()
+    return {"message": "تم تحديث بيانات الدخول بنجاح", "name_changed": "name" in updates}
+
+
 @router.patch("/me")
 def update_my_profile(body: dict, user=Depends(get_current_user)):
     sb = get_client()
