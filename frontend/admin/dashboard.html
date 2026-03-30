@@ -80,6 +80,39 @@
       font-size: 13px; font-weight: 700; cursor: pointer;
     }
 
+    /* ── FB-style custom date panel ── */
+    .custom-date-panel {
+      margin-top: 8px; background: #f9fafb; border-radius: 10px;
+      padding: 10px 12px; border: 1.5px solid #e5e7eb;
+    }
+    .date-presets { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
+    .date-preset-btn {
+      padding: 5px 11px; border-radius: 20px; border: 1.5px solid #e5e7eb;
+      background: white; font-family: 'Cairo', sans-serif; font-size: 11px;
+      font-weight: 700; cursor: pointer; color: #374151; white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .date-preset-btn:hover  { border-color: #e63329; color: #e63329; }
+    .date-preset-btn.active { background: #e63329; color: white; border-color: #e63329; }
+
+    /* ── Submissions picker ── */
+    .subs-header-row {
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 6px; margin-bottom: 8px;
+    }
+    .subs-picker { display: flex; gap: 4px; flex-wrap: wrap; }
+    .subs-tab {
+      padding: 4px 9px; border-radius: 7px; border: none;
+      font-family: 'Cairo', sans-serif; font-size: 11px; font-weight: 700;
+      background: #f3f4f6; color: #6b7280; cursor: pointer; transition: all 0.15s;
+    }
+    .subs-tab.active { background: #1a1a1a; color: white; }
+    .subs-custom-row {
+      display: none; gap: 6px; margin-bottom: 8px;
+      align-items: center; flex-wrap: wrap;
+    }
+    .subs-custom-row.show { display: flex; }
+
     /* ── Summary stats ── */
     .stats-grid {
       display: grid; grid-template-columns: repeat(2, 1fr);
@@ -324,18 +357,29 @@
   <div class="filter-bar">
     <div class="filter-row">
       <div class="period-tabs">
-        <button class="period-tab active" data-period="today"  onclick="setPeriod('today')">اليوم</button>
-        <button class="period-tab"         data-period="week"   onclick="setPeriod('week')">أسبوع</button>
-        <button class="period-tab"         data-period="month"  onclick="setPeriod('month')">شهر</button>
-        <button class="period-tab"         data-period="custom" onclick="setPeriod('custom')">مخصص ▾</button>
+        <button class="period-tab active" data-period="today"     onclick="setPeriod('today')">اليوم</button>
+        <button class="period-tab"         data-period="yesterday" onclick="setPeriod('yesterday')">أمس</button>
+        <button class="period-tab"         data-period="week"      onclick="setPeriod('week')">أسبوع</button>
+        <button class="period-tab"         data-period="month"     onclick="setPeriod('month')">شهر</button>
+        <button class="period-tab"         data-period="custom"    onclick="setPeriod('custom')">مخصص ▾</button>
       </div>
       <input type="text" class="search-box" id="search-box" placeholder="🔍 بحث عن وكيل..." oninput="onSearch()">
     </div>
-    <div class="date-range-row" id="date-range-row" style="display:none">
-      <input type="date" class="date-inp" id="date-from">
-      <span style="color:#9ca3af;font-size:12px">→</span>
-      <input type="date" class="date-inp" id="date-to">
-      <button class="apply-btn" onclick="applyCustom()">تطبيق</button>
+    <!-- FB-style custom panel -->
+    <div class="custom-date-panel" id="custom-date-panel" style="display:none">
+      <div class="date-presets">
+        <button class="date-preset-btn" onclick="applyPreset(this,'yesterday')">أمس</button>
+        <button class="date-preset-btn" onclick="applyPreset(this,'week')">هذا الأسبوع</button>
+        <button class="date-preset-btn" onclick="applyPreset(this,'last7')">آخر 7 أيام</button>
+        <button class="date-preset-btn" onclick="applyPreset(this,'last14')">آخر 14 يوم</button>
+        <button class="date-preset-btn" onclick="applyPreset(this,'last30')">آخر 30 يوم</button>
+      </div>
+      <div class="date-range-row">
+        <input type="date" class="date-inp" id="date-from">
+        <span style="color:#9ca3af;font-size:12px">→</span>
+        <input type="date" class="date-inp" id="date-to">
+        <button class="apply-btn" onclick="applyCustom()">تطبيق</button>
+      </div>
     </div>
   </div>
 
@@ -409,8 +453,25 @@
     </table>
   </div>
 
-  <!-- Today submissions -->
-  <div class="section-title">إرسال اليوم</div>
+  <!-- Submissions section -->
+  <div class="subs-header-row">
+    <div class="section-title" id="subs-title">إرسال اليوم</div>
+    <div class="subs-picker">
+      <button class="subs-tab active" data-subs="today"     onclick="setSubsPeriod('today')">اليوم</button>
+      <button class="subs-tab"         data-subs="yesterday" onclick="setSubsPeriod('yesterday')">أمس</button>
+      <button class="subs-tab"         data-subs="week"      onclick="setSubsPeriod('week')">هذا الأسبوع</button>
+      <button class="subs-tab"         data-subs="last7"     onclick="setSubsPeriod('last7')">7 أيام</button>
+      <button class="subs-tab"         data-subs="last14"    onclick="setSubsPeriod('last14')">14 يوم</button>
+      <button class="subs-tab"         data-subs="last30"    onclick="setSubsPeriod('last30')">30 يوم</button>
+      <button class="subs-tab"         data-subs="custom"    onclick="setSubsPeriod('custom')">مخصص</button>
+    </div>
+  </div>
+  <div class="subs-custom-row" id="subs-custom-row">
+    <input type="date" class="date-inp" id="subs-from">
+    <span style="color:#9ca3af;font-size:12px">→</span>
+    <input type="date" class="date-inp" id="subs-to">
+    <button class="apply-btn" onclick="applySubsCustom()">تطبيق</button>
+  </div>
   <div class="subs-grid" id="subs-grid"></div>
 
   <!-- Google Sheets card -->
@@ -466,27 +527,36 @@
     bv_count: 'B.V', nr_count: 'N.R'
   };
 
+  const TODAY = new Date().toISOString().split('T')[0];
+
   const state = {
     period: 'today', dateFrom: null, dateTo: null,
     selectedId: null, sortBy: 'registered_students', search: '',
-    leaderboard: [], agents: [], ethicsLoaded: false, ethicsOpen: false
+    leaderboard: [], agents: [], ethicsLoaded: false, ethicsOpen: false,
+    subsPeriod: 'today', subsFrom: null, subsTo: null, subsCalendar: []
   };
+
 
   let barChart  = null;
   let donutChart = null;
 
   // ── Period helpers ─────────────────────────────────────
+  function fmtDate(d) { return d.toISOString().split('T')[0]; }
+
   function getPeriodDates() {
     const today = new Date();
-    const fmt = d => d.toISOString().split('T')[0];
-    if (state.period === 'today')  return { from: fmt(today), to: fmt(today) };
-    if (state.period === 'week')   {
-      const s = new Date(today); s.setDate(today.getDate() - 6);
-      return { from: fmt(s), to: fmt(today) };
+    if (state.period === 'today')  return { from: fmtDate(today), to: fmtDate(today) };
+    if (state.period === 'yesterday') {
+      const y = new Date(today); y.setDate(y.getDate() - 1);
+      return { from: fmtDate(y), to: fmtDate(y) };
     }
-    if (state.period === 'month')  {
+    if (state.period === 'week') {
+      const s = new Date(today); s.setDate(today.getDate() - 6);
+      return { from: fmtDate(s), to: fmtDate(today) };
+    }
+    if (state.period === 'month') {
       const s = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { from: fmt(s), to: fmt(today) };
+      return { from: fmtDate(s), to: fmtDate(today) };
     }
     return { from: state.dateFrom, to: state.dateTo };
   }
@@ -495,14 +565,37 @@
     state.period = p;
     document.querySelectorAll('.period-tab').forEach(b =>
       b.classList.toggle('active', b.dataset.period === p));
-    document.getElementById('date-range-row').style.display = p === 'custom' ? 'flex' : 'none';
+    document.getElementById('custom-date-panel').style.display = p === 'custom' ? 'block' : 'none';
     if (p !== 'custom') loadData();
+  }
+
+  function applyPreset(btn, key) {
+    const today = new Date();
+    let from, to = fmtDate(today);
+    if (key === 'yesterday') {
+      const y = new Date(today); y.setDate(y.getDate()-1); from = to = fmtDate(y);
+    } else if (key === 'week') {
+      const dow = today.getDay(); // 0=Sun
+      const diffToMon = dow === 0 ? 6 : dow - 1;
+      const s = new Date(today); s.setDate(today.getDate() - diffToMon); from = fmtDate(s);
+    } else if (key === 'last7') {
+      const s = new Date(today); s.setDate(today.getDate()-6); from = fmtDate(s);
+    } else if (key === 'last14') {
+      const s = new Date(today); s.setDate(today.getDate()-13); from = fmtDate(s);
+    } else if (key === 'last30') {
+      const s = new Date(today); s.setDate(today.getDate()-29); from = fmtDate(s);
+    }
+    document.getElementById('date-from').value = from;
+    document.getElementById('date-to').value   = to;
+    document.querySelectorAll('.date-preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
   }
 
   function applyCustom() {
     state.dateFrom = document.getElementById('date-from').value;
     state.dateTo   = document.getElementById('date-to').value;
     if (!state.dateFrom || !state.dateTo) { alert('اختر التاريخين'); return; }
+    document.querySelectorAll('.date-preset-btn').forEach(b => b.classList.remove('active'));
     loadData();
   }
 
@@ -539,12 +632,68 @@
     state.leaderboard = lbRes.ok ? await lbRes.json() : [];
     state.agents = dash.agents || [];
 
+    // Load calendar once if not yet loaded
+    if (!state.subsCalendar.length) await loadSubsCalendar();
+
     renderSummary();
     renderCards();
     renderBarChart();
     renderFunnel();
     renderLeaderboardTable();
     renderSubmissions();
+  }
+
+  async function loadSubsCalendar() {
+    try {
+      const res = await fetch(`${API}/admin/submissions/calendar`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.ok) state.subsCalendar = await res.json();
+    } catch(e) {}
+  }
+
+  // ── Submissions date picker ────────────────────────────
+  const SUBS_LABELS = {
+    today: 'إرسال اليوم', yesterday: 'إرسال أمس',
+    week: 'إرسال هذا الأسبوع', last7: 'إرسال آخر 7 أيام',
+    last14: 'إرسال آخر 14 يوم', last30: 'إرسال آخر 30 يوم',
+    custom: 'الإرسال'
+  };
+
+  function getSubsDates() {
+    const today = new Date();
+    const p = state.subsPeriod;
+    if (p === 'today')     return { from: TODAY, to: TODAY };
+    if (p === 'yesterday') {
+      const y = new Date(today); y.setDate(y.getDate()-1); const ys = fmtDate(y);
+      return { from: ys, to: ys };
+    }
+    if (p === 'week') {
+      const dow = today.getDay(); const diffToMon = dow === 0 ? 6 : dow - 1;
+      const s = new Date(today); s.setDate(today.getDate()-diffToMon);
+      return { from: fmtDate(s), to: TODAY };
+    }
+    if (p === 'last7')  { const s = new Date(today); s.setDate(today.getDate()-6);  return { from: fmtDate(s), to: TODAY }; }
+    if (p === 'last14') { const s = new Date(today); s.setDate(today.getDate()-13); return { from: fmtDate(s), to: TODAY }; }
+    if (p === 'last30') { const s = new Date(today); s.setDate(today.getDate()-29); return { from: fmtDate(s), to: TODAY }; }
+    return { from: state.subsFrom, to: state.subsTo };
+  }
+
+  function setSubsPeriod(p) {
+    state.subsPeriod = p;
+    document.querySelectorAll('.subs-tab').forEach(b =>
+      b.classList.toggle('active', b.dataset.subs === p));
+    const customRow = document.getElementById('subs-custom-row');
+    customRow.classList.toggle('show', p === 'custom');
+    if (p !== 'custom') {
+      // Refresh calendar data then render
+      loadSubsCalendar().then(renderSubmissions);
+    }
+  }
+
+  function applySubsCustom() {
+    state.subsFrom = document.getElementById('subs-from').value;
+    state.subsTo   = document.getElementById('subs-to').value;
+    if (!state.subsFrom || !state.subsTo) { alert('اختر التاريخين'); return; }
+    loadSubsCalendar().then(renderSubmissions);
   }
 
   // ── Summary stats ──────────────────────────────────────
@@ -684,20 +833,53 @@
     });
   }
 
-  // ── Today submissions ──────────────────────────────────
+  // ── Submissions ────────────────────────────────────────
   function renderSubmissions() {
     const grid = document.getElementById('subs-grid');
     grid.innerHTML = '';
-    const todayDow = new Date().getDay(); // 0=Sun…6=Sat
-    (state.agents || []).forEach(a => {
-      const isOffToday = (a.day_off != null) && (a.day_off === todayDow);
+    const agents = state.agents || [];
+    if (!agents.length) return;
+
+    const { from, to } = getSubsDates();
+    if (!from || !to) return;
+
+    // Update section title
+    const titleEl = document.getElementById('subs-title');
+    if (state.subsPeriod === 'custom' && from && to)
+      titleEl.textContent = `الإرسال: ${from} — ${to}`;
+    else
+      titleEl.textContent = SUBS_LABELS[state.subsPeriod] || 'الإرسال';
+
+    // Compute day count in range
+    const d1 = new Date(from), d2 = new Date(to);
+    const totalDays = Math.round((d2 - d1) / 86400000) + 1;
+    const isSingleDay = totalDays === 1;
+    const todayDow = new Date().getDay();
+
+    // Build lookup set: "agentId|YYYY-MM-DD"
+    const submittedSet = new Set(
+      (state.subsCalendar || []).map(s => `${s.agent_id}|${s.submission_date}`)
+    );
+
+    agents.forEach(a => {
       let statusHtml;
-      if (a.submitted_today) {
-        statusHtml = `<span class="sub-yes">✅</span>`;
-      } else if (isOffToday) {
-        statusHtml = `<span style="color:#854d0e;font-weight:700">🏖️ إجازة</span>`;
+      if (isSingleDay) {
+        const submitted = submittedSet.has(`${a.id}|${from}`);
+        const isOff = from === TODAY && a.day_off != null && a.day_off === todayDow;
+        if (submitted)   statusHtml = `<span class="sub-yes">✅</span>`;
+        else if (isOff)  statusHtml = `<span style="color:#854d0e;font-weight:700">🏖️ إجازة</span>`;
+        else             statusHtml = `<span class="sub-no">❌</span>`;
       } else {
-        statusHtml = `<span class="sub-no">❌</span>`;
+        // Count days submitted in range
+        let count = 0;
+        const d = new Date(d1);
+        while (d <= d2) {
+          if (submittedSet.has(`${a.id}|${fmtDate(d)}`)) count++;
+          d.setDate(d.getDate()+1);
+        }
+        const pct = totalDays > 0 ? Math.round((count/totalDays)*100) : 0;
+        const color = pct >= 80 ? '#16a34a' : pct >= 50 ? '#d97706' : '#dc2626';
+        statusHtml = `<span style="font-weight:800;color:${color};font-size:13px">${count}/${totalDays}</span>`;
       }
       const div = document.createElement('div');
       div.className = 'sub-card';
@@ -910,6 +1092,11 @@
   function logout() { localStorage.clear(); window.location.href = '/index.html'; }
 
   // ── Init ───────────────────────────────────────────────
+  // Set max=today on all date inputs (prevents future date selection)
+  ['date-from','date-to','subs-from','subs-to'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.max = TODAY;
+  });
   loadData();
   loadSheetConfig();
 </script>
