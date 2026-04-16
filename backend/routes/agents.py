@@ -4,7 +4,6 @@ from pydantic import BaseModel
 from passlib.context import CryptContext
 from jose import jwt
 from services.supabase_service import get_client
-from services.swap_service import redistribute_agent_leads
 from dotenv import load_dotenv
 from typing import Optional
 import os
@@ -50,7 +49,7 @@ class BonusCreate(BaseModel):
 @router.get("/")
 def list_agents(branch_id: str = None, admin=Depends(require_admin)):
     sb = get_client()
-    q = sb.table("agents").select("id, name, is_active, created_at, fired_at, branch_id").eq("is_active", True).order("created_at")
+    q = sb.table("agents").select("id, name, is_active, created_at, fired_at, branch_id, drive_folder_id").eq("is_active", True).order("created_at")
     if branch_id:
         q = q.eq("branch_id", branch_id)
     result = q.execute()
@@ -71,8 +70,23 @@ def create_agent(agent: AgentCreate, admin=Depends(require_admin)):
     if agent.branch_id:
         data["branch_id"] = agent.branch_id
     result = sb.table("agents").insert(data).execute()
+    new_agent = result.data[0]
 
-    return result.data[0]
+    # Create Google Drive folder for the agent
+    try:
+        from services.drive_service import create_agent_folder
+        branch_name = ""
+        if agent.branch_id:
+            br = sb.table("branches").select("name").eq("id", agent.branch_id).execute()
+            branch_name = br.data[0]["name"] if br.data else ""
+        folder_id = create_agent_folder(agent.name, branch_name)
+        sb.table("agents").update({"drive_folder_id": folder_id}).eq("id", new_agent["id"]).execute()
+        new_agent["drive_folder_id"] = folder_id
+    except Exception as e:
+        import logging
+        logging.warning(f"[DRIVE] Failed to create folder for {agent.name}: {e}")
+
+    return new_agent
 
 
 @router.delete("/{agent_id}")
@@ -85,9 +99,7 @@ def fire_agent(agent_id: str, admin=Depends(require_admin)):
         "fired_at": datetime.utcnow().isoformat()
     }).eq("id", agent_id).execute()
 
-    redistribute_agent_leads(agent_id)
-
-    return {"message": "تم إيقاف الوكيل وإعادة توزيع العملاء المحتملين"}
+    return {"message": "تم إيقاف الوكيل"}
 
 
 @router.delete("/{agent_id}/wipe")
@@ -95,7 +107,6 @@ def fire_and_wipe_agent(agent_id: str, admin=Depends(require_admin)):
     sb = get_client()
 
     from datetime import datetime
-    # Free up the name by renaming to a non-conflicting placeholder
     placeholder = f"محذوف_{agent_id[:8]}"
     sb.table("agents").update({
         "is_active": False,
@@ -103,9 +114,7 @@ def fire_and_wipe_agent(agent_id: str, admin=Depends(require_admin)):
         "name": placeholder
     }).eq("id", agent_id).execute()
 
-    redistribute_agent_leads(agent_id)
-
-    return {"message": "تم إيقاف الوكيل ومسح اسمه وإعادة توزيع العملاء المحتملين"}
+    return {"message": "تم إيقاف الوكيل ومسح اسمه"}
 
 
 @router.get("/my-rank")

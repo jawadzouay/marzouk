@@ -3,443 +3,290 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>إرسال العملاء — مرزوق أكاديمي</title>
-  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>التقرير اليومي — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Cairo', sans-serif; background: #f0f4f8; min-height: 100vh; }
-    header { background: #e63329; color: white; padding: 14px 20px; padding-top: max(14px,env(safe-area-inset-top)); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
-    header h1 { font-size: 17px; font-weight: 700; }
-    .back-btn { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 8px; font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; }
-    .container { padding: 16px; max-width: 900px; margin: 0 auto; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; }
 
-    /* Upload zone */
-    .upload-zone {
-      background: white; border: 3px dashed #93c5fd; border-radius: 16px;
-      padding: 32px 20px; text-align: center; cursor: pointer; margin-bottom: 14px;
-      transition: background 0.2s; position: relative;
+    header {
+      background: #1a1a1a; color: white;
+      padding: 14px 16px; padding-top: max(14px, env(safe-area-inset-top));
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
-    .upload-zone:hover { background: #eff6ff; }
-    .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
-    .upload-zone .icon { font-size: 44px; }
-    .upload-zone p { color: #6b7280; margin-top: 10px; font-size: 14px; }
-    .upload-zone strong { color: #e63329; }
-
-    /* Image previews */
-    .previews-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
-    .preview-item {
-      position: relative; width: 80px; height: 80px; border-radius: 8px;
-      overflow: hidden; border: 2px solid #e5e7eb;
-    }
-    .preview-item img { width: 100%; height: 100%; object-fit: cover; }
-    .preview-item .remove-img {
-      position: absolute; top: 2px; left: 2px; background: rgba(0,0,0,0.6);
-      color: white; border: none; border-radius: 4px; width: 18px; height: 18px;
-      font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-    }
-    .preview-item .img-status {
-      position: absolute; bottom: 0; left: 0; right: 0;
-      background: rgba(0,0,0,0.6); color: white; font-size: 9px;
-      text-align: center; padding: 2px;
+    header h1 { font-size: 16px; font-weight: 700; }
+    .back-btn {
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      color: white; padding: 7px 14px; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; font-weight: 600;
+      text-decoration: none;
     }
 
-    /* Progress */
-    .extract-progress { background: white; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px; color: #374151; }
-    .progress-bar-bg { background: #e5e7eb; border-radius: 99px; height: 8px; overflow: hidden; margin-top: 8px; }
-    .progress-bar-fill { height: 100%; border-radius: 99px; background: #e63329; transition: width 0.4s; }
-
-    /* Buttons */
-    .btn { width: 100%; padding: 13px; border: none; border-radius: 12px; font-size: 15px; font-family: 'Cairo', sans-serif; font-weight: 700; cursor: pointer; margin-bottom: 10px; }
-    .btn-primary   { background: #e63329; color: white; }
-    .btn-success   { background: #10b981; color: white; }
-    .btn-secondary { background: #6b7280; color: white; }
-    .btn:disabled  { opacity: 0.5; cursor: not-allowed; }
-
-    /* Table */
-    .table-wrap { overflow-x: auto; margin-bottom: 16px; }
-    table { width: 100%; border-collapse: collapse; background: white; border-radius: 12px; overflow: hidden; min-width: 500px; }
-    th { background: #e63329; color: white; padding: 10px 12px; font-size: 13px; }
-    td { padding: 8px 12px; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
-    tr:last-child td { border-bottom: none; }
-    .phone-input { border: 2px solid #e5e7eb; border-radius: 6px; padding: 5px 8px; font-family: 'Cairo', sans-serif; font-size: 13px; width: 130px; direction: ltr; }
-    .phone-invalid { border-color: #ef4444; background: #fef2f2; }
-    .edit-input { border: 2px solid #e5e7eb; border-radius: 6px; padding: 5px 8px; font-family: 'Cairo', sans-serif; font-size: 13px; width: 100%; min-width: 80px; background: white; }
-    .edit-input:focus { outline: none; border-color: #e63329; }
-    .edit-select { border: 2px solid #e5e7eb; border-radius: 6px; padding: 5px 6px; font-family: 'Cairo', sans-serif; font-size: 12px; background: white; cursor: pointer; width: 100%; }
-    .edit-select:focus { outline: none; border-color: #e63329; }
-    .status-badge { padding: 3px 8px; border-radius: 20px; font-size: 11px; font-weight: 600; }
-    .s-rdv{background:#E2EFDA;color:#2d6a4f} .s-bv{background:#FFF2CC;color:#7d6608}
-    .s-nr{background:#FCE4D6;color:#9c2a10} .s-pi{background:#F2CEEF;color:#6d1f6b}
-    .s-av{background:#DDEBF7;color:#154360}
-    .delete-btn { background: #fef2f2; color: #dc2626; border: none; border-radius: 6px; padding: 5px 8px; cursor: pointer; font-size: 11px; }
-    .src-badge { font-size: 10px; color: #9ca3af; }
-
-    /* Date picker */
-    .date-picker-card {
-      background: white; border-radius: 12px; padding: 14px 16px;
-      margin-bottom: 14px; display: flex; align-items: center; gap: 12px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-    }
-    .date-picker-card label { font-size: 14px; font-weight: 700; color: #374151; white-space: nowrap; }
-    .date-picker-card input[type=date] {
-      flex: 1; padding: 9px 12px; border: 2px solid #e5e7eb; border-radius: 8px;
-      font-family: 'Cairo', sans-serif; font-size: 14px; outline: none;
-      direction: ltr; transition: border 0.15s;
-    }
-    .date-picker-card input[type=date]:focus { border-color: #e63329; }
-    .date-past-warn {
-      background: #fef3c7; color: #92400e; border-radius: 8px;
-      padding: 8px 12px; font-size: 12px; margin-bottom: 10px;
+    .container {
+      padding: 14px;
+      padding-bottom: max(80px, calc(20px + env(safe-area-inset-bottom)));
+      max-width: 500px; margin: 0 auto;
     }
 
-    /* Submission counter */
-    .sub-counter {
-      border-radius: 12px; padding: 12px 16px; margin-bottom: 14px;
+    .date-card {
+      background: white; border-radius: 14px; padding: 14px 16px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .date-label { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 6px; }
+    .date-input {
+      width: 100%; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 10px;
+      font-family: 'Cairo', sans-serif; font-size: 15px; background: white;
+    }
+    .date-input:focus { outline: none; border-color: #e63329; }
+
+    .warning-banner {
+      background: #fef3cd; border: 1.5px solid #f59e0b; border-radius: 12px;
+      padding: 10px 14px; margin-bottom: 12px; font-size: 12px; font-weight: 600;
+      color: #92400e; display: none; text-align: center;
+    }
+    .warning-banner.show { display: block; }
+
+    .field-card {
+      background: white; border-radius: 14px; padding: 12px 14px;
+      margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
       display: flex; align-items: center; justify-content: space-between;
-      font-size: 14px; font-weight: 700;
+      gap: 10px; transition: transform 0.1s;
     }
-    .sub-counter.ok   { background: #dcfce7; color: #166534; }
-    .sub-counter.warn { background: #fef3c7; color: #92400e; }
-    .sub-counter.full { background: #fef2f2; color: #dc2626; }
-    .sub-dots { display: flex; gap: 6px; }
-    .sub-dot { width: 14px; height: 14px; border-radius: 50%; background: #e5e7eb; }
-    .sub-dot.used { background: currentColor; }
+    .field-card:active { transform: scale(0.99); }
+    .field-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+    .field-icon { font-size: 22px; flex-shrink: 0; }
+    .field-label { font-size: 13px; font-weight: 700; color: #374151; }
+    .field-sublabel { font-size: 10px; color: #9ca3af; font-weight: 600; }
+    .field-highlight { border-right: 4px solid #e63329; }
+    .field-green { border-right: 4px solid #10b981; }
 
-    /* Alerts */
-    .alert { padding: 12px 16px; border-radius: 10px; margin-bottom: 12px; font-size: 14px; }
-    .alert-success { background: #dcfce7; color: #166534; }
-    .alert-error   { background: #fef2f2; color: #dc2626; }
-    .alert-warn    { background: #fef3c7; color: #92400e; }
+    .stepper { display: flex; align-items: center; gap: 0; flex-shrink: 0; }
+    .stepper-btn {
+      width: 40px; height: 40px; border: none; border-radius: 10px;
+      font-size: 20px; font-weight: 900; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.1s; user-select: none;
+    }
+    .stepper-btn:active { transform: scale(0.9); }
+    .stepper-minus { background: #fee2e2; color: #dc2626; }
+    .stepper-plus  { background: #dcfce7; color: #16a34a; }
+    .stepper-value {
+      width: 52px; text-align: center; font-size: 20px; font-weight: 900;
+      color: #1a1a1a; border: none; background: transparent;
+      font-family: 'Cairo', sans-serif;
+      -moz-appearance: textfield;
+    }
+    .stepper-value::-webkit-inner-spin-button { -webkit-appearance: none; }
+    .stepper-value:focus { outline: none; }
 
-    /* Summary bar */
-    .summary-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-    .summary-chip { background: white; border-radius: 8px; padding: 6px 12px; font-size: 12px; font-weight: 700; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .upload-card {
+      background: white; border-radius: 14px; padding: 16px;
+      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center;
+    }
+    .upload-zone {
+      border: 2.5px dashed #d1d5db; border-radius: 12px;
+      padding: 24px 16px; cursor: pointer; transition: all 0.2s;
+    }
+    .upload-zone:hover { border-color: #e63329; background: #fff5f5; }
+    .upload-zone.has-file { border-color: #10b981; background: #f0fdf4; }
+    .upload-icon { font-size: 36px; margin-bottom: 6px; }
+    .upload-text { font-size: 13px; color: #6b7280; font-weight: 600; }
+    .upload-file-name { font-size: 12px; color: #10b981; font-weight: 700; margin-top: 4px; }
+
+    .submit-btn {
+      width: 100%; padding: 16px; background: #10b981; color: white;
+      border: none; border-radius: 14px; font-size: 18px; font-weight: 900;
+      font-family: 'Cairo', sans-serif; cursor: pointer;
+      box-shadow: 0 4px 16px rgba(16,185,129,0.3);
+      transition: all 0.15s; margin-top: 8px;
+    }
+    .submit-btn:active { transform: scale(0.97); }
+    .submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .status-msg {
+      text-align: center; padding: 12px; border-radius: 12px;
+      font-size: 14px; font-weight: 700; margin-top: 12px; display: none;
+    }
+    .status-msg.success { display: block; background: #dcfce7; color: #166534; }
+    .status-msg.error   { display: block; background: #fef2f2; color: #dc2626; }
+
+    .remaining-badge {
+      text-align: center; font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 10px;
+    }
+    .remaining-badge span { font-weight: 900; color: #e63329; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>📋 إرسال قائمة العملاء</h1>
-    <button class="back-btn" onclick="window.location.href='dashboard.html'">← رجوع</button>
-  </header>
 
-  <div class="container">
-    <!-- Date picker -->
-    <div class="date-picker-card">
-      <label>📅 تاريخ القائمة:</label>
-      <input type="date" id="submission-date" onchange="onDateChange()" />
-    </div>
-    <div id="date-past-warn" class="date-past-warn" style="display:none">
-      ⚠️ أنت تُرسل قائمة بتاريخ سابق — تأكد من اختيار التاريخ الصحيح
-    </div>
+<header>
+  <h1>📋 التقرير اليومي</h1>
+  <a href="dashboard.html" class="back-btn">← الرئيسية</a>
+</header>
 
-    <!-- Submission counter -->
-    <div class="sub-counter ok" id="sub-counter" style="display:none">
-      <span id="sub-counter-text">جاري التحقق...</span>
-      <div class="sub-dots">
-        <div class="sub-dot" id="dot-1"></div>
-        <div class="sub-dot" id="dot-2"></div>
-        <div class="sub-dot" id="dot-3"></div>
-      </div>
-    </div>
+<div class="container">
 
-    <!-- Upload zone -->
-    <div class="upload-zone" id="upload-zone">
-      <input type="file" id="file-input" accept="image/*" multiple onchange="handleFiles(event)" />
-      <div class="icon">📸</div>
-      <p>اضغط لرفع صورة أو أكثر<br><strong>يمكنك رفع عدة صور في نفس الوقت</strong></p>
-    </div>
-
-    <!-- Image previews -->
-    <div class="previews-row" id="previews-row"></div>
-
-    <!-- Extract progress -->
-    <div class="extract-progress" id="extract-progress" style="display:none">
-      <div id="progress-text">جاري المعالجة...</div>
-      <div class="progress-bar-bg">
-        <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
-      </div>
-    </div>
-
-    <button class="btn btn-primary" id="extract-btn" onclick="extractAll()" disabled>
-      🤖 استخراج البيانات من كل الصور
-    </button>
-
-    <div id="alerts"></div>
-
-    <!-- Results -->
-    <div id="table-section" style="display:none">
-      <div class="summary-bar" id="summary-bar"></div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr><th>#</th><th>الهاتف</th><th>الاسم</th><th>المستوى</th><th>المدينة</th><th>الحالة</th><th>📷</th><th>🗑</th></tr>
-          </thead>
-          <tbody id="leads-body"></tbody>
-        </table>
-      </div>
-      <button class="btn btn-success" onclick="submitLeads()">✅ تأكيد الإرسال</button>
-      <button class="btn btn-secondary" onclick="resetForm()">🔄 إعادة المحاولة</button>
-    </div>
+  <div class="date-card">
+    <div class="date-label">📅 تاريخ التقرير</div>
+    <input type="date" class="date-input" id="report-date" />
   </div>
 
-  <script>
-    const API   = window.location.origin;
-    const token = localStorage.getItem('token');
-    if (!token) window.location.href = '/index.html';
+  <div class="remaining-badge" id="remaining-badge"></div>
 
-    let selectedFiles   = [];
-    let extractedLeads  = [];
-    let submissionsToday = 0;
-    const statusClass   = { 'RDV':'s-rdv','B.V':'s-bv','N.R':'s-nr','P.I':'s-pi','Autre ville':'s-av' };
+  <div class="warning-banner" id="first-warning">
+    ⚠️ تأكد من صحة الأرقام قبل الإرسال — لديك محاولتان فقط لهذا اليوم
+  </div>
 
-    // Set date picker to today by default
-    function todayISO() {
-      return new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
+  <div class="field-card field-highlight">
+    <div class="field-info"><span class="field-icon">💬</span><div><div class="field-label">الرسائل</div><div class="field-sublabel">Messages</div></div></div>
+    <div class="stepper"><button class="stepper-btn stepper-minus" onclick="step('messages',-1)">−</button><input class="stepper-value" id="v-messages" value="0" type="number" min="0" inputmode="numeric" onchange="clamp(this)" /><button class="stepper-btn stepper-plus" onclick="step('messages',1)">+</button></div>
+  </div>
+  <div class="field-card">
+    <div class="field-info"><span class="field-icon">📅</span><div><div class="field-label">مواعيد RDV</div><div class="field-sublabel">Booked dates</div></div></div>
+    <div class="stepper"><button class="stepper-btn stepper-minus" onclick="step('rdv',-1)">−</button><input class="stepper-value" id="v-rdv" value="0" type="number" min="0" inputmode="numeric" onchange="clamp(this)" /><button class="stepper-btn stepper-plus" onclick="step('rdv',1)">+</button></div>
+  </div>
+  <div class="field-card">
+    <div class="field-info"><span class="field-icon">🏙️</span><div><div class="field-label">مدينة أخرى</div><div class="field-sublabel">Autre ville</div></div></div>
+    <div class="stepper"><button class="stepper-btn stepper-minus" onclick="step('autre_ville',-1)">−</button><input class="stepper-value" id="v-autre_ville" value="0" type="number" min="0" inputmode="numeric" onchange="clamp(this)" /><button class="stepper-btn stepper-plus" onclick="step('autre_ville',1)">+</button></div>
+  </div>
+  <div class="field-card">
+    <div class="field-info"><span class="field-icon">🚫</span><div><div class="field-label">غير مهتم</div><div class="field-sublabel">P.I — Not interested</div></div></div>
+    <div class="stepper"><button class="stepper-btn stepper-minus" onclick="step('pi',-1)">−</button><input class="stepper-value" id="v-pi" value="0" type="number" min="0" inputmode="numeric" onchange="clamp(this)" /><button class="stepper-btn stepper-plus" onclick="step('pi',1)">+</button></div>
+  </div>
+  <div class="field-card">
+    <div class="field-info"><span class="field-icon">📵</span><div><div class="field-label">بريد صوتي</div><div class="field-sublabel">B.V — Boite vocale</div></div></div>
+    <div class="stepper"><button class="stepper-btn stepper-minus" onclick="step('bv',-1)">−</button><input class="stepper-value" id="v-bv" value="0" type="number" min="0" inputmode="numeric" onchange="clamp(this)" /><button class="stepper-btn stepper-plus" onclick="step('bv',1)">+</button></div>
+  </div>
+  <div class="field-card">
+    <div class="field-info"><span class="field-icon">🎓</span><div><div class="field-label">غير مؤهل دراسياً</div><div class="field-sublabel">P.E — Not educated</div></div></div>
+    <div class="stepper"><button class="stepper-btn stepper-minus" onclick="step('pe',-1)">−</button><input class="stepper-value" id="v-pe" value="0" type="number" min="0" inputmode="numeric" onchange="clamp(this)" /><button class="stepper-btn stepper-plus" onclick="step('pe',1)">+</button></div>
+  </div>
+  <div class="field-card">
+    <div class="field-info"><span class="field-icon">👴</span><div><div class="field-label">فوق 40 سنة</div><div class="field-sublabel">Over 40</div></div></div>
+    <div class="stepper"><button class="stepper-btn stepper-minus" onclick="step('over_40',-1)">−</button><input class="stepper-value" id="v-over_40" value="0" type="number" min="0" inputmode="numeric" onchange="clamp(this)" /><button class="stepper-btn stepper-plus" onclick="step('over_40',1)">+</button></div>
+  </div>
+  <div class="field-card field-green">
+    <div class="field-info"><span class="field-icon">🏢</span><div><div class="field-label">الزيارات</div><div class="field-sublabel">Visits — showed up</div></div></div>
+    <div class="stepper"><button class="stepper-btn stepper-minus" onclick="step('visits',-1)">−</button><input class="stepper-value" id="v-visits" value="0" type="number" min="0" inputmode="numeric" onchange="clamp(this)" /><button class="stepper-btn stepper-plus" onclick="step('visits',1)">+</button></div>
+  </div>
+  <div class="field-card field-green">
+    <div class="field-info"><span class="field-icon">⭐</span><div><div class="field-label">المسجلين</div><div class="field-sublabel">Registered students</div></div></div>
+    <div class="stepper"><button class="stepper-btn stepper-minus" onclick="step('registered',-1)">−</button><input class="stepper-value" id="v-registered" value="0" type="number" min="0" inputmode="numeric" onchange="clamp(this)" /><button class="stepper-btn stepper-plus" onclick="step('registered',1)">+</button></div>
+  </div>
+
+  <div class="upload-card">
+    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('photo-input').click()">
+      <div class="upload-icon" id="upload-icon">📸</div>
+      <div class="upload-text" id="upload-text">اضغط لرفع صورة الورقة</div>
+      <div class="upload-file-name" id="upload-name"></div>
+    </div>
+    <input type="file" style="display:none" id="photo-input" accept="image/*" capture="environment" onchange="onPhotoSelect(this)" />
+  </div>
+
+  <button class="submit-btn" id="submit-btn" onclick="submitReport()">📤 إرسال التقرير</button>
+  <div class="status-msg" id="status-msg"></div>
+</div>
+
+<script>
+  const API   = window.location.origin;
+  const token = localStorage.getItem('token');
+  if (!token || localStorage.getItem('role') !== 'agent') window.location.href = '/index.html';
+
+  const FIELDS = ['messages','rdv','autre_ville','pi','bv','pe','over_40','visits','registered'];
+  let selectedPhoto = null;
+
+  const today = new Date().toISOString().split('T')[0];
+  const dateInput = document.getElementById('report-date');
+  dateInput.value = today;
+  dateInput.max = today;
+  dateInput.addEventListener('change', checkExisting);
+  checkExisting();
+
+  function val(f) { return parseInt(document.getElementById('v-'+f).value) || 0; }
+  function step(f, d) { const el = document.getElementById('v-'+f); let v = (parseInt(el.value)||0)+d; if(v<0)v=0; el.value=v; }
+  function clamp(el) { if(parseInt(el.value)<0||isNaN(parseInt(el.value))) el.value=0; }
+
+  function onPhotoSelect(input) {
+    if (input.files && input.files[0]) {
+      selectedPhoto = input.files[0];
+      document.getElementById('upload-zone').classList.add('has-file');
+      document.getElementById('upload-icon').textContent = '✅';
+      document.getElementById('upload-text').textContent = 'تم اختيار الصورة';
+      document.getElementById('upload-name').textContent = selectedPhoto.name;
     }
-    const dateInput = document.getElementById('submission-date');
-    dateInput.value = todayISO();
-    dateInput.max   = todayISO(); // Cannot pick a future date
+  }
 
-    function getSelectedDate() { return dateInput.value || todayISO(); }
+  async function checkExisting() {
+    const d = dateInput.value;
+    try {
+      const res = await fetch(`${API}/reports/my?date_from=${d}&date_to=${d}`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      const badge = document.getElementById('remaining-badge');
+      const warning = document.getElementById('first-warning');
 
-    function onDateChange() {
-      const warn = document.getElementById('date-past-warn');
-      warn.style.display = dateInput.value && dateInput.value < todayISO() ? 'block' : 'none';
-      checkSubmissionCount();
-    }
-
-    async function checkSubmissionCount() {
-      try {
-        const date = getSelectedDate();
-        const res  = await fetch(`${API}/leads/submissions-today?date=${date}`, { headers: { Authorization: `Bearer ${token}` } });
-        const data = await res.json();
-        submissionsToday = data.count || 0;
-        updateCounter(submissionsToday);
-      } catch(e) { /* silent */ }
-    }
-
-    function updateCounter(count) {
-      const el   = document.getElementById('sub-counter');
-      const text = document.getElementById('sub-counter-text');
-      el.style.display = 'flex';
-      // fill dots
-      [1,2,3].forEach(i => {
-        document.getElementById(`dot-${i}`).classList.toggle('used', i <= count);
-      });
-      if (count === 0) {
-        el.className = 'sub-counter ok';
-        text.textContent = 'لم ترسل بعد اليوم — لديك 3 إرسالات متاحة';
-      } else if (count === 1) {
-        el.className = 'sub-counter ok';
-        text.textContent = 'إرسال 1/3 — لديك إرسالان إضافيان اليوم';
-      } else if (count === 2) {
-        el.className = 'sub-counter warn';
-        text.textContent = '⚠️ إرسال 2/3 — هذا هو آخر إرسال متاح لك اليوم';
-      } else {
-        el.className = 'sub-counter full';
-        text.textContent = '🚫 وصلت للحد الأقصى — 3/3 إرسالات مكتملة اليوم';
-        document.getElementById('upload-zone').style.pointerEvents = 'none';
-        document.getElementById('upload-zone').style.opacity = '0.4';
-        document.getElementById('extract-btn').disabled = true;
-      }
-    }
-
-    checkSubmissionCount();
-
-    function handleFiles(e) {
-      const newFiles = Array.from(e.target.files);
-      newFiles.forEach(f => { if (!selectedFiles.find(x=>x.name===f.name&&x.size===f.size)) selectedFiles.push(f); });
-      renderPreviews();
-      document.getElementById('extract-btn').disabled = selectedFiles.length === 0;
-    }
-
-    function renderPreviews() {
-      const row = document.getElementById('previews-row');
-      row.innerHTML = '';
-      selectedFiles.forEach((f, i) => {
-        const url = URL.createObjectURL(f);
-        const div = document.createElement('div');
-        div.className = 'preview-item';
-        div.id = `prev-${i}`;
-        div.innerHTML = `
-          <img src="${url}">
-          <button class="remove-img" onclick="removeFile(${i})">✕</button>
-          <div class="img-status" id="img-status-${i}">انتظار</div>`;
-        row.appendChild(div);
-      });
-    }
-
-    function removeFile(i) {
-      selectedFiles.splice(i, 1);
-      renderPreviews();
-      document.getElementById('extract-btn').disabled = selectedFiles.length === 0;
-    }
-
-    async function extractAll() {
-      if (!selectedFiles.length) return;
-      const btn = document.getElementById('extract-btn');
-      btn.disabled = true;
-      document.getElementById('extract-progress').style.display = 'block';
-      document.getElementById('alerts').innerHTML = '';
-      extractedLeads = [];
-
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const f = selectedFiles[i];
-        const pct = Math.round(((i) / selectedFiles.length) * 100);
-        document.getElementById('progress-text').textContent = `معالجة صورة ${i+1} من ${selectedFiles.length}...`;
-        document.getElementById('progress-fill').style.width = pct + '%';
-        document.getElementById(`img-status-${i}`).textContent = '⏳';
-
-        try {
-          const fd = new FormData(); fd.append('file', f);
-          let res, attempt = 0;
-          while (attempt < 3) {
-            res = await fetch(`${API}/leads/extract`, {
-              method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd
-            });
-            if (res.status !== 503) break;
-            attempt++;
-            if (attempt < 3) {
-              document.getElementById('progress-text').textContent = `⏳ جاري تشغيل الخادم... إعادة المحاولة ${attempt}/3`;
-              await new Promise(r => setTimeout(r, 5000));
-            }
-          }
-          let data;
-          try { data = await res.json(); } catch {
-            throw new Error('الخادم غير متاح، حاول مرة أخرى بعد لحظة');
-          }
-          if (!res.ok) throw new Error(data.detail || 'خطأ');
-          const leads = (data.leads || []).map(l => ({ ...l, _src: i+1 }));
-          extractedLeads.push(...leads);
-          document.getElementById(`img-status-${i}`).textContent = `✅ ${leads.length}`;
-        } catch(err) {
-          document.getElementById(`img-status-${i}`).textContent = '❌';
-          showAlert(`خطأ في الصورة ${i+1}: ${err.message}`, 'error');
-        }
-      }
-
-      document.getElementById('progress-fill').style.width = '100%';
-      document.getElementById('progress-text').textContent = `تم! ${extractedLeads.length} عميل من ${selectedFiles.length} صورة`;
-      renderTable();
-      btn.disabled = false;
-    }
-
-    function renderTable() {
-      const tbody = document.getElementById('leads-body');
-      tbody.innerHTML = '';
-      document.getElementById('table-section').style.display = 'block';
-
-      // Summary
-      const counts = {};
-      extractedLeads.forEach(l => { counts[l.status] = (counts[l.status]||0)+1; });
-      document.getElementById('summary-bar').innerHTML =
-        `<div class="summary-chip">📊 المجموع: ${extractedLeads.length}</div>` +
-        Object.entries(counts).map(([s,c])=>`<div class="summary-chip">${s}: ${c}</div>`).join('');
-
-      extractedLeads.forEach((lead, i) => {
-        const invalid = lead.flagged;
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${i+1}</td>
-          <td>
-            <input class="phone-input ${invalid?'phone-invalid':''}" value="${(lead.phone||'').replace(/"/g,'&quot;')}"
-              onchange="updatePhone(${i},this.value)" oninput="validatePhoneInput(this)" dir="ltr">
-            ${invalid?'<div style="color:#ef4444;font-size:10px">رقم غير صحيح</div>':''}
-          </td>
-          <td><input class="edit-input" value="${(lead.name||'').replace(/"/g,'&quot;')}" placeholder="الاسم" onchange="updateField(${i},'name',this.value)"></td>
-          <td><input class="edit-input" value="${(lead.level||'').replace(/"/g,'&quot;')}" placeholder="المستوى" onchange="updateField(${i},'level',this.value)" style="min-width:70px"></td>
-          <td><input class="edit-input" value="${(lead.city||'').replace(/"/g,'&quot;')}" placeholder="المدينة" onchange="updateField(${i},'city',this.value)"></td>
-          <td>
-            <select class="edit-select" onchange="updateField(${i},'status',this.value)">
-              <option value="RDV"         ${lead.status==='RDV'?'selected':''}>RDV</option>
-              <option value="B.V"         ${lead.status==='B.V'?'selected':''}>B.V</option>
-              <option value="N.R"         ${lead.status==='N.R'?'selected':''}>N.R</option>
-              <option value="P.I"         ${lead.status==='P.I'?'selected':''}>P.I</option>
-              <option value="Autre ville" ${lead.status==='Autre ville'?'selected':''}>Autre ville</option>
-            </select>
-          </td>
-          <td><span class="src-badge">📷${lead._src||''}</span></td>
-          <td><button class="delete-btn" onclick="deleteLead(${i})">🗑️</button></td>`;
-        tbody.appendChild(tr);
-      });
-    }
-
-    function updateField(i, field, value) {
-      extractedLeads[i][field] = value;
-    }
-
-    function validatePhoneInput(inp) {
-      const v = inp.value.replace(/[\s\-]/g,'');
-      inp.classList.toggle('phone-invalid', !/^0[67]\d{8}$/.test(v));
-    }
-    function updatePhone(i, v) {
-      extractedLeads[i].phone = v.replace(/[\s\-]/g,'');
-      extractedLeads[i].flagged = !/^0[67]\d{8}$/.test(extractedLeads[i].phone);
-    }
-    function deleteLead(i) { extractedLeads.splice(i,1); renderTable(); }
-
-    async function submitLeads() {
-      if (extractedLeads.some(l=>l.flagged)) {
-        showAlert('يوجد أرقام غير صحيحة. صحّحها أو احذفها قبل الإرسال.','warn'); return;
-      }
-      // Warn on the last allowed submission
-      if (submissionsToday === 2) {
-        const ok = confirm('⚠️ تنبيه: هذا هو آخر إرسال مسموح به اليوم (3/3). هل تريد المتابعة؟');
-        if (!ok) return;
-      }
-      try {
-        let res2, attempt2 = 0;
-        while (attempt2 < 3) {
-          res2 = await fetch(`${API}/leads/submit`,{
-            method:'POST',
-            headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},
-            body:JSON.stringify({leads:extractedLeads, source_date:getSelectedDate()})
-          });
-          if (res2.status !== 503) break;
-          attempt2++;
-          if (attempt2 < 3) await new Promise(r => setTimeout(r, 5000));
-        }
-        const res = res2;
-        let data;
-        try { data = await res.json(); } catch {
-          throw new Error('الخادم غير متاح، حاول مرة أخرى بعد لحظة');
-        }
-        if (!res.ok) throw new Error(data.detail||'خطأ في الإرسال');
-        let msg = `✅ تم حفظ ${data.saved} عميل.`;
-        if (data.skipped?.length) {
-          const dups = data.skipped.filter(s=>s.reason==='duplicate').length;
-          const blk  = data.skipped.filter(s=>s.reason==='blacklisted').length;
-          if (dups) msg += ` ${dups} مكرر تم تجاهله.`;
-          if (blk)  msg += ` ${blk} محظور تم تجاهله.`;
-        }
-        submissionsToday = data.submissions_today || submissionsToday + 1;
-        updateCounter(submissionsToday);
-        if (data.submissions_remaining > 0) {
-          msg += ` — متبقي ${data.submissions_remaining} إرسال اليوم.`;
-        }
-        showAlert(msg,'success');
-        document.getElementById('table-section').style.display='none';
-        if (data.sheets_error) {
-          setTimeout(() => showAlert(`⚠️ تم الحفظ لكن فشل إرسال البيانات إلى Google Sheet: ${data.sheets_error}`, 'warn'), 500);
+      if (data.length > 0) {
+        const r = data[0];
+        const rem = 2 - (r.submit_count || 1);
+        if (rem <= 0) {
+          badge.innerHTML = 'لقد استنفدت محاولتي الإرسال لهذا اليوم';
+          document.getElementById('submit-btn').disabled = true;
         } else {
-          setTimeout(()=>window.location.href='dashboard.html',2000);
+          badge.innerHTML = `تبقى لك <span>${rem}</span> محاولة`;
+          document.getElementById('submit-btn').disabled = false;
         }
-      } catch(err) { showAlert(err.message,'error'); }
+        FIELDS.forEach(f => { document.getElementById('v-'+f).value = r[f] || 0; });
+        warning.classList.remove('show');
+      } else {
+        badge.innerHTML = 'لديك <span>2</span> محاولتان للإرسال';
+        document.getElementById('submit-btn').disabled = false;
+        warning.classList.add('show');
+        FIELDS.forEach(f => { document.getElementById('v-'+f).value = 0; });
+      }
+    } catch(e) {}
+  }
+
+  async function submitReport() {
+    const btn = document.getElementById('submit-btn');
+    const msg = document.getElementById('status-msg');
+    msg.className = 'status-msg'; msg.style.display = 'none';
+
+    const messages = val('messages');
+    const badSum = val('autre_ville') + val('pi') + val('pe') + val('over_40');
+    if (messages > 0 && badSum > messages) {
+      msg.textContent = 'عدد الرسائل يجب أن يكون أكبر من مجموع (مدينة أخرى + غير مهتم + غير مؤهل + فوق 40)';
+      msg.className = 'status-msg error'; return;
     }
 
-    function resetForm() {
-      selectedFiles=[]; extractedLeads=[];
-      document.getElementById('file-input').value='';
-      document.getElementById('previews-row').innerHTML='';
-      document.getElementById('table-section').style.display='none';
-      document.getElementById('extract-progress').style.display='none';
-      document.getElementById('extract-btn').disabled=true;
-      document.getElementById('alerts').innerHTML='';
+    btn.disabled = true; btn.textContent = '⏳ جاري الإرسال...';
+
+    const fd = new FormData();
+    fd.append('report_date', dateInput.value);
+    FIELDS.forEach(f => fd.append(f, val(f)));
+    if (selectedPhoto) fd.append('photo', selectedPhoto);
+
+    try {
+      const res = await fetch(`${API}/reports/submit`, {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        msg.textContent = data.detail || 'حدث خطأ';
+        msg.className = 'status-msg error';
+      } else {
+        msg.textContent = `${data.message} — تبقى لك ${data.remaining} محاولة`;
+        msg.className = 'status-msg success';
+        if (data.remaining <= 0) btn.disabled = true;
+        try { new Audio('/sound effect.mp3').play(); } catch(e){}
+      }
+    } catch(e) {
+      msg.textContent = 'خطأ في الاتصال بالخادم';
+      msg.className = 'status-msg error';
+    } finally {
+      btn.textContent = '📤 إرسال التقرير';
     }
-    function showAlert(msg,type){
-      const m={'success':'alert-success','error':'alert-error','warn':'alert-warn'};
-      document.getElementById('alerts').innerHTML=`<div class="alert ${m[type]}">${msg}</div>`;
-    }
-  </script>
+  }
+</script>
 </body>
 </html>

@@ -163,3 +163,36 @@ def delete_alias(alias_id: str, admin=Depends(require_admin)):
     sb = get_client()
     sb.table("agent_ad_names").delete().eq("id", alias_id).execute()
     return {"message": "تم الحذف"}
+
+
+@router.post("/manual")
+def manual_spend_entry(body: dict, admin=Depends(require_admin)):
+    sb = get_client()
+    agent_id = body.get("agent_id")
+    spend = body.get("spend")
+    ad_results = body.get("ad_results", 0)
+    period_start = body.get("period_start")
+    period_end = body.get("period_end")
+    branch_id = body.get("branch_id")
+    adset_name = body.get("adset_name", "Manual Entry")
+
+    if not agent_id or spend is None or not period_start or not period_end:
+        raise HTTPException(400, "agent_id, spend, period_start, period_end required")
+
+    cpr = round(float(spend) / int(ad_results), 2) if int(ad_results) > 0 else 0
+
+    data = {
+        "agent_id": agent_id,
+        "spend": float(spend),
+        "ad_results": int(ad_results),
+        "cost_per_result": cpr,
+        "period_start": period_start,
+        "period_end": period_end,
+        "adset_name": adset_name,
+        "raw_name": "manual",
+    }
+    if branch_id:
+        data["branch_id"] = branch_id
+
+    result = sb.table("ad_spend").insert(data).execute()
+    return result.data[0] if result.data else {"message": "تم الحفظ"}

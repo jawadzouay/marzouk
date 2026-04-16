@@ -6,6 +6,7 @@
   <title>لوحة الإدارة — مرزوق أكاديمي</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; }
@@ -13,8 +14,7 @@
     /* ── Header ── */
     header {
       background: #1a1a1a; color: white;
-      padding: 13px 16px;
-      padding-top: max(13px, env(safe-area-inset-top));
+      padding: 13px 16px; padding-top: max(13px, env(safe-area-inset-top));
       display: flex; justify-content: space-between; align-items: center;
       position: sticky; top: 0; z-index: 200;
       box-shadow: 0 2px 10px rgba(0,0,0,0.4);
@@ -46,30 +46,45 @@
       max-width: 1100px; margin: 0 auto;
     }
 
-    /* ── Filter bar ── */
+    /* ── Warning Cards ── */
+    .warnings-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+    .warning-card {
+      flex: 1; min-width: 200px; border-radius: 12px; padding: 12px 14px;
+      font-size: 12px; font-weight: 600;
+    }
+    .warning-card.red { background: #fee2e2; border: 1.5px solid #fca5a5; color: #991b1b; }
+    .warning-card.orange { background: #fff7ed; border: 1.5px solid #fed7aa; color: #9a3412; }
+    .warning-card .warn-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+    .warning-card .warn-names { font-size: 11px; line-height: 1.7; }
+
+    /* ── Filter Bar ── */
     .filter-bar {
       background: white; border-radius: 14px; padding: 12px 14px;
       margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    .filter-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .period-tabs { display: flex; gap: 4px; }
+    .filter-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .period-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
     .period-tab {
       padding: 7px 12px; border-radius: 8px; border: none;
-      font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700;
+      font-family: 'Cairo', sans-serif; font-size: 11px; font-weight: 700;
       background: #f3f4f6; color: #6b7280; cursor: pointer; transition: all 0.15s;
       white-space: nowrap;
     }
     .period-tab.active { background: #1a1a1a; color: white; }
-    .search-box {
-      flex: 1; min-width: 130px; padding: 8px 12px;
-      border: 1.5px solid #e5e7eb; border-radius: 8px;
-      font-family: 'Cairo', sans-serif; font-size: 13px; outline: none;
+    .custom-date-panel {
+      margin-top: 8px; background: #f9fafb; border-radius: 10px;
+      padding: 10px 12px; border: 1.5px solid #e5e7eb; display: none;
     }
-    .search-box:focus { border-color: #e63329; }
-    .date-range-row {
-      display: flex; gap: 6px; margin-top: 8px;
-      align-items: center; flex-wrap: wrap;
+    .custom-date-panel.show { display: block; }
+    .date-presets { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
+    .date-preset-btn {
+      padding: 5px 11px; border-radius: 20px; border: 1.5px solid #e5e7eb;
+      background: white; font-family: 'Cairo', sans-serif; font-size: 11px;
+      font-weight: 700; cursor: pointer; color: #374151; white-space: nowrap;
     }
+    .date-preset-btn:hover { border-color: #e63329; color: #e63329; }
+    .date-preset-btn.active { background: #e63329; color: white; border-color: #e63329; }
+    .date-range-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
     .date-inp {
       padding: 7px 10px; border: 1.5px solid #e5e7eb; border-radius: 8px;
       font-family: 'Cairo', sans-serif; font-size: 13px; flex: 1;
@@ -80,1025 +95,743 @@
       font-size: 13px; font-weight: 700; cursor: pointer;
     }
 
-    /* ── FB-style custom date panel ── */
-    .custom-date-panel {
-      margin-top: 8px; background: #f9fafb; border-radius: 10px;
-      padding: 10px 12px; border: 1.5px solid #e5e7eb;
+    /* ── Metric Filter Cards ── */
+    .metric-filters {
+      display: flex; gap: 6px; overflow-x: auto; padding: 0 2px 8px;
+      margin-bottom: 12px; -webkit-overflow-scrolling: touch;
     }
-    .date-presets { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px; }
-    .date-preset-btn {
-      padding: 5px 11px; border-radius: 20px; border: 1.5px solid #e5e7eb;
+    .metric-filters::-webkit-scrollbar { display: none; }
+    .metric-chip {
+      padding: 7px 14px; border-radius: 20px; border: 1.5px solid #e5e7eb;
       background: white; font-family: 'Cairo', sans-serif; font-size: 11px;
-      font-weight: 700; cursor: pointer; color: #374151; white-space: nowrap;
+      font-weight: 700; cursor: pointer; white-space: nowrap; color: #374151;
       transition: all 0.15s;
     }
-    .date-preset-btn:hover  { border-color: #e63329; color: #e63329; }
-    .date-preset-btn.active { background: #e63329; color: white; border-color: #e63329; }
+    .metric-chip.active { background: #1a1a1a; color: white; border-color: #1a1a1a; }
 
-    /* ── Submissions picker ── */
-    .subs-header-row {
-      display: flex; align-items: center; justify-content: space-between;
-      flex-wrap: wrap; gap: 6px; margin-bottom: 8px;
+    /* ── Quality Columns ── */
+    .quality-columns {
+      display: grid; grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px; margin-bottom: 14px;
     }
-    .subs-picker { display: flex; gap: 4px; flex-wrap: wrap; }
-    .subs-tab {
-      padding: 4px 9px; border-radius: 7px; border: none;
-      font-family: 'Cairo', sans-serif; font-size: 11px; font-weight: 700;
-      background: #f3f4f6; color: #6b7280; cursor: pointer; transition: all 0.15s;
+    @media (max-width: 768px) {
+      .quality-columns { grid-template-columns: 1fr; }
     }
-    .subs-tab.active { background: #1a1a1a; color: white; }
-    .subs-custom-row {
-      display: none; gap: 6px; margin-bottom: 8px;
-      align-items: center; flex-wrap: wrap;
+    .quality-col {
+      border-radius: 14px; padding: 12px; min-height: 100px;
     }
-    .subs-custom-row.show { display: flex; }
+    .quality-col.green-col { background: #ecfdf5; border: 2px solid #a7f3d0; }
+    .quality-col.orange-col { background: #fff7ed; border: 2px solid #fed7aa; }
+    .quality-col.red-col { background: #fef2f2; border: 2px solid #fca5a5; }
 
-    /* ── Summary stats ── */
-    .stats-grid {
-      display: grid; grid-template-columns: repeat(2, 1fr);
-      gap: 8px; margin-bottom: 12px;
-    }
-    @media(min-width:600px) { .stats-grid { grid-template-columns: repeat(4, 1fr); } }
-    .stat-card {
-      background: white; border-radius: 14px; padding: 14px 10px;
-      text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
-    .stat-card .num { font-size: 28px; font-weight: 900; color: #1a1a1a; line-height: 1; }
-    .stat-card .lbl { font-size: 11px; color: #6b7280; margin-top: 4px; }
-
-    /* ── Sort bar ── */
-    .sort-row {
+    .col-header {
+      font-size: 14px; font-weight: 900; margin-bottom: 8px;
       display: flex; align-items: center; gap: 6px;
-      margin-bottom: 10px; overflow-x: auto; padding-bottom: 2px;
     }
-    .sort-row::-webkit-scrollbar { display: none; }
-    .sort-lbl { font-size: 11px; color: #9ca3af; font-weight: 600; white-space: nowrap; }
-    .sort-btn {
-      padding: 6px 12px; border-radius: 20px; border: 1.5px solid #e5e7eb;
-      font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700;
-      background: white; color: #6b7280; cursor: pointer; white-space: nowrap;
-      transition: all 0.15s;
+    .col-header .dot {
+      width: 12px; height: 12px; border-radius: 50%; display: inline-block;
     }
-    .sort-btn.active { background: #1a1a1a; color: white; border-color: #1a1a1a; }
+    .green-col .dot { background: #059669; }
+    .orange-col .dot { background: #f59e0b; }
+    .red-col .dot { background: #ef4444; }
+    .col-count { font-size: 12px; color: #6b7280; font-weight: 600; }
 
-    /* ── Agent performance cards ── */
-    .perf-grid {
-      display: grid; grid-template-columns: repeat(2, 1fr);
-      gap: 8px; margin-bottom: 12px;
-    }
-    @media(min-width:540px) { .perf-grid { grid-template-columns: repeat(3, 1fr); } }
-    @media(min-width:800px) { .perf-grid { grid-template-columns: repeat(4, 1fr); } }
-
-    .perf-card {
-      background: white; border-radius: 14px; padding: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06); cursor: pointer;
-      transition: all 0.2s; border: 2px solid transparent; position: relative;
-    }
-    .perf-card.selected { border-color: #e63329; background: #fff7f7; }
-    .perf-card:active { transform: scale(0.97); }
-
-    .rank-badge {
-      position: absolute; top: 9px; left: 9px;
-      width: 22px; height: 22px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 10px; font-weight: 900;
-    }
-    .r1 { background: #fef3c7; color: #92400e; }
-    .r2 { background: #e2e8f0; color: #475569; }
-    .r3 { background: #fef0e7; color: #c2410c; }
-    .rx { background: #f3f4f6; color: #9ca3af; }
-
-    .perf-name { font-size: 13px; font-weight: 700; color: #1a1a1a; margin-bottom: 6px; padding-left: 26px; }
-    .perf-main-val { font-size: 26px; font-weight: 900; color: #e63329; line-height: 1; }
-    .perf-main-lbl { font-size: 10px; color: #9ca3af; margin-bottom: 6px; }
-    .perf-chips { display: flex; gap: 4px; flex-wrap: wrap; }
-    .chip {
-      border-radius: 5px; padding: 2px 6px;
-      font-size: 10px; font-weight: 700; background: #f3f4f6; color: #374151;
-    }
-
-    /* ── Agent detail panel ── */
-    .detail-panel {
-      background: white; border-radius: 14px; padding: 14px;
-      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-      border-right: 4px solid #e63329;
-    }
-    .detail-hdr {
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
-    }
-    .detail-name { font-size: 15px; font-weight: 700; color: #1a1a1a; }
-    .close-btn {
-      background: #f3f4f6; border: none; border-radius: 8px;
-      padding: 6px 12px; cursor: pointer; font-family: 'Cairo', sans-serif;
-      font-size: 12px; color: #6b7280;
-    }
-    .detail-stats {
-      display: grid; grid-template-columns: repeat(4, 1fr);
-      gap: 6px; margin-bottom: 14px;
-    }
-    @media(max-width:380px) { .detail-stats { grid-template-columns: repeat(2, 1fr); } }
-    .detail-stat { text-align: center; }
-    .detail-stat .n { font-size: 20px; font-weight: 900; }
-    .detail-stat .l { font-size: 10px; color: #9ca3af; }
-    .detail-charts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    @media(max-width:400px) { .detail-charts { grid-template-columns: 1fr; } }
-
-    /* ── Bar chart ── */
-    .chart-card {
-      background: white; border-radius: 14px; padding: 14px;
-      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
-    .chart-hdr {
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;
-    }
-    .chart-title { font-size: 14px; font-weight: 700; color: #374151; }
-
-    /* ── Funnel ── */
-    .funnel-card {
-      background: white; border-radius: 14px; padding: 14px;
-      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-    }
-    .funnel-title { font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 12px; }
-    .funnel-row { display: flex; align-items: flex-end; gap: 5px; }
-    .funnel-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
-    .f-bar { width: 100%; border-radius: 6px 6px 0 0; min-height: 6px; }
-    .f-num { font-size: 16px; font-weight: 900; color: #1a1a1a; }
-    .f-pct { font-size: 10px; color: #9ca3af; font-weight: 600; }
-    .f-lbl { font-size: 10px; color: #6b7280; font-weight: 600; text-align: center; margin-top: 3px; }
-    .f-arrow { color: #d1d5db; font-size: 16px; padding-bottom: 22px; align-self: center; flex: 0; }
-
-    /* ── Today submissions ── */
-    .section-title { font-size: 13px; font-weight: 700; color: #6b7280; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
-    .subs-grid {
-      display: grid; grid-template-columns: repeat(2, 1fr);
-      gap: 6px; margin-bottom: 12px;
-    }
-    @media(min-width:500px) { .subs-grid { grid-template-columns: repeat(3, 1fr); } }
-    .sub-card {
+    /* Agent cards inside columns */
+    .agent-card {
       background: white; border-radius: 10px; padding: 10px 12px;
+      margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+      cursor: pointer; transition: transform 0.15s;
+    }
+    .agent-card:active { transform: scale(0.98); }
+    .agent-card-header {
       display: flex; justify-content: space-between; align-items: center;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.05); font-size: 12px;
+      margin-bottom: 6px;
     }
-    .sub-name { font-weight: 700; }
-    .sub-yes { color: #16a34a; font-weight: 700; }
-    .sub-no  { color: #dc2626; font-weight: 700; }
+    .agent-card-name { font-size: 13px; font-weight: 700; color: #1a1a1a; }
+    .agent-card-branch { font-size: 10px; color: #9ca3af; font-weight: 600; }
+    .bottleneck-badge {
+      font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 12px;
+      white-space: nowrap;
+    }
+    .bottleneck-badge.ad { background: #dbeafe; color: #1e40af; }
+    .bottleneck-badge.agent { background: #fce7f3; color: #9d174d; }
 
-    /* ── Ethics section ── */
-    .ethics-wrap {
-      background: white; border-radius: 14px;
-      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); overflow: hidden;
+    .agent-metrics {
+      display: flex; gap: 6px; flex-wrap: wrap; font-size: 10px; color: #6b7280;
     }
-    .ethics-hdr {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 14px; cursor: pointer; user-select: none;
+    .agent-metric {
+      background: #f9fafb; padding: 2px 7px; border-radius: 6px; font-weight: 600;
     }
-    .ethics-hdr-left { display: flex; align-items: center; gap: 8px; }
-    .ethics-ttl { font-size: 14px; font-weight: 700; color: #374151; }
-    .ethics-badge {
-      padding: 3px 10px; border-radius: 20px;
-      font-size: 11px; font-weight: 700;
-    }
-    .badge-ok  { background: #f0fdf4; color: #16a34a; }
-    .badge-bad { background: #fef2f2; color: #dc2626; }
-    .toggle-chevron { font-size: 12px; color: #9ca3af; transition: transform 0.2s; }
-    .toggle-chevron.open { transform: rotate(180deg); }
-    .ethics-body { padding: 0 14px 14px; border-top: 1px solid #f3f4f6; }
+    .agent-metric.highlight { background: #fee2e2; color: #991b1b; }
 
-    /* ── Google Sheets Card ── */
-    .sheet-card {
-      background: white; border-radius: 14px; padding: 14px 16px;
-      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-      border-right: 4px solid #16a34a;
+    /* ── Agent Detail Modal ── */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 300; align-items: center; justify-content: center; padding: 16px;
     }
-    .sheet-card-title { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
-    .sheet-link-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-    .sheet-url-link { font-size: 13px; color: #16a34a; font-weight: 600; text-decoration: none; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; direction: ltr; }
-    .sheet-url-link:hover { text-decoration: underline; }
-    .sheet-source-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; font-weight: 700; }
-    .source-db  { background: #dbeafe; color: #1d4ed8; }
-    .source-env { background: #fef9c3; color: #854d0e; }
-    .sheet-btn { padding: 6px 12px; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; border: none; }
-    .btn-change { background: #f3f4f6; color: #374151; }
-    .btn-unlink { background: #fef2f2; color: #dc2626; }
-    .sheet-input-row { display: none; margin-top: 10px; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .sheet-input-row.show { display: flex; }
-    .sheet-inp { flex: 1; min-width: 200px; padding: 8px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; direction: ltr; }
-    .btn-save-sheet { padding: 8px 16px; background: #16a34a; color: white; border: none; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; }
-    .btn-cancel-sheet { padding: 8px 12px; background: #f3f4f6; color: #374151; border: none; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; }
-    .sheet-no-link { font-size: 13px; color: #9ca3af; }
-    .btn-add-sheet { padding: 7px 16px; background: #16a34a; color: white; border: none; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; margin-top: 8px; }
+    .modal-overlay.show { display: flex; }
+    .modal-box {
+      background: white; border-radius: 16px; padding: 20px; width: 100%;
+      max-width: 440px; max-height: 85vh; overflow-y: auto;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    .modal-close {
+      float: left; background: #f3f4f6; border: none; width: 28px; height: 28px;
+      border-radius: 50%; font-size: 14px; cursor: pointer; font-weight: 700;
+    }
+    .modal-agent-name { font-size: 18px; font-weight: 900; margin-bottom: 14px; }
 
-    .flag-card {
-      border-radius: 10px; padding: 12px; margin-bottom: 8px;
+    .detail-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px;
     }
-    .flag-high   { background: #fef2f2; border-right: 3px solid #dc2626; }
-    .flag-medium { background: #fffbeb; border-right: 3px solid #f59e0b; }
-    .flag-agent  { font-size: 14px; font-weight: 700; margin-bottom: 6px; color: #1a1a1a; }
-    .flag-sub    { font-size: 11px; color: #9ca3af; }
-    .flag-item   { font-size: 12px; color: #374151; padding: 2px 0; }
-    .no-flags    { text-align: center; padding: 20px; color: #9ca3af; font-size: 13px; }
-    .ethics-tips {
-      margin-top: 14px; padding: 12px; background: #f8fafc;
-      border-radius: 10px; font-size: 12px; color: #64748b; line-height: 1.9;
+    .detail-item {
+      background: #f9fafb; border-radius: 10px; padding: 10px; text-align: center;
     }
-    .ethics-tips strong { display: block; margin-bottom: 4px; color: #374151; font-size: 13px; }
+    .detail-val { font-size: 20px; font-weight: 900; }
+    .detail-lbl { font-size: 11px; color: #6b7280; font-weight: 600; }
+    .detail-pct { font-size: 10px; color: #9ca3af; }
 
-    /* ── Agent leaderboard table ── */
-    .lb-table-wrap {
-      background: white; border-radius: 14px; padding: 14px;
-      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-      overflow-x: auto;
+    .diagnosis-box {
+      border-radius: 10px; padding: 12px; margin-bottom: 14px;
+      font-size: 12px; font-weight: 600;
     }
-    .lb-table { width: 100%; border-collapse: collapse; min-width: 520px; }
-    .lb-table th {
-      font-size: 11px; color: #9ca3af; font-weight: 700; padding: 0 8px 10px;
-      text-align: center; white-space: nowrap;
-    }
-    .lb-table th:first-child { text-align: right; }
-    .lb-table td {
-      font-size: 13px; padding: 8px; border-top: 1px solid #f3f4f6;
-      text-align: center; font-weight: 600;
-    }
-    .lb-table td:first-child { text-align: right; }
-    .lb-table tr.top-1 td { background: #fffbeb; }
-    .lb-table tr.top-2 td { background: #f8fafc; }
-    .lb-table tr.top-3 td { background: #fff8f4; }
-    .rank-cell { font-weight: 900; color: #6b7280; }
+    .diagnosis-box.ad-issue { background: #dbeafe; border: 1.5px solid #93c5fd; color: #1e40af; }
+    .diagnosis-box.agent-issue { background: #fce7f3; border: 1.5px solid #f9a8d4; color: #9d174d; }
+    .diagnosis-box.ok { background: #ecfdf5; border: 1.5px solid #a7f3d0; color: #065f46; }
+    .diagnosis-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
 
-    .spinner {
-      display: flex; align-items: center; justify-content: center;
-      padding: 30px; color: #9ca3af; font-size: 13px;
+    /* Goal section inside modal */
+    .modal-goal-section { margin-top: 14px; }
+    .modal-section-title { font-size: 13px; font-weight: 700; margin-bottom: 8px; color: #374151; }
+    .goal-chart-modal { position: relative; width: 100%; height: 180px; }
+    .goal-toggle { display: flex; gap: 6px; margin-bottom: 8px; }
+    .goal-toggle-btn {
+      padding: 5px 12px; border-radius: 8px; border: 1.5px solid #e5e7eb;
+      background: white; font-family: 'Cairo', sans-serif; font-size: 11px;
+      font-weight: 700; cursor: pointer; color: #6b7280;
+    }
+    .goal-toggle-btn.active { background: #e63329; color: white; border-color: #e63329; }
+
+    /* Admin goal form */
+    .admin-goal-form { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .admin-goal-form input {
+      padding: 8px 10px; border: 1.5px solid #e5e7eb; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; font-size: 13px;
+    }
+    .admin-goal-form input:focus { outline: none; border-color: #e63329; }
+    .admin-goal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .admin-goal-submit {
+      background: #e63329; color: white; border: none; padding: 8px;
+      border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 12px;
+      font-weight: 700; cursor: pointer;
+    }
+
+    .loading { text-align: center; padding: 30px; color: #9ca3af; font-size: 13px; }
+    .empty-col { text-align: center; padding: 16px; color: #9ca3af; font-size: 12px; font-weight: 600; }
+
+    /* Branch filter */
+    .branch-select {
+      padding: 7px 10px; border: 1.5px solid #e5e7eb; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; font-size: 12px; background: white;
     }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>🏛️ لوحة الإدارة</h1>
+  <h1>لوحة الإدارة</h1>
   <button class="logout-btn" onclick="logout()">خروج</button>
 </header>
 
-<div class="subnav">
-  <a href="agents.html">👥 الوكلاء</a>
-  <a href="leaderboard.html">🏆 الترتيب</a>
-  <a href="calendar.html">📅 تقويم RDV</a>
-  <a href="swap.html">🔄 التبادل</a>
-  <a href="blacklist.html">🚫 القائمة السوداء</a>
-  <a href="spend.html">💰 الإنفاق</a>
-  <a href="analytics.html">📊 التحليل</a>
-  <a href="warnings.html">⚠️ تحذيرات</a>
-  <a href="scripts.html">✍️ سكريبتات</a>
-  <a href="settings.html">⚙️ الإعدادات</a>
-</div>
+<nav class="subnav">
+  <a href="dashboard.html" class="active">لوحة التحكم</a>
+  <a href="agents.html">الوكلاء</a>
+  <a href="spend.html">الإنفاق</a>
+  <a href="settings.html">الإعدادات</a>
+</nav>
 
 <div class="container">
 
-  <!-- Filter bar -->
+  <!-- Submission Warnings -->
+  <div class="warnings-row" id="warningsRow" style="display:none"></div>
+
+  <!-- Filter Bar -->
   <div class="filter-bar">
     <div class="filter-row">
       <div class="period-tabs">
-        <button class="period-tab active" data-period="today"     onclick="setPeriod('today')">اليوم</button>
-        <button class="period-tab"         data-period="yesterday" onclick="setPeriod('yesterday')">أمس</button>
-        <button class="period-tab"         data-period="week"      onclick="setPeriod('week')">أسبوع</button>
-        <button class="period-tab"         data-period="month"     onclick="setPeriod('month')">شهر</button>
-        <button class="period-tab"         data-period="custom"    onclick="setPeriod('custom')">مخصص ▾</button>
+        <button class="period-tab active" data-period="today">اليوم</button>
+        <button class="period-tab" data-period="yesterday">أمس</button>
+        <button class="period-tab" data-period="3days">3 أيام</button>
+        <button class="period-tab" data-period="week">هذا الأسبوع</button>
+        <button class="period-tab" data-period="month">هذا الشهر</button>
+        <button class="period-tab" data-period="custom">مخصص</button>
       </div>
-      <input type="text" class="search-box" id="search-box" placeholder="🔍 بحث عن وكيل..." oninput="onSearch()">
+      <select class="branch-select" id="branchFilter">
+        <option value="">كل الفروع</option>
+      </select>
     </div>
-    <!-- FB-style custom panel -->
-    <div class="custom-date-panel" id="custom-date-panel" style="display:none">
+    <div class="custom-date-panel" id="customPanel">
       <div class="date-presets">
-        <button class="date-preset-btn" onclick="applyPreset(this,'yesterday')">أمس</button>
-        <button class="date-preset-btn" onclick="applyPreset(this,'week')">هذا الأسبوع</button>
-        <button class="date-preset-btn" onclick="applyPreset(this,'last7')">آخر 7 أيام</button>
-        <button class="date-preset-btn" onclick="applyPreset(this,'last14')">آخر 14 يوم</button>
-        <button class="date-preset-btn" onclick="applyPreset(this,'last30')">آخر 30 يوم</button>
+        <button class="date-preset-btn" data-preset="yesterday">أمس</button>
+        <button class="date-preset-btn" data-preset="7days">آخر 7 أيام</button>
+        <button class="date-preset-btn" data-preset="14days">آخر 14 يوم</button>
+        <button class="date-preset-btn" data-preset="30days">آخر 30 يوم</button>
+        <button class="date-preset-btn" data-preset="thisMonth">هذا الشهر</button>
+        <button class="date-preset-btn" data-preset="lastMonth">الشهر الماضي</button>
       </div>
       <div class="date-range-row">
-        <input type="date" class="date-inp" id="date-from">
-        <span style="color:#9ca3af;font-size:12px">→</span>
-        <input type="date" class="date-inp" id="date-to">
-        <button class="apply-btn" onclick="applyCustom()">تطبيق</button>
+        <input type="date" class="date-inp" id="dateFrom" />
+        <span style="font-size:12px;color:#9ca3af">إلى</span>
+        <input type="date" class="date-inp" id="dateTo" />
+        <button class="apply-btn" onclick="applyCustomDates()">تطبيق</button>
       </div>
     </div>
   </div>
 
-  <!-- Summary stats -->
-  <div class="stats-grid">
-    <div class="stat-card"><div class="num" id="s-leads">—</div><div class="lbl">إجمالي العملاء</div></div>
-    <div class="stat-card"><div class="num" id="s-rdv">—</div><div class="lbl">مواعيد RDV</div></div>
-    <div class="stat-card"><div class="num" id="s-showed">—</div><div class="lbl">حضروا</div></div>
-    <div class="stat-card"><div class="num" id="s-reg">—</div><div class="lbl">مسجلين</div></div>
+  <!-- Metric Filter Chips -->
+  <div class="metric-filters">
+    <button class="metric-chip active" data-metric="all">الكل</button>
+    <button class="metric-chip" data-metric="autre_ville_pct">مدينة أخرى</button>
+    <button class="metric-chip" data-metric="pi_pct">غير مهتم</button>
+    <button class="metric-chip" data-metric="bv_pct">بريد صوتي</button>
+    <button class="metric-chip" data-metric="pe_pct">غير مؤهل</button>
+    <button class="metric-chip" data-metric="over_40_pct">فوق 40</button>
+    <button class="metric-chip" data-metric="rdv_rate">نسبة المواعيد</button>
+    <button class="metric-chip" data-metric="show_rate">نسبة الحضور</button>
+    <button class="metric-chip" data-metric="close_rate">نسبة الإغلاق</button>
   </div>
 
-  <!-- Sort bar -->
-  <div class="sort-row">
-    <span class="sort-lbl">ترتيب حسب:</span>
-    <button class="sort-btn"        data-sort="rdv_count"           onclick="setSort(this,'rdv_count')">RDV</button>
-    <button class="sort-btn"        data-sort="total_leads"         onclick="setSort(this,'total_leads')">العملاء</button>
-    <button class="sort-btn active" data-sort="registered_students" onclick="setSort(this,'registered_students')">مسجلين</button>
-    <button class="sort-btn"         data-sort="showed_up"           onclick="setSort(this,'showed_up')">حضروا</button>
-    <button class="sort-btn"         data-sort="bv_count"            onclick="setSort(this,'bv_count')">B.V</button>
-    <button class="sort-btn"         data-sort="nr_count"            onclick="setSort(this,'nr_count')">N.R</button>
-  </div>
-
-  <!-- Agent performance cards -->
-  <div class="perf-grid" id="perf-grid"></div>
-
-  <!-- Agent detail panel -->
-  <div class="detail-panel" id="detail-panel" style="display:none">
-    <div class="detail-hdr">
-      <div class="detail-name" id="detail-name">—</div>
-      <button class="close-btn" onclick="clearAgent()">✕ إغلاق</button>
+  <!-- Quality Columns -->
+  <div class="quality-columns" id="qualityColumns">
+    <div class="quality-col green-col">
+      <div class="col-header"><span class="dot"></span> أخضر <span class="col-count" id="greenCount">(0)</span></div>
+      <div id="greenList"><div class="loading">جاري التحميل...</div></div>
     </div>
-    <div class="detail-stats" id="detail-stats"></div>
-    <div class="detail-charts">
-      <div><canvas id="donut-chart" height="180"></canvas></div>
-      <div id="mini-funnel"></div>
+    <div class="quality-col orange-col">
+      <div class="col-header"><span class="dot"></span> برتقالي <span class="col-count" id="orangeCount">(0)</span></div>
+      <div id="orangeList"><div class="loading">جاري التحميل...</div></div>
     </div>
-  </div>
-
-  <!-- Bar chart -->
-  <div class="chart-card">
-    <div class="chart-hdr">
-      <div class="chart-title" id="chart-title">📊 ترتيب الوكلاء — مسجلين</div>
-    </div>
-    <div style="position:relative"><canvas id="bar-chart"></canvas></div>
-  </div>
-
-  <!-- Team funnel -->
-  <div class="funnel-card" id="team-funnel" style="display:none">
-    <div class="funnel-title">🎯 قمع التحويل — الفريق كامل</div>
-    <div class="funnel-row" id="funnel-row"></div>
-  </div>
-
-  <!-- Full leaderboard table -->
-  <div class="lb-table-wrap" id="lb-table-wrap">
-    <div class="chart-title" style="margin-bottom:10px">📋 جدول الترتيب الكامل</div>
-    <table class="lb-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>الوكيل</th>
-          <th>العملاء</th>
-          <th>RDV</th>
-          <th>%RDV</th>
-          <th>حضروا</th>
-          <th>مسجلين</th>
-          <th>B.V</th>
-          <th>N.R</th>
-        </tr>
-      </thead>
-      <tbody id="lb-tbody"></tbody>
-    </table>
-  </div>
-
-  <!-- Submissions section -->
-  <div class="subs-header-row">
-    <div class="section-title" id="subs-title">إرسال اليوم</div>
-    <div class="subs-picker">
-      <button class="subs-tab active" data-subs="today"     onclick="setSubsPeriod('today')">اليوم</button>
-      <button class="subs-tab"         data-subs="yesterday" onclick="setSubsPeriod('yesterday')">أمس</button>
-      <button class="subs-tab"         data-subs="week"      onclick="setSubsPeriod('week')">هذا الأسبوع</button>
-      <button class="subs-tab"         data-subs="last7"     onclick="setSubsPeriod('last7')">7 أيام</button>
-      <button class="subs-tab"         data-subs="last14"    onclick="setSubsPeriod('last14')">14 يوم</button>
-      <button class="subs-tab"         data-subs="last30"    onclick="setSubsPeriod('last30')">30 يوم</button>
-      <button class="subs-tab"         data-subs="custom"    onclick="setSubsPeriod('custom')">مخصص</button>
-    </div>
-  </div>
-  <div class="subs-custom-row" id="subs-custom-row">
-    <input type="date" class="date-inp" id="subs-from">
-    <span style="color:#9ca3af;font-size:12px">→</span>
-    <input type="date" class="date-inp" id="subs-to">
-    <button class="apply-btn" onclick="applySubsCustom()">تطبيق</button>
-  </div>
-  <div class="subs-grid" id="subs-grid"></div>
-
-  <!-- Google Sheets card -->
-  <div class="sheet-card" id="sheet-card">
-    <div class="sheet-card-title">📊 Google Sheet المرتبط</div>
-    <div id="sheet-linked-view" style="display:none">
-      <div class="sheet-link-row">
-        <a id="sheet-url-link" class="sheet-url-link" target="_blank" href="#">—</a>
-        <span id="sheet-source-badge" class="sheet-source-badge source-db">DB</span>
-        <button class="sheet-btn btn-change" onclick="showSheetInput()">✏️ تغيير</button>
-        <button class="sheet-btn btn-unlink" onclick="unlinkSheet()">🗑 فصل</button>
-      </div>
-    </div>
-    <div id="sheet-empty-view" style="display:none">
-      <div class="sheet-no-link">لا يوجد جدول مرتبط حالياً</div>
-      <button class="btn-add-sheet" onclick="showSheetInput()">+ ربط جدول</button>
-    </div>
-    <div class="sheet-input-row" id="sheet-input-row">
-      <input id="sheet-inp" class="sheet-inp" type="text" placeholder="الصق رابط الجدول أو معرّفه هنا..." />
-      <button class="btn-save-sheet" onclick="saveSheet()">✅ حفظ</button>
-      <button class="btn-cancel-sheet" onclick="cancelSheetInput()">إلغاء</button>
-    </div>
-    <div id="sheet-msg" style="font-size:12px;margin-top:6px"></div>
-  </div>
-
-  <!-- Ethics monitor -->
-  <div class="ethics-wrap">
-    <div class="ethics-hdr" onclick="toggleEthics()">
-      <div class="ethics-hdr-left">
-        <span class="ethics-ttl">🔍 مراقبة الأخلاقيات</span>
-        <span class="ethics-badge badge-ok" id="ethics-badge">جاري التحميل...</span>
-      </div>
-      <span class="toggle-chevron" id="ethics-chevron">▼</span>
-    </div>
-    <div id="ethics-body" style="display:none">
-      <div class="ethics-body">
-        <div id="ethics-content" class="spinner">جاري التحميل...</div>
-      </div>
+    <div class="quality-col red-col">
+      <div class="col-header"><span class="dot"></span> أحمر <span class="col-count" id="redCount">(0)</span></div>
+      <div id="redList"><div class="loading">جاري التحميل...</div></div>
     </div>
   </div>
 
 </div>
 
+<!-- Agent Detail Modal -->
+<div class="modal-overlay" id="agentModal">
+  <div class="modal-box" id="agentModalBox">
+    <button class="modal-close" onclick="closeModal()">&times;</button>
+    <div id="agentModalContent"></div>
+  </div>
+</div>
+
 <script>
-  const API   = window.location.origin;
-  const token = localStorage.getItem('token');
-  const role  = localStorage.getItem('role');
-  if (!token || role !== 'admin') window.location.href = '/index.html';
+const API = window.location.origin;
+const token = localStorage.getItem('token');
+if (!token) location.href = '/index.html';
 
-  const SORT_LABELS = {
-    rdv_count: 'RDV', total_leads: 'العملاء',
-    registered_students: 'مسجلين', showed_up: 'حضروا',
-    bv_count: 'B.V', nr_count: 'N.R'
-  };
+function hdr() { return { 'Authorization': 'Bearer ' + token }; }
+function hdrJson() { return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }; }
+function logout() { localStorage.clear(); location.href = '/index.html'; }
 
-  const TODAY = new Date().toISOString().split('T')[0];
+// ── State ──
+let currentPeriod = 'today';
+let currentMetric = 'all';
+let currentBranch = '';
+let dateFrom = '', dateTo = '';
+let allScores = [];
 
-  const state = {
-    period: 'today', dateFrom: null, dateTo: null,
-    selectedId: null, sortBy: 'registered_students', search: '',
-    leaderboard: [], agents: [], ethicsLoaded: false, ethicsOpen: false,
-    subsPeriod: 'today', subsFrom: null, subsTo: null, subsCalendar: []
-  };
+// ── Date Helpers ──
+function todayStr() { return new Date().toISOString().split('T')[0]; }
+function fmtDate(d) { return d.toISOString().split('T')[0]; }
 
-
-  let barChart  = null;
-  let donutChart = null;
-
-  // ── Period helpers ─────────────────────────────────────
-  function fmtDate(d) { return d.toISOString().split('T')[0]; }
-
-  function getPeriodDates() {
-    const today = new Date();
-    if (state.period === 'today')  return { from: fmtDate(today), to: fmtDate(today) };
-    if (state.period === 'yesterday') {
+function calcDates(period) {
+  const today = new Date();
+  let from, to;
+  switch (period) {
+    case 'today':
+      from = to = todayStr(); break;
+    case 'yesterday': {
       const y = new Date(today); y.setDate(y.getDate() - 1);
-      return { from: fmtDate(y), to: fmtDate(y) };
+      from = to = fmtDate(y); break;
     }
-    if (state.period === 'week') {
-      const s = new Date(today); s.setDate(today.getDate() - 6);
-      return { from: fmtDate(s), to: fmtDate(today) };
+    case '3days': {
+      const d = new Date(today); d.setDate(d.getDate() - 2);
+      from = fmtDate(d); to = todayStr(); break;
     }
-    if (state.period === 'month') {
-      const s = new Date(today.getFullYear(), today.getMonth(), 1);
-      return { from: fmtDate(s), to: fmtDate(today) };
-    }
-    return { from: state.dateFrom, to: state.dateTo };
-  }
-
-  function setPeriod(p) {
-    state.period = p;
-    document.querySelectorAll('.period-tab').forEach(b =>
-      b.classList.toggle('active', b.dataset.period === p));
-    document.getElementById('custom-date-panel').style.display = p === 'custom' ? 'block' : 'none';
-    if (p !== 'custom') loadData();
-  }
-
-  function applyPreset(btn, key) {
-    const today = new Date();
-    let from, to = fmtDate(today);
-    if (key === 'yesterday') {
-      const y = new Date(today); y.setDate(y.getDate()-1); from = to = fmtDate(y);
-    } else if (key === 'week') {
+    case 'week': {
       const dow = today.getDay(); // 0=Sun
-      const diffToMon = dow === 0 ? 6 : dow - 1;
-      const s = new Date(today); s.setDate(today.getDate() - diffToMon); from = fmtDate(s);
-    } else if (key === 'last7') {
-      const s = new Date(today); s.setDate(today.getDate()-6); from = fmtDate(s);
-    } else if (key === 'last14') {
-      const s = new Date(today); s.setDate(today.getDate()-13); from = fmtDate(s);
-    } else if (key === 'last30') {
-      const s = new Date(today); s.setDate(today.getDate()-29); from = fmtDate(s);
+      const start = new Date(today); start.setDate(today.getDate() - dow);
+      from = fmtDate(start); to = todayStr(); break;
     }
-    document.getElementById('date-from').value = from;
-    document.getElementById('date-to').value   = to;
-    document.querySelectorAll('.date-preset-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-  }
-
-  function applyCustom() {
-    state.dateFrom = document.getElementById('date-from').value;
-    state.dateTo   = document.getElementById('date-to').value;
-    if (!state.dateFrom || !state.dateTo) { alert('اختر التاريخين'); return; }
-    document.querySelectorAll('.date-preset-btn').forEach(b => b.classList.remove('active'));
-    loadData();
-  }
-
-  function setSort(btn, key) {
-    state.sortBy = key;
-    document.querySelectorAll('.sort-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('chart-title').textContent = `📊 ترتيب الوكلاء — ${SORT_LABELS[key]}`;
-    renderCards();
-    renderBarChart();
-    renderLeaderboardTable();
-  }
-
-  function onSearch() {
-    state.search = document.getElementById('search-box').value.toLowerCase();
-    renderCards();
-    renderBarChart();
-  }
-
-  // ── Load data ──────────────────────────────────────────
-  async function loadData() {
-    const { from, to } = getPeriodDates();
-    const p = new URLSearchParams();
-    if (from) p.set('date_from', from);
-    if (to)   p.set('date_to', to);
-    const h = { Authorization: `Bearer ${token}` };
-
-    const [dashRes, lbRes] = await Promise.all([
-      fetch(`${API}/admin/dashboard?${p}`, { headers: h }),
-      fetch(`${API}/admin/leaderboard?${p}`, { headers: h })
-    ]);
-
-    const dash = dashRes.ok ? await dashRes.json() : {};
-    state.leaderboard = lbRes.ok ? await lbRes.json() : [];
-    state.agents = dash.agents || [];
-
-    // Load calendar once if not yet loaded
-    if (!state.subsCalendar.length) await loadSubsCalendar();
-
-    renderSummary();
-    renderCards();
-    renderBarChart();
-    renderFunnel();
-    renderLeaderboardTable();
-    renderSubmissions();
-  }
-
-  async function loadSubsCalendar() {
-    try {
-      const res = await fetch(`${API}/admin/submissions/calendar`, { headers: { Authorization: `Bearer ${token}` } });
-      if (res.ok) state.subsCalendar = await res.json();
-    } catch(e) {}
-  }
-
-  // ── Submissions date picker ────────────────────────────
-  const SUBS_LABELS = {
-    today: 'إرسال اليوم', yesterday: 'إرسال أمس',
-    week: 'إرسال هذا الأسبوع', last7: 'إرسال آخر 7 أيام',
-    last14: 'إرسال آخر 14 يوم', last30: 'إرسال آخر 30 يوم',
-    custom: 'الإرسال'
-  };
-
-  function getSubsDates() {
-    const today = new Date();
-    const p = state.subsPeriod;
-    if (p === 'today')     return { from: TODAY, to: TODAY };
-    if (p === 'yesterday') {
-      const y = new Date(today); y.setDate(y.getDate()-1); const ys = fmtDate(y);
-      return { from: ys, to: ys };
+    case 'month': {
+      from = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-01';
+      to = todayStr(); break;
     }
-    if (p === 'week') {
-      const dow = today.getDay(); const diffToMon = dow === 0 ? 6 : dow - 1;
-      const s = new Date(today); s.setDate(today.getDate()-diffToMon);
-      return { from: fmtDate(s), to: TODAY };
-    }
-    if (p === 'last7')  { const s = new Date(today); s.setDate(today.getDate()-6);  return { from: fmtDate(s), to: TODAY }; }
-    if (p === 'last14') { const s = new Date(today); s.setDate(today.getDate()-13); return { from: fmtDate(s), to: TODAY }; }
-    if (p === 'last30') { const s = new Date(today); s.setDate(today.getDate()-29); return { from: fmtDate(s), to: TODAY }; }
-    return { from: state.subsFrom, to: state.subsTo };
+    default: return; // custom uses dateFrom/dateTo
   }
+  dateFrom = from;
+  dateTo = to;
+}
 
-  function setSubsPeriod(p) {
-    state.subsPeriod = p;
-    document.querySelectorAll('.subs-tab').forEach(b =>
-      b.classList.toggle('active', b.dataset.subs === p));
-    const customRow = document.getElementById('subs-custom-row');
-    customRow.classList.toggle('show', p === 'custom');
-    if (p !== 'custom') {
-      // Refresh calendar data then render
-      loadSubsCalendar().then(renderSubmissions);
-    }
-  }
+// ── Period Tabs ──
+document.querySelectorAll('.period-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentPeriod = tab.dataset.period;
 
-  function applySubsCustom() {
-    state.subsFrom = document.getElementById('subs-from').value;
-    state.subsTo   = document.getElementById('subs-to').value;
-    if (!state.subsFrom || !state.subsTo) { alert('اختر التاريخين'); return; }
-    loadSubsCalendar().then(renderSubmissions);
-  }
-
-  // ── Summary stats ──────────────────────────────────────
-  function renderSummary() {
-    const lb = state.leaderboard;
-    document.getElementById('s-leads').textContent  = lb.reduce((s,a)=>s+(a.total_leads||0),0);
-    document.getElementById('s-rdv').textContent    = lb.reduce((s,a)=>s+(a.total_rdv_booked||0),0);
-    document.getElementById('s-showed').textContent = lb.reduce((s,a)=>s+(a.showed_up||0),0);
-    document.getElementById('s-reg').textContent    = lb.reduce((s,a)=>s+(a.registered_students||0),0);
-  }
-
-  // ── Filtered + sorted list ─────────────────────────────
-  function getSorted() {
-    let data = [...state.leaderboard];
-    if (state.search) data = data.filter(a => a.name.toLowerCase().includes(state.search));
-    data.sort((a, b) => (b[state.sortBy]||0) - (a[state.sortBy]||0));
-    return data;
-  }
-
-  // ── Agent performance cards ────────────────────────────
-  function renderCards() {
-    const data = getSorted();
-    const grid = document.getElementById('perf-grid');
-    grid.innerHTML = '';
-    data.forEach((agent, idx) => {
-      const rank = idx + 1;
-      const rc   = rank===1?'r1':rank===2?'r2':rank===3?'r3':'rx';
-      const emo  = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':rank;
-      const sel  = state.selectedId === agent.id;
-      const mainVal = agent[state.sortBy] || 0;
-      const div = document.createElement('div');
-      div.className = `perf-card ${sel ? 'selected' : ''}`;
-      div.onclick   = () => selectAgent(agent.id);
-      div.innerHTML = `
-        <div class="rank-badge ${rc}">${emo}</div>
-        <div class="perf-name">${agent.name}</div>
-        <div class="perf-main-val">${mainVal}</div>
-        <div class="perf-main-lbl">${SORT_LABELS[state.sortBy]}</div>
-        <div class="perf-chips">
-          <span class="chip" style="color:#f59e0b">RDV ${agent.rdv_count||0}</span>
-          <span class="chip" style="color:#10b981">✅ ${agent.showed_up||0}</span>
-          <span class="chip" style="color:#3b82f6">🎓 ${agent.registered_students||0}</span>
-        </div>`;
-      grid.appendChild(div);
-    });
-  }
-
-  // ── Bar chart ──────────────────────────────────────────
-  function renderBarChart() {
-    const data   = getSorted();
-    const labels = data.map(a => a.name);
-    const values = data.map(a => a[state.sortBy] || 0);
-    const colors = data.map((_, i) => i===0?'#e63329':i===1?'#374151':i===2?'#6b7280':'#d1d5db');
-
-    const ctx = document.getElementById('bar-chart').getContext('2d');
-    if (barChart) barChart.destroy();
-
-    // Dynamic height
-    const h = Math.max(180, data.length * 36);
-    document.getElementById('bar-chart').style.height = h + 'px';
-
-    barChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels,
-        datasets: [{ data: values, backgroundColor: colors, borderRadius: 5 }]
-      },
-      options: {
-        indexAxis: 'y', responsive: true,
-        plugins: {
-          legend: { display: false },
-          tooltip: { callbacks: { label: c => ` ${c.raw} ${SORT_LABELS[state.sortBy]}` } }
-        },
-        scales: {
-          x: { grid: { display: false }, ticks: { font: { family: 'Cairo', size: 11 } } },
-          y: { grid: { display: false }, ticks: { font: { family: 'Cairo', size: 12 } } }
-        }
-      }
-    });
-  }
-
-  // ── Funnel ─────────────────────────────────────────────
-  function renderFunnel() {
-    const lb = state.leaderboard;
-    const leads  = lb.reduce((s,a)=>s+(a.total_leads||0),0);
-    const rdv    = lb.reduce((s,a)=>s+(a.total_rdv_booked||0),0);
-    const showed = lb.reduce((s,a)=>s+(a.showed_up||0),0);
-    const reg    = lb.reduce((s,a)=>s+(a.registered_students||0),0);
-    const funnel = document.getElementById('team-funnel');
-    if (!leads) { funnel.style.display = 'none'; return; }
-    funnel.style.display = 'block';
-
-    const stages = [
-      { label:'عملاء', n:leads,  color:'#e63329' },
-      { label:'RDV',   n:rdv,    color:'#f59e0b' },
-      { label:'حضروا', n:showed, color:'#10b981' },
-      { label:'مسجلين',n:reg,    color:'#3b82f6' },
-    ];
-    const maxN = Math.max(...stages.map(s=>s.n)) || 1;
-    const row  = document.getElementById('funnel-row');
-    row.innerHTML = '';
-    stages.forEach((s, i) => {
-      const barH = Math.max(6, Math.round((s.n / maxN) * 80));
-      const pct  = i===0 ? '100%' : (leads ? Math.round(s.n/leads*100)+'%' : '0%');
-      row.insertAdjacentHTML('beforeend', `
-        <div class="funnel-col">
-          <div class="f-num">${s.n}</div>
-          <div class="f-pct">${pct}</div>
-          <div style="width:100%"><div class="f-bar" style="height:${barH}px;background:${s.color}"></div></div>
-          <div class="f-lbl">${s.label}</div>
-        </div>`);
-      if (i < stages.length-1) row.insertAdjacentHTML('beforeend','<div class="f-arrow">‹</div>');
-    });
-  }
-
-  // ── Leaderboard table ───────────────────────────────────
-  function renderLeaderboardTable() {
-    const data = getSorted();
-    const tbody = document.getElementById('lb-tbody');
-    tbody.innerHTML = '';
-    data.forEach((a, i) => {
-      const rank = i + 1;
-      const rc   = rank===1?'top-1':rank===2?'top-2':rank===3?'top-3':'';
-      const emo  = rank===1?'🥇':rank===2?'🥈':rank===3?'🥉':rank;
-      tbody.insertAdjacentHTML('beforeend', `
-        <tr class="${rc}" style="cursor:pointer" onclick="selectAgent('${a.id}')">
-          <td class="rank-cell">${emo}</td>
-          <td style="font-weight:700;text-align:right">${a.name}</td>
-          <td>${a.total_leads||0}</td>
-          <td style="color:#f59e0b">${a.rdv_count||0}</td>
-          <td style="color:#6b7280">${a.rdv_pct||0}%</td>
-          <td style="color:#10b981">${a.showed_up||0}</td>
-          <td style="color:#3b82f6">${a.registered_students||0}</td>
-          <td style="color:#8b5cf6">${a.bv_count||0}</td>
-          <td style="color:#ef4444">${a.nr_count||0}</td>
-        </tr>`);
-    });
-  }
-
-  // ── Submissions ────────────────────────────────────────
-  function renderSubmissions() {
-    const grid = document.getElementById('subs-grid');
-    grid.innerHTML = '';
-    const agents = state.agents || [];
-    if (!agents.length) return;
-
-    const { from, to } = getSubsDates();
-    if (!from || !to) return;
-
-    // Update section title
-    const titleEl = document.getElementById('subs-title');
-    if (state.subsPeriod === 'custom' && from && to)
-      titleEl.textContent = `الإرسال: ${from} — ${to}`;
-    else
-      titleEl.textContent = SUBS_LABELS[state.subsPeriod] || 'الإرسال';
-
-    // Compute day count in range
-    const d1 = new Date(from), d2 = new Date(to);
-    const totalDays = Math.round((d2 - d1) / 86400000) + 1;
-    const isSingleDay = totalDays === 1;
-    const todayDow = new Date().getDay();
-
-    // Build lookup set: "agentId|YYYY-MM-DD"
-    const submittedSet = new Set(
-      (state.subsCalendar || []).map(s => `${s.agent_id}|${s.submission_date}`)
-    );
-
-    agents.forEach(a => {
-      let statusHtml;
-      if (isSingleDay) {
-        const submitted = submittedSet.has(`${a.id}|${from}`);
-        const isOff = from === TODAY && a.day_off != null && a.day_off === todayDow;
-        if (submitted)   statusHtml = `<span class="sub-yes">✅</span>`;
-        else if (isOff)  statusHtml = `<span style="color:#854d0e;font-weight:700">🏖️ إجازة</span>`;
-        else             statusHtml = `<span class="sub-no">❌</span>`;
-      } else {
-        // Count days submitted in range
-        let count = 0;
-        const d = new Date(d1);
-        while (d <= d2) {
-          if (submittedSet.has(`${a.id}|${fmtDate(d)}`)) count++;
-          d.setDate(d.getDate()+1);
-        }
-        const pct = totalDays > 0 ? Math.round((count/totalDays)*100) : 0;
-        const color = pct >= 80 ? '#16a34a' : pct >= 50 ? '#d97706' : '#dc2626';
-        statusHtml = `<span style="font-weight:800;color:${color};font-size:13px">${count}/${totalDays}</span>`;
-      }
-      const div = document.createElement('div');
-      div.className = 'sub-card';
-      div.innerHTML = `<span class="sub-name">${a.name}</span>${statusHtml}`;
-      grid.appendChild(div);
-    });
-  }
-
-  // ── Agent detail ───────────────────────────────────────
-  function selectAgent(id) {
-    if (state.selectedId === id) { clearAgent(); return; }
-    state.selectedId = id;
-    renderCards();
-
-    const agent = state.leaderboard.find(a => a.id === id);
-    if (!agent) return;
-
-    document.getElementById('detail-panel').style.display = 'block';
-    document.getElementById('detail-name').textContent = `📋 ${agent.name}`;
-
-    // Stats row
-    const metrics = [
-      { l:'العملاء',   n: agent.total_leads||0,         c:'#e63329' },
-      { l:'RDV',       n: agent.rdv_count||0,            c:'#f59e0b' },
-      { l:'حضروا',     n: agent.showed_up||0,            c:'#10b981' },
-      { l:'مسجلين',    n: agent.registered_students||0,  c:'#3b82f6' },
-      { l:'B.V',       n: agent.bv_count||0,             c:'#8b5cf6' },
-      { l:'N.R',       n: agent.nr_count||0,             c:'#ef4444' },
-      { l:'P.I',       n: agent.pi_count||0,             c:'#6b7280' },
-      { l:'Autre V.',  n: agent.av_count||0,             c:'#06b6d4' },
-    ];
-    document.getElementById('detail-stats').innerHTML = metrics.map(m =>
-      `<div class="detail-stat"><div class="n" style="color:${m.c}">${m.n}</div><div class="l">${m.l}</div></div>`
-    ).join('');
-
-    // Donut chart
-    if (donutChart) donutChart.destroy();
-    const ctx = document.getElementById('donut-chart').getContext('2d');
-    donutChart = new Chart(ctx, {
-      type: 'doughnut',
-      data: {
-        labels: ['RDV','B.V','N.R','P.I','Autre V.','مسجل'],
-        datasets: [{
-          data: [
-            agent.rdv_count||0, agent.bv_count||0, agent.nr_count||0,
-            agent.pi_count||0, agent.av_count||0, agent.registered_students||0
-          ],
-          backgroundColor: ['#f59e0b','#8b5cf6','#ef4444','#6b7280','#06b6d4','#3b82f6'],
-          borderWidth: 2,
-        }]
-      },
-      options: {
-        responsive: true,
-        plugins: { legend: { position:'bottom', labels:{ font:{ family:'Cairo', size:10 } } } }
-      }
-    });
-
-    // Mini funnel
-    const total = agent.total_leads || 0;
-    const fStages = [
-      { label:'عملاء', n:total,                         color:'#e63329' },
-      { label:'RDV',   n:agent.rdv_count||0,            color:'#f59e0b' },
-      { label:'حضروا', n:agent.showed_up||0,            color:'#10b981' },
-      { label:'مسجل',  n:agent.registered_students||0,  color:'#3b82f6' },
-    ];
-    const maxN = Math.max(...fStages.map(s=>s.n)) || 1;
-    document.getElementById('mini-funnel').innerHTML = `
-      <div style="font-size:11px;font-weight:700;color:#9ca3af;margin-bottom:8px">قمع ${agent.name}</div>
-      <div style="display:flex;align-items:flex-end;gap:4px">
-        ${fStages.map((s, i) => {
-          const bh = Math.max(4, Math.round((s.n/maxN)*60));
-          const pct = i===0?'100%':(total?Math.round(s.n/total*100)+'%':'0%');
-          return `<div style="flex:1;text-align:center">
-            <div style="font-size:12px;font-weight:900">${s.n}</div>
-            <div style="font-size:9px;color:#9ca3af">${pct}</div>
-            <div style="height:${bh}px;background:${s.color};border-radius:4px 4px 0 0;width:100%"></div>
-            <div style="font-size:9px;color:#6b7280;margin-top:2px">${s.label}</div>
-          </div>${i<fStages.length-1?'<div style="color:#d1d5db;font-size:12px;padding-bottom:18px">‹</div>':''}`;
-        }).join('')}
-      </div>`;
-
-    document.getElementById('detail-panel').scrollIntoView({ behavior:'smooth', block:'start' });
-  }
-
-  function clearAgent() {
-    state.selectedId = null;
-    document.getElementById('detail-panel').style.display = 'none';
-    if (donutChart) { donutChart.destroy(); donutChart = null; }
-    renderCards();
-  }
-
-  // ── Ethics ─────────────────────────────────────────────
-  async function loadEthics() {
-    const res = await fetch(`${API}/admin/ethics`, { headers:{ Authorization:`Bearer ${token}` } });
-    if (!res.ok) {
-      document.getElementById('ethics-content').innerHTML = '<div class="no-flags">⚠️ فشل تحميل البيانات</div>';
-      return;
-    }
-    const data  = await res.json();
-    const count = data.total_flagged || 0;
-    const badge = document.getElementById('ethics-badge');
-    badge.textContent  = count ? `⚠️ ${count} وكيل مُبلَّغ` : '✅ كل شيء طبيعي';
-    badge.className    = `ethics-badge ${count ? 'badge-bad' : 'badge-ok'}`;
-
-    if (!count) {
-      document.getElementById('ethics-content').innerHTML =
-        '<div class="no-flags">✅ لا توجد أنشطة مشبوهة</div>';
+    const panel = document.getElementById('customPanel');
+    if (currentPeriod === 'custom') {
+      panel.classList.add('show');
     } else {
-      document.getElementById('ethics-content').innerHTML =
-        data.flagged_agents.map(ag => `
-          <div class="flag-card ${ag.flags.some(f=>f.severity==='high')?'flag-high':'flag-medium'}">
-            <div class="flag-agent">${ag.agent_name}
-              <span class="flag-sub"> — ${ag.total_leads} عميل | ${ag.total_rdv} RDV</span>
-            </div>
-            ${ag.flags.map(f=>`
-              <div class="flag-item">${f.severity==='high'?'🔴':'🟡'} ${f.message}</div>
-            `).join('')}
-          </div>`
-        ).join('');
+      panel.classList.remove('show');
+      calcDates(currentPeriod);
+      loadScores();
     }
-
-    document.getElementById('ethics-content').insertAdjacentHTML('beforeend', `
-      <div class="ethics-tips">
-        <strong>💡 توصيات للمراقبة اليدوية:</strong>
-        • اتصل عشوائياً ببعض العملاء أسبوعياً للتحقق من الاتصال الفعلي<br>
-        • راجع أوقات الإرسال — هل هي دائماً في نفس الوقت؟<br>
-        • قارن نسبة RDV مقابل الحضور لكل وكيل — الفجوة الكبيرة علامة تحذير<br>
-        • 🔴 وكيل لديه أرقام خاطئة متكررة = يُدخل بيانات غير دقيقة أو مختلقة<br>
-        • اطلب من الوكلاء تسجيل ملاحظات عند الاتصال بعملاء مشبوهين
-      </div>
-      <div class="ethics-tips" style="margin-top:10px;border-right-color:#f59e0b">
-        <strong>📊 ملاحظة — دقة إعلانات فيسبوك وأوقات العمل:</strong>
-        • أرقام FB Ads غير دقيقة بنسبة 15-30% (تقديرات النظام وليست بيانات حقيقية)<br>
-        • الوكلاء يعملون في نوبتين: 8ص–5م أو 11ص–8م<br>
-        • العملاء الذين تواصلوا خارج هذه الساعات لا يُتتبعون — لا تقارن الإنفاق بالنتائج خارج أوقات العمل<br>
-        • تكلفة التسجيل الفعلية = الإنفاق ÷ التسجيلات فقط خلال ساعات الدوام
-      </div>`);
-
-    state.ethicsLoaded = true;
-  }
-
-  function toggleEthics() {
-    state.ethicsOpen = !state.ethicsOpen;
-    document.getElementById('ethics-body').style.display    = state.ethicsOpen ? 'block' : 'none';
-    document.getElementById('ethics-chevron').className     = `toggle-chevron ${state.ethicsOpen ? 'open' : ''}`;
-    if (state.ethicsOpen && !state.ethicsLoaded) loadEthics();
-  }
-
-  // ── Google Sheets Config ───────────────────────────────
-  async function loadSheetConfig() {
-    try {
-      const res  = await fetch(`${API}/admin/sheets-config`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      if (data.sheet_id) {
-        document.getElementById('sheet-linked-view').style.display = 'block';
-        document.getElementById('sheet-empty-view').style.display  = 'none';
-        const link = document.getElementById('sheet-url-link');
-        link.href        = data.sheet_url;
-        link.textContent = data.sheet_url;
-        const badge = document.getElementById('sheet-source-badge');
-        badge.textContent  = data.source === 'db' ? 'مخصص' : 'Railway';
-        badge.className    = `sheet-source-badge ${data.source === 'db' ? 'source-db' : 'source-env'}`;
-      } else {
-        document.getElementById('sheet-linked-view').style.display = 'none';
-        document.getElementById('sheet-empty-view').style.display  = 'block';
-      }
-    } catch(e) {
-      document.getElementById('sheet-empty-view').style.display = 'block';
-    }
-  }
-
-  function showSheetInput() {
-    document.getElementById('sheet-input-row').classList.add('show');
-    document.getElementById('sheet-inp').focus();
-  }
-  function cancelSheetInput() {
-    document.getElementById('sheet-input-row').classList.remove('show');
-    document.getElementById('sheet-inp').value = '';
-    document.getElementById('sheet-msg').innerHTML = '';
-  }
-
-  async function saveSheet() {
-    const val = document.getElementById('sheet-inp').value.trim();
-    const msg = document.getElementById('sheet-msg');
-    if (!val) { msg.innerHTML = '<span style="color:#dc2626">يرجى إدخال الرابط أو المعرّف</span>'; return; }
-    const res  = await fetch(`${API}/admin/sheets-config`, {
-      method: 'PUT',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sheet_id: val })
-    });
-    const data = await res.json();
-    if (res.ok) {
-      msg.innerHTML = '<span style="color:#16a34a">✅ تم الحفظ</span>';
-      document.getElementById('sheet-inp').value = '';
-      setTimeout(() => { cancelSheetInput(); loadSheetConfig(); }, 800);
-    } else {
-      msg.innerHTML = `<span style="color:#dc2626">${data.detail || 'خطأ في الحفظ'}</span>`;
-    }
-  }
-
-  async function unlinkSheet() {
-    if (!confirm('هل تريد فصل هذا الجدول؟ سيتوقف التزامن حتى تربط جدولاً جديداً.')) return;
-    const res = await fetch(`${API}/admin/sheets-config`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    if (res.ok) loadSheetConfig();
-  }
-
-  function logout() { localStorage.clear(); window.location.href = '/index.html'; }
-
-  // ── Init ───────────────────────────────────────────────
-  // Set max=today on all date inputs (prevents future date selection)
-  ['date-from','date-to','subs-from','subs-to'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.max = TODAY;
   });
-  loadData();
-  loadSheetConfig();
+});
+
+// ── Custom Date Presets ──
+document.querySelectorAll('.date-preset-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.date-preset-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    const today = new Date();
+    let from, to = todayStr();
+    switch (btn.dataset.preset) {
+      case 'yesterday': {
+        const y = new Date(today); y.setDate(y.getDate() - 1);
+        from = to = fmtDate(y); break;
+      }
+      case '7days': {
+        const d = new Date(today); d.setDate(d.getDate() - 6);
+        from = fmtDate(d); break;
+      }
+      case '14days': {
+        const d = new Date(today); d.setDate(d.getDate() - 13);
+        from = fmtDate(d); break;
+      }
+      case '30days': {
+        const d = new Date(today); d.setDate(d.getDate() - 29);
+        from = fmtDate(d); break;
+      }
+      case 'thisMonth': {
+        from = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-01';
+        break;
+      }
+      case 'lastMonth': {
+        const lm = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lmEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+        from = fmtDate(lm); to = fmtDate(lmEnd); break;
+      }
+    }
+    document.getElementById('dateFrom').value = from;
+    document.getElementById('dateTo').value = to;
+  });
+});
+
+function applyCustomDates() {
+  dateFrom = document.getElementById('dateFrom').value;
+  dateTo = document.getElementById('dateTo').value;
+  if (!dateFrom || !dateTo) { alert('حدد التاريخ'); return; }
+  loadScores();
+}
+
+// ── Metric Chips ──
+document.querySelectorAll('.metric-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.metric-chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    currentMetric = chip.dataset.metric;
+    renderColumns(allScores);
+  });
+});
+
+// ── Branch Filter ──
+async function loadBranches() {
+  try {
+    const res = await fetch(API + '/branches/', { headers: hdr() });
+    if (!res.ok) return;
+    const branches = await res.json();
+    const sel = document.getElementById('branchFilter');
+    for (const b of branches) {
+      const opt = document.createElement('option');
+      opt.value = b.id; opt.textContent = b.name;
+      sel.appendChild(opt);
+    }
+  } catch (e) {}
+}
+document.getElementById('branchFilter').addEventListener('change', (e) => {
+  currentBranch = e.target.value;
+  loadScores();
+});
+
+// ── Submission Warnings ──
+async function loadWarnings() {
+  try {
+    const res = await fetch(API + '/reports/submission-status', { headers: hdr() });
+    if (!res.ok) return;
+    const data = await res.json();
+    const row = document.getElementById('warningsRow');
+
+    const yesterday = data.not_submitted_yesterday || [];
+    const today = data.not_submitted_today || [];
+
+    if (!yesterday.length && !today.length) { row.style.display = 'none'; return; }
+
+    let html = '';
+    if (yesterday.length) {
+      html += `<div class="warning-card red">
+        <div class="warn-title">لم يرسل أمس (${yesterday.length})</div>
+        <div class="warn-names">${yesterday.map(a => a.name).join(' — ')}</div>
+      </div>`;
+    }
+    if (today.length) {
+      html += `<div class="warning-card orange">
+        <div class="warn-title">لم يرسل اليوم بعد (${today.length})</div>
+        <div class="warn-names">${today.map(a => a.name).join(' — ')}</div>
+      </div>`;
+    }
+    row.innerHTML = html;
+    row.style.display = 'flex';
+  } catch (e) { console.error('Warnings error:', e); }
+}
+
+// ── Quality Scores ──
+async function loadScores() {
+  document.getElementById('greenList').innerHTML = '<div class="loading">جاري التحميل...</div>';
+  document.getElementById('orangeList').innerHTML = '<div class="loading">جاري التحميل...</div>';
+  document.getElementById('redList').innerHTML = '<div class="loading">جاري التحميل...</div>';
+
+  try {
+    let url = API + `/quality/scores?date_from=${dateFrom}&date_to=${dateTo}`;
+    if (currentBranch) url += `&branch_id=${currentBranch}`;
+
+    const res = await fetch(url, { headers: hdr() });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    allScores = data.scores || [];
+    renderColumns(allScores);
+  } catch (e) {
+    console.error('Scores error:', e);
+    document.getElementById('greenList').innerHTML = '<div class="empty-col">خطأ في التحميل</div>';
+    document.getElementById('orangeList').innerHTML = '';
+    document.getElementById('redList').innerHTML = '';
+  }
+}
+
+function renderColumns(scores) {
+  // Sort by selected metric if not "all"
+  let sorted = [...scores];
+  if (currentMetric !== 'all') {
+    sorted.sort((a, b) => (b[currentMetric] || 0) - (a[currentMetric] || 0));
+  }
+
+  const green = sorted.filter(s => s.color === 'green');
+  const orange = sorted.filter(s => s.color === 'orange');
+  const red = sorted.filter(s => s.color === 'red');
+
+  document.getElementById('greenCount').textContent = `(${green.length})`;
+  document.getElementById('orangeCount').textContent = `(${orange.length})`;
+  document.getElementById('redCount').textContent = `(${red.length})`;
+
+  document.getElementById('greenList').innerHTML = green.length
+    ? green.map(renderAgentCard).join('') : '<div class="empty-col">لا يوجد</div>';
+  document.getElementById('orangeList').innerHTML = orange.length
+    ? orange.map(renderAgentCard).join('') : '<div class="empty-col">لا يوجد</div>';
+  document.getElementById('redList').innerHTML = red.length
+    ? red.map(renderAgentCard).join('') : '<div class="empty-col">لا يوجد</div>';
+}
+
+function renderAgentCard(s) {
+  const bottleneckLabel = {
+    'ad_quality': 'مشكلة إعلان',
+    'agent_conversion': 'لا يحوّل',
+    'agent_followup': 'لا يتابع',
+    'agent_closing': 'لا يغلق'
+  };
+  const bottleneckType = s.bottleneck === 'ad_quality' ? 'ad' : 'agent';
+  const badge = s.bottleneck
+    ? `<span class="bottleneck-badge ${bottleneckType}">${bottleneckLabel[s.bottleneck] || s.bottleneck}</span>`
+    : '';
+
+  // Determine which metric value to highlight
+  let metricVal = '';
+  if (currentMetric !== 'all') {
+    const pct = s[currentMetric];
+    metricVal = pct !== undefined ? `<span class="agent-metric highlight">${(pct * 100).toFixed(0)}%</span>` : '';
+  }
+
+  return `
+    <div class="agent-card" onclick='showDetail(${JSON.stringify(s)})'>
+      <div class="agent-card-header">
+        <div>
+          <span class="agent-card-name">${s.agent_name}</span>
+          ${s.branch_name ? `<span class="agent-card-branch"> — ${s.branch_name}</span>` : ''}
+        </div>
+        ${badge}
+      </div>
+      <div class="agent-metrics">
+        ${metricVal}
+        <span class="agent-metric">رسائل: ${s.messages}</span>
+        <span class="agent-metric">سيئة: ${(s.bad_lead_pct * 100).toFixed(0)}%</span>
+        <span class="agent-metric">مواعيد: ${(s.rdv_rate * 100).toFixed(0)}%</span>
+        ${s.report_count !== undefined ? `<span class="agent-metric">تقارير: ${s.report_count}</span>` : ''}
+      </div>
+    </div>
+  `;
+}
+
+// ── Agent Detail Modal ──
+let modalChart = null;
+
+function closeModal() {
+  document.getElementById('agentModal').classList.remove('show');
+  if (modalChart) { modalChart.destroy(); modalChart = null; }
+}
+
+async function showDetail(score) {
+  const modal = document.getElementById('agentModal');
+  const content = document.getElementById('agentModalContent');
+
+  // Diagnosis
+  const diagnosisMap = {
+    'ad_quality': { cls: 'ad-issue', title: 'مشكلة في جودة الإعلان', msg: 'نسبة عالية من العملاء السيئين — المشكلة من الإعلان وليس من الوكيل.' },
+    'agent_conversion': { cls: 'agent-issue', title: 'الوكيل لا يحوّل الرسائل لمواعيد', msg: 'العملاء جيدون لكن الوكيل لا يحجز مواعيد كافية.' },
+    'agent_followup': { cls: 'agent-issue', title: 'الوكيل لا يتابع المواعيد', msg: 'الحجوزات موجودة لكن العملاء لا يحضرون — يحتاج متابعة أفضل.' },
+    'agent_closing': { cls: 'agent-issue', title: 'الوكيل لا يغلق البيع', msg: 'العملاء يحضرون لكن لا يسجلون — يحتاج تحسين في الإغلاق.' },
+  };
+  const diag = score.bottleneck ? diagnosisMap[score.bottleneck] : null;
+
+  let diagHtml = '';
+  if (diag) {
+    diagHtml = `<div class="diagnosis-box ${diag.cls}">
+      <div class="diagnosis-title">${diag.title}</div>
+      ${diag.msg}
+    </div>`;
+  } else if (score.messages > 0) {
+    diagHtml = `<div class="diagnosis-box ok"><div class="diagnosis-title">أداء جيد</div>لا توجد مشاكل واضحة — استمر!</div>`;
+  }
+
+  content.innerHTML = `
+    <div class="modal-agent-name">${score.agent_name} ${score.branch_name ? '— ' + score.branch_name : ''}</div>
+    ${diagHtml}
+    <div class="detail-grid">
+      <div class="detail-item">
+        <div class="detail-val">${score.messages}</div>
+        <div class="detail-lbl">رسائل</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-val" style="color:${score.bad_lead_pct > 0.5 ? '#ef4444' : score.bad_lead_pct > 0.3 ? '#f59e0b' : '#059669'}">${(score.bad_lead_pct * 100).toFixed(0)}%</div>
+        <div class="detail-lbl">عملاء سيئون</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-val">${(score.rdv_rate * 100).toFixed(0)}%</div>
+        <div class="detail-lbl">نسبة المواعيد</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-val">${(score.show_rate * 100).toFixed(0)}%</div>
+        <div class="detail-lbl">نسبة الحضور</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-val">${(score.close_rate * 100).toFixed(0)}%</div>
+        <div class="detail-lbl">نسبة الإغلاق</div>
+      </div>
+      <div class="detail-item">
+        <div class="detail-val">${score.bad_leads}</div>
+        <div class="detail-lbl">عملاء سيئون</div>
+      </div>
+    </div>
+
+    <div style="font-size:12px; color:#6b7280; margin-bottom:8px; font-weight:600">تفاصيل العملاء السيئين:</div>
+    <div class="agent-metrics" style="margin-bottom:14px">
+      <span class="agent-metric ${score.autre_ville_pct > 0.15 ? 'highlight' : ''}">مدينة أخرى: ${(score.autre_ville_pct * 100).toFixed(0)}%</span>
+      <span class="agent-metric ${score.pi_pct > 0.15 ? 'highlight' : ''}">غير مهتم: ${(score.pi_pct * 100).toFixed(0)}%</span>
+      <span class="agent-metric ${score.bv_pct > 0.15 ? 'highlight' : ''}">بريد صوتي: ${(score.bv_pct * 100).toFixed(0)}%</span>
+      <span class="agent-metric ${score.pe_pct > 0.1 ? 'highlight' : ''}">غير مؤهل: ${(score.pe_pct * 100).toFixed(0)}%</span>
+      <span class="agent-metric ${score.over_40_pct > 0.1 ? 'highlight' : ''}">فوق 40: ${(score.over_40_pct * 100).toFixed(0)}%</span>
+    </div>
+
+    <div class="modal-goal-section">
+      <div class="modal-section-title">الهدف</div>
+      <div class="goal-toggle" id="goalToggle"></div>
+      <div id="goalArea"><div class="loading">جاري التحميل...</div></div>
+    </div>
+  `;
+
+  modal.classList.add('show');
+  loadAgentGoals(score.agent_id);
+}
+
+// ── Goals in Modal ──
+async function loadAgentGoals(agentId) {
+  const toggleEl = document.getElementById('goalToggle');
+  const areaEl = document.getElementById('goalArea');
+
+  try {
+    const res = await fetch(API + `/reports/goals?agent_id=${agentId}`, { headers: hdr() });
+    if (!res.ok) throw new Error();
+    const goals = await res.json();
+
+    const today = todayStr();
+    const activeGoals = goals.filter(g => g.end_date >= today);
+    const adminGoals = activeGoals.filter(g => g.is_admin_goal);
+    const agentGoals = activeGoals.filter(g => !g.is_admin_goal);
+
+    // Toggle buttons
+    let toggleHtml = '';
+    if (adminGoals.length) toggleHtml += `<button class="goal-toggle-btn active" onclick="showGoalInModal('${adminGoals[0].id}', this)">هدف المدير</button>`;
+    if (agentGoals.length) toggleHtml += `<button class="goal-toggle-btn ${!adminGoals.length ? 'active' : ''}" onclick="showGoalInModal('${agentGoals[0].id}', this)">هدف الوكيل</button>`;
+    toggleEl.innerHTML = toggleHtml;
+
+    if (adminGoals.length) {
+      showGoalInModal(adminGoals[0].id);
+    } else if (agentGoals.length) {
+      showGoalInModal(agentGoals[0].id);
+    } else {
+      areaEl.innerHTML = renderAdminGoalForm(agentId);
+    }
+  } catch (e) {
+    areaEl.innerHTML = '<div class="empty-col">خطأ في تحميل الأهداف</div>';
+  }
+}
+
+async function showGoalInModal(goalId, btnEl) {
+  if (btnEl) {
+    document.querySelectorAll('.goal-toggle-btn').forEach(b => b.classList.remove('active'));
+    btnEl.classList.add('active');
+  }
+  const areaEl = document.getElementById('goalArea');
+  try {
+    const res = await fetch(API + `/reports/goals/${goalId}/progress`, { headers: hdr() });
+    if (!res.ok) throw new Error();
+    const progress = await res.json();
+    const goal = progress.goal;
+
+    const delta = progress.delta;
+    let badgeCls, badgeTxt;
+    if (delta > 0) { badgeCls = 'ahead'; badgeTxt = `+${delta} متقدم`; }
+    else if (delta < 0) { badgeCls = 'behind'; badgeTxt = `${delta} متأخر`; }
+    else { badgeCls = 'on-track'; badgeTxt = 'على المسار'; }
+
+    areaEl.innerHTML = `
+      <div style="text-align:center;margin-bottom:6px">
+        <span class="delta-badge ${badgeCls}" style="display:inline-block;padding:3px 10px;border-radius:16px;font-size:12px;font-weight:700;
+          background:${badgeCls === 'ahead' ? '#d1fae5' : badgeCls === 'behind' ? '#fee2e2' : '#e0e7ff'};
+          color:${badgeCls === 'ahead' ? '#065f46' : badgeCls === 'behind' ? '#991b1b' : '#3730a3'}">${badgeTxt}</span>
+      </div>
+      <div class="goal-chart-modal"><canvas id="modalGoalCanvas"></canvas></div>
+      <div style="display:flex;justify-content:space-between;font-size:10px;color:#9ca3af;margin-top:4px">
+        <span>الهدف: ${goal.target_registered}</span>
+        <span>${goal.start_date} → ${goal.end_date}</span>
+      </div>
+    `;
+
+    renderModalGoalChart(goal, progress);
+  } catch (e) {
+    areaEl.innerHTML = '<div class="empty-col">خطأ</div>';
+  }
+}
+
+function renderModalGoalChart(goal, progress) {
+  const ctx = document.getElementById('modalGoalCanvas');
+  if (!ctx) return;
+  if (modalChart) modalChart.destroy();
+
+  const targetData = [
+    { x: goal.start_date, y: 0 },
+    { x: goal.end_date, y: goal.target_registered }
+  ];
+  const actualData = progress.cumulative.map(p => ({ x: p.date, y: p.value }));
+  if (!actualData.length) actualData.push({ x: todayStr(), y: 0 });
+  const lineColor = progress.delta >= 0 ? '#059669' : '#ef4444';
+
+  modalChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'الهدف', data: targetData,
+          borderColor: '#9ca3af', borderDash: [8, 4], borderWidth: 2,
+          pointRadius: 0, fill: false, tension: 0
+        },
+        {
+          label: 'الفعلي', data: actualData,
+          borderColor: lineColor, backgroundColor: lineColor + '20',
+          borderWidth: 2.5, pointRadius: 2, pointBackgroundColor: lineColor,
+          fill: true, tension: 0.3
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: true, position: 'top', labels: { font: { family: 'Cairo', size: 10 }, usePointStyle: true } },
+      },
+      scales: {
+        x: {
+          type: 'time', time: { unit: 'day', displayFormats: { day: 'MM/dd' } },
+          min: goal.start_date, max: goal.end_date,
+          ticks: { font: { family: 'Cairo', size: 9 }, maxTicksLimit: 6 },
+          grid: { display: false }
+        },
+        y: {
+          beginAtZero: true, suggestedMax: goal.target_registered + 2,
+          ticks: { font: { family: 'Cairo', size: 10 } },
+          grid: { color: '#f3f4f6' }
+        }
+      }
+    }
+  });
+}
+
+function renderAdminGoalForm(agentId) {
+  const today = todayStr();
+  const nextMonth = new Date(); nextMonth.setMonth(nextMonth.getMonth() + 1);
+  const endDef = fmtDate(nextMonth);
+  return `
+    <div style="font-size:12px;color:#9ca3af;text-align:center;margin-bottom:8px">لا يوجد هدف — أنشئ هدف للوكيل</div>
+    <div class="admin-goal-form">
+      <input type="number" id="adminGoalTarget" min="1" placeholder="عدد المسجلين المستهدف" />
+      <div class="admin-goal-row">
+        <input type="date" id="adminGoalStart" value="${today}" />
+        <input type="date" id="adminGoalEnd" value="${endDef}" />
+      </div>
+      <button class="admin-goal-submit" onclick="createAdminGoal('${agentId}')">تحديد الهدف</button>
+    </div>
+  `;
+}
+
+async function createAdminGoal(agentId) {
+  const target = document.getElementById('adminGoalTarget')?.value;
+  const start = document.getElementById('adminGoalStart')?.value;
+  const end = document.getElementById('adminGoalEnd')?.value;
+  if (!target || !start || !end) { alert('أكمل جميع الحقول'); return; }
+
+  try {
+    const res = await fetch(API + '/reports/goals', {
+      method: 'POST', headers: hdrJson(),
+      body: JSON.stringify({ agent_id: agentId, target_registered: parseInt(target), start_date: start, end_date: end })
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.detail || 'خطأ'); }
+    loadAgentGoals(agentId);
+  } catch (e) { alert(e.message); }
+}
+
+// ── Close modal on backdrop click ──
+document.getElementById('agentModal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('agentModal')) closeModal();
+});
+
+// ── Init ──
+calcDates('today');
+loadBranches();
+loadWarnings();
+loadScores();
 </script>
 </body>
 </html>

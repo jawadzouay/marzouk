@@ -5,2136 +5,597 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <title>لوحة تحكم الوكيل — مرزوق أكاديمي</title>
+  <title>لوحة التحكم — مرزوق أكاديمي</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    html { scroll-behavior: smooth; }
-    body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; overscroll-behavior-y: none; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; }
 
     /* ===== Header ===== */
     header {
       background: #1a1a1a; color: white;
-      padding: 12px 16px;
-      padding-top: max(12px, env(safe-area-inset-top));
+      padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top));
       display: flex; justify-content: space-between; align-items: center;
       position: sticky; top: 0; z-index: 100;
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
     .header-left { display: flex; align-items: center; gap: 10px; }
-    .header-logo { height: 34px; width: auto; }
-    .header-greeting { font-size: 14px; font-weight: 600; }
-    .header-right { display: flex; align-items: center; gap: 10px; }
-    .avatar-wrap { cursor: pointer; }
+    .header-greeting { font-size: 15px; font-weight: 700; }
+    .header-right { display: flex; align-items: center; gap: 8px; }
     .avatar {
-      width: 38px; height: 38px; border-radius: 50%; border: 2px solid #e63329;
-      background: #333; display: flex; align-items: center; justify-content: center;
-      font-size: 16px; overflow: hidden;
+      width: 34px; height: 34px; border-radius: 50%;
+      background: #e63329; display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 900; color: white; cursor: pointer;
     }
-    .avatar img { width: 100%; height: 100%; object-fit: cover; }
-    .btn-logout {
+    .logout-btn {
       background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
-      color: white; padding: 7px 14px; border-radius: 8px;
-      font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; font-weight: 600;
+      color: white; padding: 6px 12px; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 12px; font-weight: 600;
     }
 
-    /* ===== Container ===== */
     .container {
-      padding: 14px 14px;
-      padding-bottom: max(80px, calc(20px + env(safe-area-inset-bottom)));
-      max-width: 800px; margin: 0 auto;
+      padding: 14px;
+      padding-bottom: max(100px, calc(20px + env(safe-area-inset-bottom)));
+      max-width: 500px; margin: 0 auto;
     }
 
-    /* ===== Money Card ===== */
-    .money-card {
-      background: linear-gradient(135deg, #e63329 0%, #1a1a1a 100%);
-      border-radius: 20px; padding: 24px 20px 18px;
-      text-align: center; margin-bottom: 12px;
-      box-shadow: 0 8px 28px rgba(230,51,41,0.35);
-      position: relative; overflow: hidden;
+    /* ===== CTA Button ===== */
+    .cta-btn {
+      display: block; width: 100%;
+      background: linear-gradient(135deg, #e63329, #c62828);
+      color: white; text-align: center; text-decoration: none;
+      padding: 14px; border-radius: 14px; font-size: 16px; font-weight: 700;
+      font-family: 'Cairo', sans-serif; margin-bottom: 14px;
+      box-shadow: 0 4px 14px rgba(230,51,41,0.3);
+      transition: transform 0.15s;
     }
-    .money-card::before { content: '💰'; position: absolute; top: -15px; left: -10px; font-size: 80px; opacity: 0.07; pointer-events: none; }
-    .money-card::after  { content: '💰'; position: absolute; bottom: -15px; right: -10px; font-size: 80px; opacity: 0.07; pointer-events: none; }
-    .money-label { color: rgba(255,255,255,0.7); font-size: 13px; margin-bottom: 4px; }
-    .money-amount-row { display: flex; align-items: baseline; justify-content: center; gap: 8px; margin-bottom: 4px; }
-    .money-amount { font-size: 52px; font-weight: 900; color: #fbbf24; line-height: 1; }
-    .money-currency { font-size: 22px; font-weight: 700; color: rgba(255,255,255,0.85); }
-    .inscre-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; }
-    .inscre-badge { background: rgba(255,255,255,0.15); border-radius: 20px; padding: 4px 14px; color: white; font-size: 13px; font-weight: 600; }
-    .toggle-btn { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25); color: white; padding: 4px 12px; border-radius: 20px; font-family: 'Cairo', sans-serif; font-size: 12px; cursor: pointer; }
-    .money-pulse { animation: pulseMoney 0.45s ease-out; }
-    @keyframes pulseMoney { 0%{transform:scale(1)} 50%{transform:scale(1.18)} 100%{transform:scale(1)} }
-
-    /* ===== Money Float ===== */
-    .money-float { position: fixed; font-size: 30px; pointer-events: none; z-index: 9999; animation: floatMoney 1.5s ease-out forwards; }
-    @keyframes floatMoney {
-      0%   { transform: translateY(0) scale(0.8) rotate(-10deg); opacity: 1; }
-      50%  { transform: translateY(-120px) scale(1.3) rotate(12deg); opacity: 1; }
-      100% { transform: translateY(-230px) scale(0.9) rotate(-5deg); opacity: 0; }
-    }
-
-    /* ===== Today's RDV Widget ===== */
-    .today-rdv-card {
-      background: white; border-radius: 16px; padding: 14px 16px;
-      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-      border-right: 4px solid #10b981;
-    }
-    .today-rdv-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .today-rdv-title { font-size: 14px; font-weight: 700; color: #374151; }
-    .today-rdv-badge {
-      background: #10b981; color: white; border-radius: 20px;
-      padding: 2px 10px; font-size: 12px; font-weight: 700;
-    }
-    .today-rdv-item {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 8px 0; border-bottom: 1px solid #f3f4f6;
-    }
-    .today-rdv-item:last-child { border-bottom: none; padding-bottom: 0; }
-    .today-rdv-info { display: flex; flex-direction: column; }
-    .today-rdv-name { font-weight: 600; font-size: 14px; color: #1a1a1a; }
-    .today-rdv-time { font-size: 12px; color: #e63329; font-weight: 600; direction: ltr; text-align: right; }
-    .today-rdv-call {
-      background: #10b981; color: white; border: none; border-radius: 10px;
-      padding: 8px 16px; font-family: 'Cairo', sans-serif; font-size: 13px;
-      font-weight: 600; cursor: pointer; white-space: nowrap; min-height: 40px;
-    }
-
-    /* ===== Goal Card ===== */
-    .goal-card { background: white; border-radius: 16px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
-    .goal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-    .goal-title { font-size: 14px; font-weight: 700; color: #374151; }
-    .btn-set-goal { background: #e63329; color: white; border: none; border-radius: 8px; padding: 6px 14px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; font-weight: 600; }
-    .btn-edit-goal { background: #f3f4f6; color: #374151; border: none; border-radius: 8px; padding: 6px 12px; font-family: 'Cairo', sans-serif; font-size: 13px; cursor: pointer; }
-    .no-goal-text { color: #9ca3af; text-align: center; font-size: 13px; padding: 6px 0; }
-    .progress-wrap { margin-bottom: 8px; }
-    .progress-labels { display: flex; justify-content: space-between; font-size: 12px; color: #374151; margin-bottom: 5px; font-weight: 600; }
-    .goal-type-row { display:flex; gap:6px; margin-bottom:4px; }
-    .goal-type-btn { flex:1; padding:8px 4px; border:2px solid #e5e7eb; border-radius:10px; background:white; font-family:'Cairo',sans-serif; font-size:11px; font-weight:700; cursor:pointer; text-align:center; line-height:1.4; color:#374151; }
-    .goal-type-btn.active { border-color:#e63329; background:#fff5f5; color:#e63329; }
-    .goal-type-btn span { font-size:10px; font-weight:400; color:#9ca3af; display:block; }
-    .goal-type-btn.active span { color:#e63329; }
-    .goal-group-label { font-size:11px; font-weight:700; color:#9ca3af; text-transform:uppercase; letter-spacing:.5px; margin:10px 0 6px; padding-right:4px; }
-    .goal-item { background:#f9fafb; border-radius:10px; padding:10px 12px; margin-bottom:8px; border-right:3px solid #e5e7eb; }
-    .goal-item.type-master { border-right-color:#f59e0b; }
-    .goal-item.type-medium { border-right-color:#3b82f6; }
-    .goal-item.type-small  { border-right-color:#10b981; }
-    .goal-metric-sel { width:100%; padding:8px 10px; border:1.5px solid #e5e7eb; border-radius:8px; font-family:'Cairo',sans-serif; font-size:13px; margin-bottom:8px; background:white; }
-    .progress-bar-bg { background: #e5e7eb; border-radius: 99px; height: 14px; overflow: hidden; }
-    .progress-bar-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
-    .prog-green { background: linear-gradient(90deg, #10b981, #34d399); }
-    .prog-red   { background: linear-gradient(90deg, #f59e0b, #ef4444); }
-    .track-badge { text-align: center; padding: 8px; border-radius: 10px; font-weight: 700; font-size: 13px; margin-top: 8px; }
-    .track-ahead  { background: #dcfce7; color: #166534; }
-    .track-behind { background: #fef2f2; color: #dc2626; }
-    .track-done   { background: #fff3cd; color: #856404; }
-    .goal-dates { font-size: 11px; color: #9ca3af; text-align: center; margin-top: 6px; }
-    .time-bar-wrap { margin-top: 6px; }
-    .time-bar-label { font-size: 11px; color: #9ca3af; margin-bottom: 3px; }
-    .time-bar-bg { background: #e5e7eb; border-radius: 99px; height: 5px; overflow: hidden; }
-    .time-bar-fill { height: 100%; border-radius: 99px; background: #f5c518; }
+    .cta-btn:active { transform: scale(0.97); }
 
     /* ===== Stats Grid ===== */
-    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 12px; }
+    .stats-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 10px; margin-bottom: 14px;
+    }
     .stat-card {
-      background: white; border-radius: 14px; padding: 14px 10px;
-      text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-      cursor: pointer; transition: all 0.15s; user-select: none;
-      min-height: 80px; display: flex; flex-direction: column; justify-content: center;
+      background: white; border-radius: 14px; padding: 14px;
+      text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    .stat-card:active { transform: scale(0.96); }
-    .stat-card.active { box-shadow: 0 0 0 3px #e63329; background: #fff5f5; }
-    .stat-card .num { font-size: 30px; font-weight: 900; color: #e63329; line-height: 1; }
-    .stat-card .label { font-size: 12px; color: #6b7280; margin-top: 4px; }
+    .stat-value { font-size: 28px; font-weight: 900; line-height: 1.1; }
+    .stat-label { font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 2px; }
 
-    /* ===== Funnel Card ===== */
-    .funnel-card {
-      background: white; border-radius: 16px; padding: 14px 16px;
-      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-    }
-    .funnel-title { font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 12px; }
-    .funnel-stages { display: flex; align-items: flex-end; gap: 6px; }
-    .funnel-stage { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
-    .funnel-bar-wrap { width: 100%; display: flex; flex-direction: column; align-items: center; }
-    .funnel-bar { width: 100%; border-radius: 6px 6px 0 0; min-height: 8px; transition: height 0.6s ease; }
-    .funnel-num { font-size: 15px; font-weight: 900; color: #1a1a1a; }
-    .funnel-pct { font-size: 11px; color: #9ca3af; font-weight: 600; }
-    .funnel-lbl { font-size: 11px; color: #6b7280; font-weight: 600; text-align: center; margin-top: 2px; }
-    .funnel-arrow { color: #d1d5db; font-size: 18px; padding-bottom: 20px; align-self: center; flex: 0; }
+    .stat-card.messages .stat-value { color: #1a1a1a; }
+    .stat-card.rdv .stat-value { color: #059669; }
+    .stat-card.visits .stat-value { color: #2563eb; }
+    .stat-card.registered .stat-value { color: #e63329; }
 
-    /* ===== Action Buttons ===== */
-    .action-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
-    .action-btn {
-      display: flex; align-items: center; justify-content: center; gap: 6px;
-      padding: 14px; background: #e63329; color: white; border: none;
-      border-radius: 14px; font-size: 15px; font-family: 'Cairo', sans-serif;
-      font-weight: 700; cursor: pointer; text-decoration: none;
-      min-height: 52px; text-align: center;
+    /* ===== Goal Section ===== */
+    .section-card {
+      background: white; border-radius: 14px; padding: 16px;
+      margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
     }
-    .action-btn.secondary { background: #1a1a1a; }
-    .action-btn:active { opacity: 0.85; transform: scale(0.98); }
+    .section-title {
+      font-size: 14px; font-weight: 700; color: #374151;
+      margin-bottom: 10px; display: flex; align-items: center; gap: 6px;
+    }
+    .section-title .icon { font-size: 16px; }
 
-    /* ===== Edit Lead Icon ===== */
-    .edit-lead-icon {
-      background: none; border: none; cursor: pointer;
-      font-size: 13px; color: #9ca3af; padding: 2px 4px;
-      line-height: 1; vertical-align: middle;
-      transition: color 0.15s;
+    /* Delta badge */
+    .delta-badge {
+      display: inline-block; padding: 4px 12px; border-radius: 20px;
+      font-size: 14px; font-weight: 700; margin-bottom: 10px;
     }
-    .edit-lead-icon:hover { color: #e63329; }
+    .delta-badge.ahead { background: #d1fae5; color: #065f46; }
+    .delta-badge.behind { background: #fee2e2; color: #991b1b; }
+    .delta-badge.on-track { background: #e0e7ff; color: #3730a3; }
 
-    /* ===== Edit Lead Popup ===== */
-    .edit-popup-field { margin-bottom: 12px; }
-    .edit-popup-label { font-size: 12px; font-weight: 700; color: #6b7280; margin-bottom: 4px; display: block; }
-    .edit-popup-input {
-      width: 100%; padding: 11px 14px; border: 2px solid #e5e7eb;
-      border-radius: 10px; font-size: 15px; font-family: 'Cairo', sans-serif;
-      direction: rtl; background: white; transition: border-color 0.15s;
+    .goal-chart-wrap {
+      position: relative; width: 100%; height: 220px;
     }
-    .edit-popup-input:focus { outline: none; border-color: #e63329; }
 
-    /* ===== Call Progress Bar ===== */
-    .call-progress-card {
-      background: white; border-radius: 14px; padding: 12px 14px;
-      margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.07);
-      border-right: 4px solid #e63329;
-    }
-    .call-progress-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .call-progress-title { font-size: 13px; font-weight: 700; color: #374151; }
-    .call-progress-count { font-size: 12px; font-weight: 700; color: #6b7280; }
-    .call-progress-bg { background: #e5e7eb; border-radius: 99px; height: 10px; overflow: hidden; margin-bottom: 6px; }
-    .call-progress-fill { height: 100%; border-radius: 99px; transition: width 0.6s ease; }
-    .call-progress-fill.all-done { background: linear-gradient(90deg, #10b981, #34d399); }
-    .call-progress-fill.in-progress { background: linear-gradient(90deg, #e63329, #f59e0b); }
-    .call-progress-chips { display: flex; gap: 8px; flex-wrap: wrap; }
-    .cp-chip { font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 99px; }
-    .cp-chip.nr  { background: #FCE4D6; color: #9a3412; }
-    .cp-chip.bv  { background: #FFF2CC; color: #92400e; }
-    .cp-chip.done { background: #dcfce7; color: #166534; }
-
-    /* ===== Leads Section ===== */
-    .section-header { display: flex; justify-content: space-between; align-items: center; margin: 16px 0 10px; }
-    .section-title { font-size: 15px; font-weight: 700; color: #374151; }
-    .active-filter-label { font-size: 12px; color: #e63329; font-weight: 600; background: #fff5f5; padding: 3px 10px; border-radius: 20px; display: none; }
-    .active-filter-label.show { display: block; }
-    .search-wrap { position: relative; margin-bottom: 10px; }
-    .search-input {
-      width: 100%; padding: 12px 16px 12px 44px; border: 2px solid #e5e7eb;
-      border-radius: 12px; font-size: 15px; font-family: 'Cairo', sans-serif;
-      direction: rtl; background: white; transition: border-color 0.15s;
-    }
-    .search-input:focus { outline: none; border-color: #e63329; }
-    .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: #9ca3af; pointer-events: none; }
-
-    /* ===== Swipe Lead Rows ===== */
-    .lead-wrapper {
-      position: relative; border-radius: 12px; margin-bottom: 8px;
-      overflow: hidden;
-    }
-    .lead-swipe-actions {
-      position: absolute; inset: 0; left: 0;
-      width: 130px;
-      display: flex; align-items: center; justify-content: center; gap: 6px;
-      background: linear-gradient(90deg, #1a1a1a, #2d2d2d);
-      border-radius: 12px;
-    }
-    .swa-btn {
-      width: 46px; height: 46px; border-radius: 12px; border: none;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      font-size: 18px; cursor: pointer; gap: 1px;
-    }
-    .swa-label { font-size: 9px; font-family: 'Cairo', sans-serif; font-weight: 600; }
-    .swa-call  { background: #10b981; color: white; }
-    .swa-note  { background: #3b82f6; color: white; }
-
-    .lead-row {
-      background: white; border-radius: 12px; padding: 13px 14px;
+    .goal-meta {
       display: flex; justify-content: space-between; align-items: center;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.07);
-      cursor: pointer; transition: transform 0.25s ease; will-change: transform;
-      position: relative; z-index: 1;
-    }
-    .lead-wrapper.swiped .lead-row {
-      transform: translateX(130px);
-      border-radius: 0 12px 12px 0;
-    }
-    .lead-row:active { background: #fafafa; }
-    .lead-main { flex: 1; min-width: 0; }
-    .lead-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
-    .lead-name { font-weight: 700; font-size: 15px; color: #1a1a1a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .lead-phone { font-size: 12px; color: #6b7280; direction: ltr; text-align: right; margin-top: 2px; }
-    .lead-note-preview { font-size: 11px; color: #3b82f6; margin-top: 3px; display: flex; align-items: center; gap: 3px; }
-    .lead-badges { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
-    .lead-status { padding: 4px 10px; border-radius: 20px; font-size: 11px; font-weight: 700; white-space: nowrap; }
-    .s-rdv { background: #E2EFDA; color: #2d6a4f; }
-    .s-bv  { background: #FFF2CC; color: #7d6608; }
-    .s-nr  { background: #FCE4D6; color: #9c2a10; }
-    .s-pi  { background: #F2CEEF; color: #6d1f6b; }
-    .s-av  { background: #DDEBF7; color: #154360; }
-    .s-reg { background: #dcfce7; color: #166534; }
-    .icon-btn {
-      width: 36px; height: 36px; border-radius: 10px; border: none;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 16px; cursor: pointer; flex-shrink: 0;
-    }
-    .icon-btn-green { background: #e6faf3; color: #10b981; }
-    .icon-btn-red   { background: #fff0ef; color: #e63329; }
-
-    /* ===== Lead Detail ===== */
-    .lead-detail { display: none; padding: 12px 0 4px; border-top: 1px solid #f3f4f6; margin-top: 10px; }
-    .lead-detail.open { display: block; }
-    .lead-detail-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 13px; color: #374151; }
-    .lead-detail-label { color: #9ca3af; }
-    .lead-detail-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-    .status-select {
-      flex: 1; padding: 9px 10px; border: 2px solid #e5e7eb; border-radius: 10px;
-      font-family: 'Cairo', sans-serif; font-size: 14px; background: white; cursor: pointer; min-width: 0;
-    }
-    .status-select:focus { outline: none; border-color: #e63329; }
-    .btn-update-status {
-      padding: 9px 16px; background: #e63329; color: white; border: none;
-      border-radius: 10px; font-family: 'Cairo', sans-serif; font-size: 14px;
-      font-weight: 600; cursor: pointer; white-space: nowrap; min-height: 44px;
-    }
-    .btn-update-status:disabled { background: #9ca3af; cursor: not-allowed; }
-    .btn-register {
-      padding: 11px 18px; background: #10b981; color: white; border: none;
-      border-radius: 10px; font-family: 'Cairo', sans-serif; font-size: 14px;
-      font-weight: 700; cursor: pointer; white-space: nowrap; margin-top: 8px;
-      width: 100%; min-height: 48px;
-    }
-    .btn-register:disabled { background: #9ca3af; cursor: not-allowed; }
-
-    /* ===== Note Input ===== */
-    .note-section { margin-top: 10px; }
-    .note-label { font-size: 12px; color: #9ca3af; margin-bottom: 5px; display: flex; align-items: center; gap: 4px; }
-    .note-textarea {
-      width: 100%; padding: 10px 12px; border: 2px solid #e5e7eb; border-radius: 10px;
-      font-family: 'Cairo', sans-serif; font-size: 13px; resize: none; direction: rtl;
-      min-height: 72px; color: #374151; transition: border-color 0.15s;
-    }
-    .note-textarea:focus { outline: none; border-color: #3b82f6; }
-    .note-saved-hint { font-size: 11px; color: #10b981; margin-top: 4px; display: none; }
-
-    /* ===== Popups ===== */
-    .popup-sheet {
-      display: none; position: fixed; bottom: 0; left: 0; right: 0;
-      background: white; border-radius: 24px 24px 0 0;
-      padding: 20px 20px max(20px, env(safe-area-inset-bottom));
-      box-shadow: 0 -8px 40px rgba(0,0,0,0.18); z-index: 1001;
-      max-height: 90vh; overflow-y: auto;
-    }
-    .popup-sheet.show { display: block; animation: slideUp 0.3s ease; }
-    @keyframes slideUp { from { transform: translateY(60px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-    .popup-handle { width: 40px; height: 4px; background: #e5e7eb; border-radius: 2px; margin: 0 auto 16px; }
-    .popup-title { font-size: 17px; font-weight: 700; color: #1a1a1a; margin-bottom: 14px; }
-    .popup-subtitle { font-size: 13px; color: #6b7280; margin-bottom: 14px; margin-top: -8px; }
-    .popup-btn {
-      display: flex; align-items: center; justify-content: center; gap: 8px;
-      width: 100%; padding: 14px; margin-bottom: 10px; border: none;
-      border-radius: 14px; font-size: 15px; font-family: 'Cairo', sans-serif;
-      font-weight: 600; cursor: pointer; text-decoration: none; text-align: center;
-      min-height: 52px;
-    }
-    .popup-btn:active { opacity: 0.85; }
-    .popup-btn-normal { background: #fff0ef; color: #a61c10; }
-    .popup-btn-wa     { background: #dcfce7; color: #166534; }
-    .popup-btn-cancel { background: #f3f4f6; color: #6b7280; }
-    .popup-btn-primary { background: #e63329; color: white; }
-    .popup-btn-green  { background: #10b981; color: white; }
-    .popup-btn-logha    { background: #fff0ef; color: #a61c10; }
-    .popup-btn-maharat  { background: #e0f2fe; color: #075985; }
-    .popup-btn-takwin   { background: #fef3c7; color: #92400e; }
-    .popup-input {
-      width: 100%; padding: 12px 14px; border: 2px solid #e5e7eb; border-radius: 12px;
-      font-size: 15px; font-family: 'Cairo', sans-serif; margin-bottom: 14px;
-    }
-    .popup-input:focus { outline: none; border-color: #e63329; }
-    .overlay {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.5); z-index: 1000; backdrop-filter: blur(2px);
-    }
-    .overlay.show { display: block; }
-
-    /* ===== Goal Popup Form ===== */
-    .form-group { margin-bottom: 12px; }
-    .form-label { font-size: 13px; font-weight: 600; color: #374151; display: block; margin-bottom: 5px; }
-
-    /* ===== Misc ===== */
-    .empty-state { color: #9ca3af; text-align: center; padding: 30px 20px; font-size: 14px; }
-    .swap-badge { font-size: 10px; background: #f3f4f6; color: #6b7280; border-radius: 10px; padding: 1px 6px; }
-
-    @media (max-width: 360px) {
-      .money-amount { font-size: 42px; }
-      .stats-grid { gap: 8px; }
+      font-size: 11px; color: #9ca3af; margin-top: 6px;
     }
 
-    /* ===== Morning Briefing ===== */
-    .morning-card {
-      background: linear-gradient(135deg, #1a1a1a 0%, #2d1f1f 100%);
-      border-radius: 16px; padding: 16px 18px; margin-bottom: 12px;
-      color: white; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-      position: relative; overflow: hidden;
+    /* Goal setup form */
+    .goal-form { display: flex; flex-direction: column; gap: 10px; }
+    .goal-form label { font-size: 13px; font-weight: 600; color: #374151; }
+    .goal-form input {
+      width: 100%; padding: 10px 14px; border: 2px solid #e5e7eb; border-radius: 10px;
+      font-family: 'Cairo', sans-serif; font-size: 14px;
     }
-    .morning-card::before { content:'☀️'; position:absolute; left:-10px; top:-10px; font-size:70px; opacity:0.08; }
-    .morning-dismiss { position:absolute; top:10px; left:12px; background:rgba(255,255,255,0.1); border:none; color:rgba(255,255,255,0.6); border-radius:6px; padding:3px 8px; font-size:11px; cursor:pointer; }
-    .morning-greeting { font-size:15px; font-weight:700; margin-bottom:10px; }
-    .morning-chips { display:flex; gap:7px; flex-wrap:wrap; }
-    .morning-chip { background:rgba(255,255,255,0.12); border-radius:20px; padding:5px 12px; font-size:12px; font-weight:600; white-space:nowrap; }
-    .morning-chip.red   { background:rgba(230,51,41,0.35); }
-    .morning-chip.green { background:rgba(16,185,129,0.3); }
-    .morning-chip.gold  { background:rgba(245,158,11,0.3); }
-
-    /* ===== Rank Card ===== */
-    .rank-card {
-      background: white; border-radius: 14px; padding: 12px 16px;
-      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-      display: flex; align-items: center; gap: 14px;
+    .goal-form input:focus { outline: none; border-color: #e63329; }
+    .goal-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .goal-submit-btn {
+      background: #e63329; color: white; border: none; padding: 12px;
+      border-radius: 10px; font-size: 14px; font-weight: 700;
+      font-family: 'Cairo', sans-serif; cursor: pointer;
     }
-    .rank-badge-big {
-      width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 22px; font-weight: 900;
+    .goal-delete-btn {
+      background: none; border: 1px solid #ef4444; color: #ef4444;
+      padding: 6px 14px; border-radius: 8px; font-size: 12px;
+      font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600;
     }
-    .rank-1st { background: #fef3c7; color: #92400e; }
-    .rank-2nd { background: #e2e8f0; color: #334155; }
-    .rank-3rd { background: #fef0e7; color: #c2410c; }
-    .rank-other { background: #f3f4f6; color: #6b7280; }
-    .rank-info { flex: 1; min-width: 0; }
-    .rank-title { font-size: 13px; color: #9ca3af; font-weight: 600; }
-    .rank-pos { font-size: 20px; font-weight: 900; color: #1a1a1a; line-height: 1.2; }
-    .rank-gap { font-size: 11px; color: #e63329; font-weight: 600; margin-top: 2px; }
 
-    /* ===== Call Queue ===== */
-    .call-queue-card {
-      background: white; border-radius: 16px; padding: 14px 16px;
-      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-      border-right: 4px solid #f59e0b;
+    /* ===== Reports Table ===== */
+    .reports-table {
+      width: 100%; border-collapse: collapse; font-size: 12px;
     }
-    .cq-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-    .cq-title { font-size:14px; font-weight:700; color:#374151; }
-    .cq-badge { background:#f59e0b; color:white; border-radius:20px; padding:2px 10px; font-size:12px; font-weight:700; }
-    .cq-item { display:flex; flex-direction:column; padding:10px 0; border-bottom:1px solid #f3f4f6; gap:8px; }
-    .cq-item:last-child { border-bottom:none; padding-bottom:0; }
-    .cq-top { display:flex; align-items:center; justify-content:space-between; gap:6px; }
-    .cq-info { flex:1; min-width:0; }
-    .cq-name { font-size:13px; font-weight:700; color:#1a1a1a; }
-    .cq-meta { font-size:11px; color:#9ca3af; margin-top:1px; }
-    .cq-age { font-size:11px; font-weight:700; border-radius:6px; padding:2px 7px; }
-    .cq-age-urgent { background:#fef2f2; color:#dc2626; }
-    .cq-age-warn   { background:#fffbeb; color:#d97706; }
-    .cq-call-btn { background:#10b981; color:white; border:none; border-radius:8px; padding:7px 12px; font-family:'Cairo',sans-serif; font-size:12px; font-weight:600; cursor:pointer; white-space:nowrap; min-height:36px; }
-    .cq-status-row { display:flex; gap:6px; align-items:center; }
-    .cq-select { flex:1; padding:7px 8px; border:1.5px solid #e5e7eb; border-radius:8px; font-family:'Cairo',sans-serif; font-size:12px; background:white; color:#374151; }
-    .cq-update-btn { padding:7px 12px; background:#1a1a1a; color:white; border:none; border-radius:8px; font-family:'Cairo',sans-serif; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; }
-    .cq-update-btn:disabled { opacity:.4; cursor:default; }
-    .btn-visited-center { margin-top:8px; width:100%; padding:8px; background:#fef3c7; color:#92400e; border:1.5px solid #f59e0b; border-radius:8px; font-family:'Cairo',sans-serif; font-size:13px; font-weight:700; cursor:pointer; }
-    /* Registered students */
-    .reg-section { background:white; border-radius:16px; padding:14px 16px; margin-bottom:12px; box-shadow:0 2px 8px rgba(0,0,0,0.06); border-right:4px solid #10b981; display:none; }
-    .reg-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-    .reg-title { font-size:14px; font-weight:700; color:#065f46; }
-    .reg-count { background:#10b981; color:white; border-radius:20px; padding:2px 10px; font-size:12px; font-weight:700; }
-    .reg-item { display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid #f3f4f6; }
-    .reg-item:last-child { border-bottom:none; }
-    .reg-name { font-size:13px; font-weight:700; color:#1a1a1a; }
-    .reg-phone { font-size:11px; color:#9ca3af; margin-top:2px; }
-    .reg-type-badge { font-size:11px; font-weight:700; border-radius:6px; padding:3px 8px; }
-    .reg-logha   { background:#ffe5e3; color:#a61c10; }
-    .reg-maharat { background:#e0f2fe; color:#075985; }
-    .reg-takwin  { background:#fef3c7; color:#92400e; }
-
-    /* ===== Lead Age Badge ===== */
-    .lead-age-badge { display:inline-block; border-radius:5px; padding:1px 6px; font-size:10px; font-weight:700; margin-right:4px; vertical-align:middle; }
-    .age-hot   { background:#fef2f2; color:#dc2626; }
-    .age-warm  { background:#fffbeb; color:#d97706; }
-    .age-cool  { background:#f0fdf4; color:#16a34a; }
-
-    /* ===== RDV Tabs ===== */
-    .rdv-tabs { display:flex; gap:4px; margin-bottom:10px; }
-    .rdv-tab { flex:1; padding:6px; border:none; border-radius:8px; font-family:'Cairo',sans-serif; font-size:12px; font-weight:700; cursor:pointer; background:#f3f4f6; color:#6b7280; }
-    .rdv-tab.active { background:#10b981; color:white; }
-    .rdv-outcome-btns { display:flex; gap:6px; margin-top:4px; }
-    .rdv-show-btn  { flex:1; padding:6px; background:#10b981; color:white; border:none; border-radius:8px; font-family:'Cairo',sans-serif; font-size:12px; font-weight:700; cursor:pointer; }
-    .rdv-noshow-btn{ flex:1; padding:6px; background:#ef4444; color:white; border:none; border-radius:8px; font-family:'Cairo',sans-serif; font-size:12px; font-weight:700; cursor:pointer; }
-
-    /* ===== Status Donut Chart ===== */
-    .donut-card {
-      background: white; border-radius: 16px; padding: 14px 16px;
-      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    .reports-table th {
+      background: #f9fafb; padding: 8px 6px; text-align: center;
+      font-weight: 700; color: #6b7280; border-bottom: 2px solid #e5e7eb;
     }
-    .donut-title { font-size: 14px; font-weight: 700; color: #374151; margin-bottom: 10px; }
-    .donut-wrap { display: flex; align-items: center; gap: 14px; }
-    .donut-canvas-wrap { width: 120px; flex-shrink: 0; }
-    .donut-legend { flex: 1; display: flex; flex-direction: column; gap: 5px; }
-    .donut-leg-item { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
-    .donut-leg-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-left: 5px; flex-shrink: 0; }
-    .donut-leg-label { flex: 1; color: #374151; font-weight: 600; }
-    .donut-leg-val { font-weight: 900; color: #1a1a1a; }
-
-    /* ===== AI Coach ===== */
-    .coach-card {
-      background: white; border-radius: 16px; padding: 14px 16px;
-      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    .reports-table td {
+      padding: 8px 6px; text-align: center; border-bottom: 1px solid #f3f4f6;
     }
-    .coach-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
-    .coach-title { font-size:14px; font-weight:700; color:#374151; }
-    .coach-btn { background:linear-gradient(135deg,#e63329,#1a1a1a); color:white; border:none; border-radius:10px; padding:10px 16px; font-family:'Cairo',sans-serif; font-size:13px; font-weight:700; cursor:pointer; width:100%; }
-    .coach-btn:disabled { opacity:0.5; cursor:not-allowed; }
-    .coach-result { margin-top:12px; padding:12px; background:#f8fafc; border-radius:10px; font-size:13px; color:#374151; line-height:2; white-space:pre-wrap; border-right:3px solid #e63329; }
+    .reports-table tr:last-child td { border-bottom: none; }
+    .table-scroll { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
+
+    /* ===== Empty state ===== */
+    .empty-state {
+      text-align: center; padding: 24px 16px; color: #9ca3af;
+      font-size: 13px; font-weight: 600;
+    }
+
+    /* ===== Credentials Modal ===== */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 200; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-box {
+      background: white; border-radius: 16px; padding: 20px; width: 100%;
+      max-width: 360px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    .modal-title { font-size: 15px; font-weight: 700; margin-bottom: 14px; text-align: center; }
+    .modal-field { margin-bottom: 10px; }
+    .modal-field label { font-size: 12px; font-weight: 600; color: #374151; display: block; margin-bottom: 4px; }
+    .modal-field input {
+      width: 100%; padding: 10px; border: 2px solid #e5e7eb; border-radius: 10px;
+      font-family: 'Cairo', sans-serif; font-size: 14px;
+    }
+    .modal-field input:focus { outline: none; border-color: #e63329; }
+    .modal-btns { display: flex; gap: 8px; margin-top: 14px; }
+    .modal-btns button {
+      flex: 1; padding: 10px; border-radius: 10px; font-family: 'Cairo', sans-serif;
+      font-size: 13px; font-weight: 700; cursor: pointer;
+    }
+    .modal-save { background: #e63329; color: white; border: none; }
+    .modal-cancel { background: #f3f4f6; color: #374151; border: none; }
+    .modal-msg { font-size: 12px; text-align: center; margin-top: 8px; font-weight: 600; }
+    .modal-msg.ok { color: #059669; }
+    .modal-msg.err { color: #ef4444; }
+
+    /* Loading spinner */
+    .loading { text-align: center; padding: 40px; color: #9ca3af; font-size: 14px; }
   </style>
 </head>
 <body>
-  <header>
-    <div class="header-left">
-      <img src="/logo.png" class="header-logo" alt="Marzouk" />
-      <div class="header-greeting">مرحباً، <span id="agent-name"></span></div>
-    </div>
-    <div class="header-right">
-      <div class="avatar-wrap" onclick="document.getElementById('pic-input').click()" title="تغيير الصورة">
-        <div class="avatar" id="avatar-circle">👤</div>
-      </div>
-      <input type="file" id="pic-input" accept="image/*" style="display:none" onchange="saveProfilePic(this)" />
-      <a href="settings.html" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);color:white;padding:7px 12px;border-radius:8px;font-family:'Cairo',sans-serif;font-size:13px;font-weight:600;text-decoration:none">⚙️</a>
-      <button class="btn-logout" onclick="logout()">خروج</button>
-    </div>
-  </header>
 
-  <div class="container">
+<header>
+  <div class="header-left">
+    <span class="header-greeting" id="greeting">مرحباً</span>
+  </div>
+  <div class="header-right">
+    <div class="avatar" id="avatarBtn" title="الإعدادات"></div>
+    <button class="logout-btn" onclick="logout()">خروج</button>
+  </div>
+</header>
 
-    <!-- Morning Briefing (hidden by default, shown via JS) -->
-    <div class="morning-card" id="morning-card" style="display:none">
-      <button class="morning-dismiss" onclick="dismissMorning()">✕</button>
-      <div class="morning-greeting" id="morning-greeting">صباح الخير 👋</div>
-      <div class="morning-chips" id="morning-chips"></div>
+<div class="container">
+
+  <!-- CTA -->
+  <a href="submit.html" class="cta-btn">إرسال التقرير اليومي</a>
+
+  <!-- Stats Cards -->
+  <div class="stats-grid">
+    <div class="stat-card messages">
+      <div class="stat-value" id="statMessages">-</div>
+      <div class="stat-label">الرسائل</div>
     </div>
-
-    <!-- Money Score Card -->
-    <div class="money-card">
-      <div class="money-label">إجمالي أرباحك 💵</div>
-      <div class="money-amount-row">
-        <div class="money-amount" id="money-amount">0</div>
-        <div class="money-currency">درهم</div>
-      </div>
-      <div id="money-breakdown" style="color:rgba(255,255,255,0.65);font-size:12px;margin-top:4px;display:none">
-        <span id="money-from-reg"></span> + <span id="money-from-bonus"></span>
-      </div>
-      <div class="inscre-row">
-        <div class="inscre-badge" id="inscre-badge" style="display:none"><span id="inscre-count">0</span> مسجل</div>
-        <button class="toggle-btn" id="toggle-btn" onclick="toggleInscre()">👁 إظهار العدد</button>
-        <button class="toggle-btn" onclick="openBonusModal()" style="background:rgba(251,191,36,0.2);border-color:rgba(251,191,36,0.5);color:#fbbf24">+ مكافأة</button>
-      </div>
+    <div class="stat-card rdv">
+      <div class="stat-value" id="statRdv">-</div>
+      <div class="stat-label">المواعيد</div>
     </div>
+    <div class="stat-card visits">
+      <div class="stat-value" id="statVisits">-</div>
+      <div class="stat-label">الزيارات</div>
+    </div>
+    <div class="stat-card registered">
+      <div class="stat-value" id="statRegistered">-</div>
+      <div class="stat-label">المسجلين</div>
+    </div>
+  </div>
 
-    <!-- Bonus Modal -->
-    <div id="bonus-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px">
-      <div style="background:white;border-radius:16px;padding:24px;width:100%;max-width:380px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-          <h3 style="font-size:16px;color:#1a1a1a">🎁 إضافة مكافأة</h3>
-          <button onclick="closeBonusModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:#6b7280">×</button>
+  <!-- Goal Section -->
+  <div class="section-card" id="goalSection">
+    <div class="section-title"><span class="icon">&#127919;</span> هدفي</div>
+    <div id="goalContent">
+      <div class="loading">جاري التحميل...</div>
+    </div>
+  </div>
+
+  <!-- Last 7 Days -->
+  <div class="section-card">
+    <div class="section-title"><span class="icon">&#128197;</span> آخر 7 أيام</div>
+    <div id="reportsContent">
+      <div class="loading">جاري التحميل...</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Credentials Modal -->
+<div class="modal-overlay" id="credModal">
+  <div class="modal-box">
+    <div class="modal-title">تغيير بيانات الدخول</div>
+    <div class="modal-field">
+      <label>كلمة المرور الحالية</label>
+      <input type="password" id="credCurrentPin" placeholder="****" />
+    </div>
+    <div class="modal-field">
+      <label>اسم جديد (اختياري)</label>
+      <input type="text" id="credNewName" />
+    </div>
+    <div class="modal-field">
+      <label>كلمة مرور جديدة (اختياري)</label>
+      <input type="password" id="credNewPin" placeholder="****" />
+    </div>
+    <div class="modal-btns">
+      <button class="modal-save" onclick="saveCredentials()">حفظ</button>
+      <button class="modal-cancel" onclick="closeCredModal()">إلغاء</button>
+    </div>
+    <div class="modal-msg" id="credMsg"></div>
+  </div>
+</div>
+
+<script>
+const API = window.location.origin;
+const token = localStorage.getItem('token');
+const agentName = localStorage.getItem('agentName') || '';
+
+if (!token) { location.href = '/index.html'; }
+
+function hdr() { return { 'Authorization': 'Bearer ' + token }; }
+function hdrJson() { return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }; }
+
+// ── Header ──
+document.getElementById('greeting').textContent = 'مرحباً ' + agentName;
+document.getElementById('avatarBtn').textContent = agentName.charAt(0) || '?';
+document.getElementById('avatarBtn').onclick = () => {
+  document.getElementById('credModal').classList.add('show');
+};
+
+function logout() {
+  localStorage.clear();
+  location.href = '/index.html';
+}
+
+// ── Credentials Modal ──
+function closeCredModal() {
+  document.getElementById('credModal').classList.remove('show');
+  document.getElementById('credMsg').textContent = '';
+}
+
+async function saveCredentials() {
+  const current = document.getElementById('credCurrentPin').value.trim();
+  const newName = document.getElementById('credNewName').value.trim();
+  const newPin = document.getElementById('credNewPin').value.trim();
+  const msgEl = document.getElementById('credMsg');
+
+  if (!current) { msgEl.className = 'modal-msg err'; msgEl.textContent = 'أدخل كلمة المرور الحالية'; return; }
+  if (!newName && !newPin) { msgEl.className = 'modal-msg err'; msgEl.textContent = 'أدخل اسم أو كلمة مرور جديدة'; return; }
+
+  try {
+    const res = await fetch(API + '/agents/me/credentials', {
+      method: 'PATCH', headers: hdrJson(),
+      body: JSON.stringify({ current_pin: current, new_name: newName || undefined, new_pin: newPin || undefined })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.detail || 'خطأ');
+    msgEl.className = 'modal-msg ok';
+    msgEl.textContent = data.message || 'تم التحديث';
+    if (data.name_changed && newName) {
+      localStorage.setItem('agentName', newName);
+      document.getElementById('greeting').textContent = 'مرحباً ' + newName;
+      document.getElementById('avatarBtn').textContent = newName.charAt(0);
+    }
+    setTimeout(closeCredModal, 1500);
+  } catch (e) {
+    msgEl.className = 'modal-msg err';
+    msgEl.textContent = e.message;
+  }
+}
+
+// ── Load Stats (last 30 days) ──
+async function loadStats() {
+  try {
+    const today = new Date();
+    const from = new Date(today);
+    from.setDate(from.getDate() - 29);
+    const dateFrom = from.toISOString().split('T')[0];
+    const dateTo = today.toISOString().split('T')[0];
+
+    const res = await fetch(API + `/reports/my?date_from=${dateFrom}&date_to=${dateTo}`, { headers: hdr() });
+    if (!res.ok) throw new Error();
+    const reports = await res.json();
+
+    let messages = 0, rdv = 0, visits = 0, registered = 0;
+    for (const r of reports) {
+      messages += r.messages || 0;
+      rdv += r.rdv || 0;
+      visits += r.visits || 0;
+      registered += r.registered || 0;
+    }
+
+    document.getElementById('statMessages').textContent = messages;
+    document.getElementById('statRdv').textContent = rdv;
+    document.getElementById('statVisits').textContent = visits;
+    document.getElementById('statRegistered').textContent = registered;
+  } catch (e) {
+    console.error('Stats error:', e);
+  }
+}
+
+// ── Load Goal ──
+let goalChart = null;
+
+async function loadGoal() {
+  const container = document.getElementById('goalContent');
+  try {
+    const res = await fetch(API + '/reports/goals', { headers: hdr() });
+    if (!res.ok) throw new Error();
+    const goals = await res.json();
+
+    // Find active goal (end_date >= today)
+    const today = new Date().toISOString().split('T')[0];
+    const active = goals.find(g => g.end_date >= today);
+
+    if (!active) {
+      container.innerHTML = renderGoalForm();
+      return;
+    }
+
+    // Load progress
+    const pRes = await fetch(API + `/reports/goals/${active.id}/progress`, { headers: hdr() });
+    if (!pRes.ok) throw new Error();
+    const progress = await pRes.json();
+
+    container.innerHTML = renderGoalProgress(active, progress);
+    renderGoalChart(active, progress);
+  } catch (e) {
+    console.error('Goal error:', e);
+    container.innerHTML = renderGoalForm();
+  }
+}
+
+function renderGoalForm() {
+  const today = new Date().toISOString().split('T')[0];
+  const nextMonth = new Date();
+  nextMonth.setMonth(nextMonth.getMonth() + 1);
+  const endDefault = nextMonth.toISOString().split('T')[0];
+
+  return `
+    <div class="empty-state" style="margin-bottom:10px">لم تحدد هدفاً بعد. حدد هدفك لتتبع تقدمك!</div>
+    <div class="goal-form" id="goalForm">
+      <div>
+        <label>عدد المسجلين المستهدف</label>
+        <input type="number" id="goalTarget" min="1" placeholder="مثال: 30" />
+      </div>
+      <div class="goal-form-row">
+        <div>
+          <label>تاريخ البداية</label>
+          <input type="date" id="goalStart" value="${today}" />
         </div>
-        <div id="bonus-alert" style="margin-bottom:12px"></div>
-        <input type="number" id="bonus-amount" placeholder="المبلغ بالدرهم" min="1"
-          style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:16px;font-family:'Cairo',sans-serif;margin-bottom:10px;direction:ltr;text-align:center" />
-        <input type="text" id="bonus-note" placeholder="السبب (اختياري — مثال: تجاوز 5 تسجيلات)"
-          style="width:100%;padding:12px;border:2px solid #e5e7eb;border-radius:8px;font-size:14px;font-family:'Cairo',sans-serif;margin-bottom:16px" />
-        <button onclick="saveBonus()" style="width:100%;background:#e63329;color:white;border:none;border-radius:10px;padding:13px;font-family:'Cairo',sans-serif;font-size:15px;font-weight:700;cursor:pointer">
-          حفظ المكافأة
-        </button>
-        <div id="bonus-list-section" style="margin-top:16px"></div>
-      </div>
-    </div>
-
-    <!-- Rank Card (hidden from agents) -->
-    <!-- rank card intentionally hidden -->
-
-    <!-- Today / Tomorrow RDV Widget -->
-    <div class="today-rdv-card" id="today-rdv-card" style="display:none">
-      <div class="today-rdv-header">
-        <div class="today-rdv-title">📅 المواعيد</div>
-        <span class="today-rdv-badge" id="rdv-count-badge">0</span>
-      </div>
-      <div class="rdv-tabs">
-        <button class="rdv-tab active" onclick="setRdvTab('today')">اليوم</button>
-        <button class="rdv-tab" onclick="setRdvTab('tomorrow')">غداً</button>
-        <button class="rdv-tab" onclick="setRdvTab('week')">هذا الأسبوع</button>
-      </div>
-      <div id="rdv-tab-content"></div>
-    </div>
-
-    <!-- Daily Call Queue -->
-    <div class="call-queue-card" id="call-queue-card" style="display:none">
-      <div class="cq-header">
-        <div class="cq-title">📞 قائمة الاتصال اليوم</div>
-        <span class="cq-badge" id="cq-badge">0</span>
-      </div>
-      <div id="cq-list"></div>
-    </div>
-
-    <!-- Goal Card -->
-    <div class="goal-card">
-      <div class="goal-header">
-        <div class="goal-title">🎯 هدفي</div>
-        <div id="goal-btns"></div>
-      </div>
-      <div id="goal-body"></div>
-    </div>
-
-    <!-- Stats Grid -->
-    <div class="stats-grid">
-      <div class="stat-card" id="card-all" onclick="setFilter(null,'card-all')">
-        <div class="num" id="total">0</div><div class="label">إجمالي العملاء</div>
-      </div>
-      <div class="stat-card" id="card-rdv" onclick="window.location.href='rdv.html'" style="cursor:pointer">
-        <div class="num" id="rdv-count">0</div><div class="label">RDV 📅</div>
-      </div>
-      <div class="stat-card" id="card-bv" onclick="setFilter('B.V','card-bv')">
-        <div class="num" id="bv-count">0</div><div class="label">B.V</div>
-      </div>
-      <div class="stat-card" id="card-nr" onclick="setFilter('N.R','card-nr')">
-        <div class="num" id="nr-count">0</div><div class="label">N.R</div>
-      </div>
-    </div>
-
-    <!-- Conversion Funnel -->
-    <div class="funnel-card" id="funnel-card" style="display:none">
-      <div class="funnel-title">📊 قمع التحويل</div>
-      <div class="funnel-stages" id="funnel-stages"></div>
-    </div>
-
-    <!-- Status Breakdown Donut -->
-    <div class="donut-card" id="donut-card" style="display:none">
-      <div class="donut-title">🥧 توزيع العملاء حسب الحالة</div>
-      <div class="donut-wrap">
-        <div class="donut-canvas-wrap"><canvas id="donut-chart" width="120" height="120"></canvas></div>
-        <div class="donut-legend" id="donut-legend"></div>
-      </div>
-    </div>
-
-    <!-- AI Personal Coach -->
-    <div class="coach-card">
-      <div class="coach-header">
-        <div class="coach-title">🤖 مدربي الشخصي</div>
-      </div>
-      <button class="coach-btn" id="coach-btn" onclick="runCoach()">✨ ما الذي يجب أن أحسّنه؟</button>
-      <div class="coach-result" id="coach-result" style="display:none"></div>
-    </div>
-
-    <!-- CTA Buttons -->
-    <div class="action-btns">
-      <a href="submit.html" class="action-btn">📸 إرسال قائمة اليوم</a>
-      <a href="rdv.html" class="action-btn secondary">📅 مواعيد RDV</a>
-    </div>
-
-    <!-- Registered Students Section -->
-    <div class="reg-section" id="reg-section">
-      <div class="reg-header" onclick="toggleRegList()" style="cursor:pointer">
-        <div class="reg-title">⭐ الطلاب المسجلون</div>
-        <div style="display:flex;align-items:center;gap:8px">
-          <span class="reg-count" id="reg-count">0</span>
-          <span id="reg-toggle-icon" style="font-size:12px;color:#9ca3af">▼</span>
+        <div>
+          <label>تاريخ النهاية</label>
+          <input type="date" id="goalEnd" value="${endDefault}" />
         </div>
       </div>
-      <div id="reg-list" style="display:none"></div>
+      <button class="goal-submit-btn" onclick="createGoal()">تحديد الهدف</button>
     </div>
+  `;
+}
 
-    <!-- Leads Section -->
-    <div class="section-header">
-      <div class="section-title">عملائي المحتملون</div>
-      <div class="active-filter-label" id="filter-label"></div>
+function renderGoalProgress(goal, progress) {
+  const delta = progress.delta;
+  let badgeClass, badgeText;
+  if (delta > 0) {
+    badgeClass = 'ahead';
+    badgeText = `+${delta} متقدم`;
+  } else if (delta < 0) {
+    badgeClass = 'behind';
+    badgeText = `${delta} متأخر`;
+  } else {
+    badgeClass = 'on-track';
+    badgeText = 'على المسار';
+  }
+
+  return `
+    <div style="text-align:center; margin-bottom:8px">
+      <span class="delta-badge ${badgeClass}">${badgeText}</span>
     </div>
-
-    <!-- Call Progress Bar -->
-    <div class="call-progress-card" id="call-progress-card" style="display:none">
-      <div class="call-progress-top">
-        <div class="call-progress-title">📞 تقدم المتابعة</div>
-        <div class="call-progress-count" id="cp-count-text"></div>
-      </div>
-      <div class="call-progress-bg">
-        <div class="call-progress-fill" id="cp-fill" style="width:0%"></div>
-      </div>
-      <div class="call-progress-chips">
-        <span class="cp-chip nr" id="cp-nr" style="display:none"></span>
-        <span class="cp-chip bv" id="cp-bv" style="display:none"></span>
-        <span class="cp-chip done" id="cp-done" style="display:none"></span>
-      </div>
+    <div class="goal-chart-wrap">
+      <canvas id="goalChartCanvas"></canvas>
     </div>
-
-    <div class="search-wrap">
-      <input class="search-input" id="search-input" placeholder="بحث بالاسم أو رقم الهاتف..." oninput="filterLeads()" />
-      <span class="search-icon">🔍</span>
+    <div class="goal-meta">
+      <span>الهدف: ${goal.target_registered} مسجل</span>
+      <span>${goal.start_date} → ${goal.end_date}</span>
     </div>
-    <div id="leads-list"></div>
-
-  </div>
-
-  <div class="overlay" id="overlay" onclick="closeAllPopups()"></div>
-
-  <!-- Call Popup -->
-  <div class="popup-sheet" id="call-popup">
-    <div class="popup-handle"></div>
-    <div class="popup-title">اتصل بـ <span id="popup-name"></span></div>
-    <a class="popup-btn popup-btn-normal" id="call-normal-btn">📱 مكالمة عادية</a>
-    <a class="popup-btn popup-btn-wa" id="call-wa-btn" target="_blank">💬 واتساب</a>
-    <button class="popup-btn popup-btn-cancel" onclick="closeAllPopups()">إلغاء</button>
-  </div>
-
-  <!-- RDV Popup -->
-  <div class="popup-sheet" id="rdv-popup">
-    <div class="popup-handle"></div>
-    <div class="popup-title">حجز موعد RDV</div>
-    <div class="popup-subtitle" id="rdv-lead-name"></div>
-    <label class="form-label">تاريخ ووقت الموعد</label>
-    <input type="datetime-local" id="rdv-date-input" class="popup-input" />
-    <button class="popup-btn popup-btn-primary" onclick="confirmRdv()">✅ تأكيد الموعد</button>
-    <button class="popup-btn popup-btn-cancel" onclick="closeAllPopups()">إلغاء</button>
-  </div>
-
-  <!-- Edit Lead Popup -->
-  <div class="popup-sheet" id="edit-lead-popup">
-    <div class="popup-handle"></div>
-    <div class="popup-title">✏️ تعديل بيانات العميل</div>
-    <input type="hidden" id="edit-lead-id" />
-    <div class="edit-popup-field">
-      <label class="edit-popup-label">الاسم</label>
-      <input type="text" id="edit-name" class="edit-popup-input" placeholder="اسم العميل" />
+    <div style="text-align:center; margin-top:10px">
+      <button class="goal-delete-btn" onclick="deleteGoal('${goal.id}')">حذف الهدف</button>
     </div>
-    <div class="edit-popup-field">
-      <label class="edit-popup-label">رقم الهاتف</label>
-      <input type="tel" id="edit-phone" class="edit-popup-input" placeholder="06XXXXXXXX" dir="ltr" />
-    </div>
-    <div class="edit-popup-field">
-      <label class="edit-popup-label">المستوى</label>
-      <input type="text" id="edit-level" class="edit-popup-input" placeholder="Bac, Bac+2, ..." />
-    </div>
-    <div class="edit-popup-field">
-      <label class="edit-popup-label">المدينة</label>
-      <input type="text" id="edit-city" class="edit-popup-input" placeholder="Casablanca, Tanger, ..." />
-    </div>
-    <button class="popup-btn popup-btn-primary" onclick="saveLeadInfo()">💾 حفظ التعديلات</button>
-    <button class="popup-btn popup-btn-cancel" onclick="closeAllPopups()">إلغاء</button>
-  </div>
+  `;
+}
 
-  <!-- Register Popup -->
-  <div class="popup-sheet" id="register-popup">
-    <div class="popup-handle"></div>
-    <div class="popup-title">تسجيل الطالب 🎓</div>
-    <div class="popup-subtitle" id="register-lead-name"></div>
-    <button class="popup-btn popup-btn-logha" onclick="doRegister('logha')">
-      📚 اللغة فقط
-      <span style="font-size:12px;font-weight:400;display:block;margin-top:2px">1 مسجل — 100 درهم</span>
-    </button>
-    <button class="popup-btn popup-btn-maharat" onclick="doRegister('maharat')">
-      🛠️ المهارات فقط
-      <span style="font-size:12px;font-weight:400;display:block;margin-top:2px">1 مسجل — 100 درهم</span>
-    </button>
-    <button class="popup-btn popup-btn-takwin" onclick="doRegister('takwin')">
-      🎓 كليهما
-      <span style="font-size:12px;font-weight:400;display:block;margin-top:2px">2 مسجل — 200 درهم</span>
-    </button>
-    <button class="popup-btn popup-btn-cancel" onclick="closeAllPopups()">إلغاء</button>
-  </div>
+function renderGoalChart(goal, progress) {
+  const ctx = document.getElementById('goalChartCanvas');
+  if (!ctx) return;
 
-  <!-- Goal Popup -->
-  <div class="popup-sheet" id="goal-popup">
-    <div class="popup-handle"></div>
-    <div class="popup-title">🎯 إضافة هدف</div>
+  // Target line data: start to end
+  const targetData = [
+    { x: goal.start_date, y: 0 },
+    { x: goal.end_date, y: goal.target_registered }
+  ];
 
-    <div class="form-group">
-      <label class="form-label">اسم الهدف</label>
-      <input type="text" id="goal-name-inp" class="popup-input" placeholder="مثال: هدف اليوم" style="margin-bottom:0" />
-    </div>
+  // Actual cumulative data
+  const actualData = progress.cumulative.map(p => ({ x: p.date, y: p.value }));
 
-    <div class="form-group" style="margin-top:10px">
-      <label class="form-label">حجم الهدف</label>
-      <div class="goal-type-row">
-        <button class="goal-type-btn active" data-type="small"  onclick="selectGoalType('small',this)">🎯 صغير<span>يومي</span></button>
-        <button class="goal-type-btn"        data-type="medium" onclick="selectGoalType('medium',this)">🚀 متوسط<span>أسبوعي</span></button>
-        <button class="goal-type-btn"        data-type="master" onclick="selectGoalType('master',this)">👑 كبير<span>شهري/مخصص</span></button>
-      </div>
-    </div>
+  // Add today if no data yet
+  if (actualData.length === 0) {
+    actualData.push({ x: new Date().toISOString().split('T')[0], y: 0 });
+  }
 
-    <div class="form-group" style="margin-top:10px">
-      <label class="form-label">ما تريد تحقيقه</label>
-      <select id="goal-metric" class="goal-metric-sel">
-        <option value="rdv">📅 مواعيد RDV محجوزة</option>
-        <option value="inscription">⭐ تسجيلات طلاب</option>
-        <option value="leads">👥 عملاء محتملون مُضافون</option>
-        <option value="showed_up">✅ حضور مؤكد</option>
-        <option value="visited">🏢 زيارات المركز</option>
-      </select>
-    </div>
+  // Determine line color based on delta
+  const lineColor = progress.delta >= 0 ? '#059669' : '#ef4444';
 
-    <div class="form-group">
-      <label class="form-label">الهدف (العدد)</label>
-      <input type="number" id="goal-target" class="popup-input" placeholder="مثال: 3" min="1" style="margin-bottom:0" />
-    </div>
+  if (goalChart) goalChart.destroy();
 
-    <div id="goal-custom-dates" style="display:none">
-      <div class="form-group" style="margin-top:8px">
-        <label class="form-label">من تاريخ</label>
-        <input type="date" id="goal-start" class="popup-input" style="margin-bottom:0" />
-      </div>
-      <div class="form-group" style="margin-top:8px">
-        <label class="form-label">إلى تاريخ</label>
-        <input type="date" id="goal-end" class="popup-input" style="margin-bottom:0" />
-      </div>
-    </div>
-
-    <div style="height:14px"></div>
-    <button class="popup-btn popup-btn-primary" onclick="saveGoal()">✅ حفظ الهدف</button>
-    <button class="popup-btn popup-btn-cancel" onclick="closeAllPopups()">إلغاء</button>
-  </div>
-
-  <script>
-    const API = window.location.origin;
-    const token = localStorage.getItem('token');
-    if (!token || localStorage.getItem('role') !== 'agent') window.location.href = '/index.html';
-
-    document.getElementById('agent-name').textContent = localStorage.getItem('name');
-
-    const STATUS_CLASS = {
-      'RDV': 's-rdv', 'B.V': 's-bv', 'N.R': 's-nr',
-      'P.I': 's-pi', 'Autre ville': 's-av', 'Blacklist': 's-pi',
-      'visited_center':   's-bv',
-      'cancelled_visit':  's-nr',
-      'cancelled_rdv':    's-nr',
-      'interested':       's-rdv',
-      'registered_logha': 's-reg', 'registered_maharat': 's-reg', 'registered_takwin': 's-reg'
-    };
-    const STATUS_LABEL = {
-      'visited_center':   '🏢 زار المركز',
-      'cancelled_visit':  '❌ ألغى الزيارة',
-      'cancelled_rdv':    '❌ ألغى الموعد',
-      'interested':       '👍 مهتم',
-      'registered_logha': '✅ مسجل - لغة',
-      'registered_maharat': '✅ مسجل - مهارات',
-      'registered_takwin': '✅ مسجل - كليهما'
-    };
-
-    const agentId = localStorage.getItem('agent_id');
-    const GOAL_KEY   = `agentGoal_${agentId}`;
-    const INSCRE_KEY = `showInscre_${agentId}`;
-
-    let agentGoals = [];
-    let allLeads = [];
-    let allRdvs  = [];
-    let currentStats = {};
-    let showInscre = localStorage.getItem(INSCRE_KEY) === 'true';
-    let bonusList = [];
-    let currentRegisterLeadId = null;
-    let currentRdvLeadId = null;
-    const registeringLeads = new Set();
-    let activeFilter = null;
-    let activeCardId = null;
-    let currentSwipedWrapper = null;
-    let rdvTab  = 'today';
-    let donutChart = null;
-    let rankData = null;
-
-    // ===== Profile Picture =====
-    function loadProfilePic() {
-      const pic = localStorage.getItem('avatar_cache') || localStorage.getItem(`profilePic_${agentId}`);
-      const el = document.getElementById('avatar-circle');
-      if (pic) el.innerHTML = `<img src="${pic}" />`;
-    }
-
-    async function saveAvatar(dataUrl) {
-      // Update UI immediately
-      const img = document.querySelector('.avatar img');
-      if (img) img.src = dataUrl;
-      else {
-        const el = document.getElementById('avatar-circle');
-        el.innerHTML = `<img src="${dataUrl}" />`;
-      }
-      // Save to both cache keys — avatar_cache is session-only, profilePic_ survives logout
-      localStorage.setItem('avatar_cache', dataUrl);
-      if (agentId) localStorage.setItem(`profilePic_${agentId}`, dataUrl);
-      // Persist to DB
-      try {
-        const res = await fetch(`${API}/agents/me`, {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ avatar_url: dataUrl })
-        });
-        if (!res.ok) console.warn('Avatar DB save failed', await res.text());
-      } catch(e) { console.warn('Avatar save failed', e); }
-    }
-
-    function saveProfilePic(input) {
-      const file = input.files[0]; if (!file) return;
-      // Compress to max 200x200 using canvas
-      const img = new Image();
-      const objectUrl = URL.createObjectURL(file);
-      img.onload = () => {
-        const MAX = 200;
-        const scale = Math.min(MAX / img.width, MAX / img.height, 1);
-        const canvas = document.createElement('canvas');
-        canvas.width  = Math.round(img.width * scale);
-        canvas.height = Math.round(img.height * scale);
-        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(objectUrl);
-        saveAvatar(canvas.toDataURL('image/jpeg', 0.82));
-      };
-      img.src = objectUrl;
-    }
-    loadProfilePic();
-
-    // ===== Load Dashboard =====
-    async function loadDashboard() {
-      const h = { Authorization: `Bearer ${token}` };
-      const [leadsRes, rdvsRes, rankRes, bonusRes] = await Promise.all([
-        fetch(`${API}/leads/my`, { headers: h }),
-        fetch(`${API}/rdv/my`, { headers: h }),
-        fetch(`${API}/agents/my-rank`, { headers: h }),
-        fetch(`${API}/agents/me/bonuses`, { headers: h }),
-      ]);
-      bonusList = bonusRes.ok ? await bonusRes.json() : [];
-
-      if (!leadsRes.ok) { logout(); return; }
-      allLeads = await leadsRes.json();
-      allRdvs  = rdvsRes.ok ? await rdvsRes.json() : [];
-      rankData = rankRes.ok ? await rankRes.json() : null;
-
-      // Stats
-      currentStats = {};
-      const total = allLeads.length;
-      currentStats.total        = total;
-      currentStats.RDV          = allLeads.filter(l=>l.status==='RDV').length;
-      currentStats['B.V']       = allLeads.filter(l=>l.status==='B.V').length;
-      currentStats['N.R']       = allLeads.filter(l=>l.status==='N.R').length;
-      currentStats['P.I']       = allLeads.filter(l=>l.status==='P.I').length;
-      currentStats['Autre ville'] = allLeads.filter(l=>l.status==='Autre ville').length;
-
-      const myRdvs   = allRdvs;
-      const rdvTotal = myRdvs.length;
-      const showed   = myRdvs.filter(r=>r.status==='showed_up').length;
-      const regLeads = allLeads.filter(l=>l.status==='registered_logha'||l.status==='registered_maharat'||l.status==='registered_takwin');
-      currentStats.showed_up          = showed;
-      currentStats.total_rdv_booked   = rdvTotal;
-      currentStats.registered_students = regLeads.length;
-      currentStats.registered_inscre  = regLeads.filter(l=>l.status==='registered_logha').length
-                                       + regLeads.filter(l=>l.status==='registered_maharat').length
-                                       + regLeads.filter(l=>l.status==='registered_takwin').length * 2;
-
-      // Restore profile from DB
-      try {
-        const profileRes = await fetch(`${API}/agents/me`, { headers: h });
-        if (profileRes.ok) {
-          const profile = await profileRes.json();
-          // Avatar
-          if (profile.avatar_url) {
-            localStorage.setItem('avatar_cache', profile.avatar_url);
-            const img = document.querySelector('.avatar img');
-            if (img) { img.src = profile.avatar_url; img.style.display = 'block'; }
-            else {
-              const el = document.getElementById('avatar-circle');
-              if (el) el.innerHTML = `<img src="${profile.avatar_url}" />`;
-            }
-          }
-          // Load goals — DB is always authoritative when column exists
-          // null/undefined = column missing → fall back to localStorage
-          // [] = agent deleted all goals → respect that, don't restore from localStorage
-          if (profile.goals !== null && profile.goals !== undefined) {
-            agentGoals = Array.isArray(profile.goals) ? profile.goals : [];
-            localStorage.setItem(GOAL_KEY, JSON.stringify(agentGoals));
-          } else {
-            // Column doesn't exist yet — fall back to localStorage
-            const localGoals = localStorage.getItem(GOAL_KEY);
-            if (localGoals) {
-              try {
-                const parsed = JSON.parse(localGoals);
-                agentGoals = Array.isArray(parsed) ? parsed
-                  : [{ ...parsed, id: Date.now().toString(), name: 'هدفي', type: 'master', metric: 'inscription', target: parsed.targetStudents || 10 }];
-                await saveGoalsToDB(agentGoals);
-              } catch(e) {}
-            }
-          }
-          renderGoals();
+  goalChart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      datasets: [
+        {
+          label: 'الهدف',
+          data: targetData,
+          borderColor: '#9ca3af',
+          borderDash: [8, 4],
+          borderWidth: 2,
+          pointRadius: 0,
+          fill: false,
+          tension: 0
+        },
+        {
+          label: 'الفعلي',
+          data: actualData,
+          borderColor: lineColor,
+          backgroundColor: lineColor + '20',
+          borderWidth: 3,
+          pointRadius: 3,
+          pointBackgroundColor: lineColor,
+          fill: true,
+          tension: 0.3
         }
-      } catch(e) { console.warn('Profile load failed', e); }
-
-      updateMoneyCard();
-      renderStats();
-      renderFunnel();
-      renderGoals();
-      renderTodayRdvWidget();
-      renderCallQueue();
-      renderDonutChart();
-      // rank card hidden from agents
-      renderMorningBriefing();
-      applyFilters();
-    }
-
-    // ===== Render Stats =====
-    function renderStats() {
-      document.getElementById('total').textContent     = currentStats.total   || 0;
-      document.getElementById('rdv-count').textContent = currentStats['RDV']  || 0;
-      document.getElementById('bv-count').textContent  = currentStats['B.V']  || 0;
-      document.getElementById('nr-count').textContent  = currentStats['N.R']  || 0;
-      renderRegistered();
-    }
-
-    // ===== Registered Students =====
-    function toggleRegList() {
-      const list = document.getElementById('reg-list');
-      const icon = document.getElementById('reg-toggle-icon');
-      const open = list.style.display === 'block';
-      list.style.display = open ? 'none' : 'block';
-      icon.textContent = open ? '▼' : '▲';
-    }
-
-    function renderRegistered() {
-      const regLeads = allLeads.filter(l =>
-        l.status === 'registered_logha' || l.status === 'registered_maharat' || l.status === 'registered_takwin'
-      );
-      const sec = document.getElementById('reg-section');
-      const list = document.getElementById('reg-list');
-      document.getElementById('reg-count').textContent = regLeads.length;
-
-      if (!regLeads.length) { sec.style.display = 'none'; return; }
-      sec.style.display = 'block';
-
-      const typeLabel = { registered_logha: 'اللغة', registered_maharat: 'المهارات', registered_takwin: 'كليهما' };
-      const typeCls   = { registered_logha: 'reg-logha', registered_maharat: 'reg-maharat', registered_takwin: 'reg-takwin' };
-
-      list.innerHTML = regLeads.map(l => `
-        <div class="reg-item">
-          <div>
-            <div class="reg-name">${l.name || '—'}</div>
-            <div class="reg-phone">${l.phone}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span class="reg-type-badge ${typeCls[l.status] || ''}">${typeLabel[l.status] || l.status}</span>
-            <button style="background:#e0f2fe;color:#0369a1;border:none;border-radius:8px;padding:5px 10px;font-family:'Cairo',sans-serif;font-size:12px;cursor:pointer" onclick="openCallPopup('${l.phone}','${esc(l.name)}')">📞</button>
-          </div>
-        </div>`).join('');
-    }
-
-    // ===== Money Card =====
-    function updateMoneyCard() {
-      const inscre = currentStats.registered_inscre || 0;
-      const fromReg = inscre * 100;
-      const fromBonus = bonusList.reduce((s, b) => s + Number(b.amount), 0);
-      const total = fromReg + fromBonus;
-      document.getElementById('money-amount').textContent = total.toLocaleString('ar-MA');
-      document.getElementById('inscre-count').textContent = inscre;
-      const breakdown = document.getElementById('money-breakdown');
-      if (fromBonus > 0) {
-        breakdown.style.display = 'block';
-        document.getElementById('money-from-reg').textContent = fromReg.toLocaleString('ar-MA') + ' درهم تسجيلات';
-        document.getElementById('money-from-bonus').textContent = fromBonus.toLocaleString('ar-MA') + ' درهم مكافآت';
-      } else {
-        breakdown.style.display = 'none';
-      }
-      applyInscreVisibility();
-    }
-
-    // ===== Bonus Modal =====
-    function openBonusModal() {
-      document.getElementById('bonus-modal').style.display = 'flex';
-      document.getElementById('bonus-amount').value = '';
-      document.getElementById('bonus-note').value = '';
-      document.getElementById('bonus-alert').innerHTML = '';
-      renderBonusList();
-    }
-    function closeBonusModal() {
-      document.getElementById('bonus-modal').style.display = 'none';
-    }
-    function renderBonusList() {
-      const el = document.getElementById('bonus-list-section');
-      if (!bonusList.length) { el.innerHTML = ''; return; }
-      el.innerHTML = `<div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:8px">المكافآت السابقة</div>` +
-        bonusList.map(b => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:#f9fafb;border-radius:8px;margin-bottom:6px;font-size:13px">
-            <div>
-              <span style="font-weight:700;color:#e63329">${Number(b.amount).toLocaleString('ar-MA')} درهم</span>
-              ${b.note ? `<span style="color:#6b7280;margin-right:6px">· ${b.note}</span>` : ''}
-            </div>
-            <button onclick="deleteBonus('${b.id}')" style="background:none;border:none;color:#dc2626;cursor:pointer;font-size:16px">×</button>
-          </div>`).join('');
-    }
-    async function saveBonus() {
-      const amount = parseFloat(document.getElementById('bonus-amount').value);
-      const note = document.getElementById('bonus-note').value.trim();
-      const alertEl = document.getElementById('bonus-alert');
-      if (!amount || amount <= 0) {
-        alertEl.innerHTML = '<div style="background:#fef2f2;color:#dc2626;padding:8px 12px;border-radius:8px;font-size:13px">يرجى إدخال مبلغ صحيح</div>';
-        return;
-      }
-      const res = await fetch(`${API}/agents/me/bonuses`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount, note: note || null })
-      });
-      if (res.ok) {
-        const bonus = await res.json();
-        bonusList.unshift(bonus);
-        document.getElementById('bonus-amount').value = '';
-        document.getElementById('bonus-note').value = '';
-        alertEl.innerHTML = '<div style="background:#dcfce7;color:#166534;padding:8px 12px;border-radius:8px;font-size:13px">تم إضافة المكافأة ✅</div>';
-        updateMoneyCard();
-        renderBonusList();
-        playMoneySound();
-      }
-    }
-    async function deleteBonus(id) {
-      const res = await fetch(`${API}/agents/me/bonuses/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        bonusList = bonusList.filter(b => b.id !== id);
-        updateMoneyCard();
-        renderBonusList();
-      }
-    }
-    function applyInscreVisibility() {
-      document.getElementById('inscre-badge').style.display = showInscre ? 'inline-block' : 'none';
-      document.getElementById('toggle-btn').textContent = showInscre ? '🙈 إخفاء العدد' : '👁 إظهار العدد';
-    }
-    function toggleInscre() {
-      showInscre = !showInscre;
-      localStorage.setItem(INSCRE_KEY, showInscre);
-      applyInscreVisibility();
-    }
-
-    // ===== Rank Card =====
-    function renderRankCard() {
-      if (!rankData || !rankData.rank) return;
-      const card = document.getElementById('rank-card');
-      card.style.display = 'flex';
-      const r = rankData.rank;
-      const badge = document.getElementById('rank-badge');
-      badge.textContent = r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : '#'+r;
-      badge.className = `rank-badge-big ${r===1?'rank-1st':r===2?'rank-2nd':r===3?'rank-3rd':'rank-other'}`;
-      document.getElementById('rank-pos').textContent = `المرتبة #${r} من ${rankData.total}`;
-      document.getElementById('rank-gap').textContent = rankData.gap_message || '';
-    }
-
-    // ===== Morning Briefing =====
-    function renderMorningBriefing() {
-      const hour = new Date().getHours();
-      if (hour < 6 || hour >= 14) return; // only show 6am–2pm
-      if (sessionStorage.getItem('morning_dismissed')) return;
-
-      const greet = hour < 12 ? 'صباح الخير' : 'مساء الخير';
-      const name  = localStorage.getItem('name') || '';
-      document.getElementById('morning-greeting').textContent = `${greet} ${name} 👋`;
-
-      const callQueue = buildCallQueue();
-      const todayRdv  = getTodayRdvs().length;
-      const submitted = allLeads.some(l => {
-        const d = new Date(l.submitted_at);
-        return d.toDateString() === new Date().toDateString();
-      });
-
-      const chips = [];
-      if (!submitted) chips.push({ label: '⚠️ لم ترسل عملاءك اليوم', cls: 'red', target: 'action-btns' });
-      if (callQueue.length) chips.push({ label: `📞 ${callQueue.length} اتصال للمتابعة`, cls: 'gold', target: 'call-queue-card' });
-      if (todayRdv) chips.push({ label: `📅 ${todayRdv} موعد اليوم`, cls: 'green', target: 'today-rdv-card' });
-      if (!chips.length) chips.push({ label: '✅ يوم رائع — لا توجد مهام عاجلة', cls: 'green', target: null });
-
-      document.getElementById('morning-chips').innerHTML =
-        chips.map(c => c.target
-          ? `<div class="morning-chip ${c.cls}" style="cursor:pointer" onclick="dismissMorning();document.getElementById('${c.target}').scrollIntoView({behavior:'smooth',block:'start'})">${c.label}</div>`
-          : `<div class="morning-chip ${c.cls}">${c.label}</div>`
-        ).join('');
-      document.getElementById('morning-card').style.display = 'block';
-    }
-    function dismissMorning() {
-      sessionStorage.setItem('morning_dismissed', '1');
-      document.getElementById('morning-card').style.display = 'none';
-    }
-
-    // ===== RDV Tabs =====
-    function setRdvTab(tab) {
-      rdvTab = tab;
-      document.querySelectorAll('.rdv-tab').forEach((b,i) =>
-        b.classList.toggle('active', ['today','tomorrow','week'][i] === tab));
-      renderTodayRdvWidget();
-    }
-
-    function getTodayRdvs() {
-      const today = new Date(); today.setHours(0,0,0,0);
-      const todayEnd = new Date(today); todayEnd.setHours(23,59,59,999);
-      return allRdvs.filter(r => {
-        const d = new Date(r.rdv_date);
-        return d >= today && d <= todayEnd;
-      });
-    }
-
-    function renderTodayRdvWidget() {
-      const card = document.getElementById('today-rdv-card');
-      const now  = new Date(); now.setHours(0,0,0,0);
-      const tomorrow = new Date(now); tomorrow.setDate(now.getDate()+1);
-      const weekEnd  = new Date(now); weekEnd.setDate(now.getDate()+7);
-
-      let filtered = [];
-      if (rdvTab === 'today') {
-        const end = new Date(now); end.setHours(23,59,59,999);
-        filtered = allRdvs.filter(r => { const d=new Date(r.rdv_date); return d>=now && d<=end; });
-      } else if (rdvTab === 'tomorrow') {
-        const tEnd = new Date(tomorrow); tEnd.setHours(23,59,59,999);
-        filtered = allRdvs.filter(r => { const d=new Date(r.rdv_date); return d>=tomorrow && d<=tEnd; });
-      } else {
-        filtered = allRdvs.filter(r => { const d=new Date(r.rdv_date); return d>=now && d<=weekEnd; });
-      }
-
-      document.getElementById('rdv-count-badge').textContent = filtered.length;
-      if (!filtered.length && !allRdvs.length) { card.style.display = 'none'; return; }
-      card.style.display = 'block';
-
-      const nowFull = new Date();
-      const content = document.getElementById('rdv-tab-content');
-      if (!filtered.length) {
-        content.innerHTML = `<div style="text-align:center;color:#9ca3af;padding:12px;font-size:13px">لا توجد مواعيد</div>`;
-        return;
-      }
-      content.innerHTML = filtered.map(rdv => {
-        const lead = rdv.leads || {};
-        const isPast = new Date(rdv.rdv_date) < nowFull;
-        const timeStr = new Date(rdv.rdv_date).toLocaleTimeString('ar-MA', {hour:'2-digit',minute:'2-digit'});
-        const dateStr = rdvTab !== 'today' ? new Date(rdv.rdv_date).toLocaleDateString('ar-MA') : '';
-        const outcomeButtons = isPast && rdv.status === 'scheduled' ? `
-          <div class="rdv-outcome-btns">
-            <button class="rdv-show-btn" onclick="markRdv('${rdv.id}','showed_up')">✅ حضر</button>
-            <button class="rdv-noshow-btn" onclick="markRdv('${rdv.id}','no_show')">❌ لم يحضر</button>
-          </div>` : '';
-        const leadId = rdv.lead_id;
-        const statusUpdate = `
-          <div style="margin-top:6px">
-            <div style="display:flex;gap:6px;align-items:center">
-              <select id="rdv-status-sel-${rdv.id}" style="flex:1;padding:6px 8px;border:1.5px solid #e5e7eb;border-radius:8px;font-family:'Cairo',sans-serif;font-size:12px;background:white" onclick="event.stopPropagation()">
-                <option value="">— تحديث حالة العميل —</option>
-                <option value="visited_center">🏢 زار المركز</option>
-                <option value="cancelled_visit">❌ ألغى الزيارة</option>
-                <option value="cancelled_rdv">❌ ألغى الموعد</option>
-                <option value="interested">👍 مهتم</option>
-                <option value="B.V">B.V — بريد صوتي</option>
-                <option value="N.R">N.R — لم يرد</option>
-                <option value="P.I">P.I — غير مهتم</option>
-                <option value="Autre ville">Autre ville</option>
-                <option value="Blacklist">🚫 بلاك ليست — رقم خاطئ / لا يرغب</option>
-              </select>
-              <button onclick="event.stopPropagation();updateLeadStatusFromRdv('${leadId}','${rdv.id}')" style="padding:6px 10px;background:#e63329;color:white;border:none;border-radius:8px;font-family:'Cairo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">تحديث</button>
-            </div>
-          </div>`;
-        const statusBadge = rdv.status === 'showed_up' ? '<span style="color:#10b981;font-size:11px;font-weight:700">✅ حضر</span>'
-          : rdv.status === 'no_show' ? '<span style="color:#ef4444;font-size:11px;font-weight:700">❌ لم يحضر</span>' : '';
-        return `
-          <div class="today-rdv-item">
-            <div class="today-rdv-info">
-              <div class="today-rdv-name">${lead.name || '—'} ${statusBadge}</div>
-              <div class="today-rdv-time">${dateStr ? dateStr+' — ':''} ${timeStr}</div>
-              ${outcomeButtons}
-              ${statusUpdate}
-            </div>
-            <button class="today-rdv-call" onclick="openCallPopup('${lead.phone||''}','${(lead.name||'').replace(/'/g,"\\'")}')">📞</button>
-          </div>`;
-      }).join('');
-    }
-
-    async function markRdv(rdvId, status) {
-      const res = await fetch(`${API}/rdv/${rdvId}`, {
-        method: 'PATCH',
-        headers: { Authorization:`Bearer ${token}`, 'Content-Type':'application/json' },
-        body: JSON.stringify({ status })
-      });
-      if (res.ok) loadDashboard();
-      else alert('خطأ في تحديث الموعد');
-    }
-
-    // ===== Call Queue =====
-    function buildCallQueue() {
-      const now = new Date();
-      const queue = [];
-      allLeads.forEach(lead => {
-        if (lead.status !== 'B.V' && lead.status !== 'N.R') return;
-        const age = Math.floor((now - new Date(lead.submitted_at)) / 86400000);
-        const threshold = lead.status === 'B.V' ? 2 : 4;
-        if (age >= threshold) queue.push({ ...lead, ageDays: age });
-      });
-      queue.sort((a,b) => b.ageDays - a.ageDays);
-      return queue;
-    }
-
-    function renderCallQueue() {
-      const queue = buildCallQueue();
-      const card  = document.getElementById('call-queue-card');
-      document.getElementById('cq-badge').textContent = queue.length;
-      if (!queue.length) { card.style.display = 'none'; return; }
-      card.style.display = 'block';
-      const list = document.getElementById('cq-list');
-      list.innerHTML = queue.slice(0, 8).map(lead => {
-        const ageClass = lead.ageDays >= 4 ? 'cq-age-urgent' : 'cq-age-warn';
-        const n = (lead.name||'').replace(/'/g,"\\'");
-        return `
-          <div class="cq-item" id="cq-${lead.id}">
-            <div class="cq-top">
-              <div class="cq-info">
-                <div class="cq-name">${lead.name || lead.phone}</div>
-                <div class="cq-meta" id="cq-meta-${lead.id}">${lead.status} · ${lead.city || '—'}</div>
-              </div>
-              <span class="cq-age ${ageClass}">${lead.ageDays} أيام</span>
-              <button class="cq-call-btn" onclick="openCallPopup('${lead.phone}','${n}')">📞</button>
-            </div>
-            <div class="cq-status-row">
-              <select class="cq-select" id="cqs-${lead.id}">
-                <option value="">— اختر الحالة —</option>
-                <option value="RDV">📅 RDV — حجز موعد</option>
-                <option value="visited_center">🏢 زار المركز</option>
-                <option value="cancelled_visit">❌ ألغى الزيارة</option>
-                <option value="cancelled_rdv">❌ ألغى الموعد</option>
-                <option value="interested">👍 مهتم</option>
-                <option value="B.V">B.V — بريد صوتي</option>
-                <option value="N.R">N.R — لم يرد</option>
-                <option value="P.I">P.I — غير مهتم</option>
-                <option value="Autre ville">Autre ville — مدينة أخرى</option>
-              </select>
-              <button class="cq-update-btn" id="cqb-upd-${lead.id}" onclick="quickStatusFromSelect('${lead.id}','${n}')">تحديث</button>
-            </div>
-          </div>`;
-      }).join('');
-      if (queue.length > 8) {
-        list.insertAdjacentHTML('beforeend',`<div style="text-align:center;color:#9ca3af;font-size:12px;padding:8px 0">+${queue.length-8} آخرون...</div>`);
-      }
-    }
-
-    // ===== Lead Age Badge =====
-    function getAgeTag(lead) {
-      if (lead.status !== 'B.V' && lead.status !== 'N.R') return '';
-      const ageDays = Math.floor((new Date() - new Date(lead.submitted_at)) / 86400000);
-      if (ageDays < 1) return '';
-      const cls = ageDays >= 3 ? 'age-hot' : ageDays >= 2 ? 'age-warm' : 'age-cool';
-      return `<span class="lead-age-badge ${cls}">${ageDays}d</span>`;
-    }
-
-    // ===== Status Donut Chart =====
-    function renderDonutChart() {
-      const counts = {
-        'RDV': allLeads.filter(l=>l.status==='RDV').length,
-        'B.V': allLeads.filter(l=>l.status==='B.V').length,
-        'N.R': allLeads.filter(l=>l.status==='N.R').length,
-        'P.I': allLeads.filter(l=>l.status==='P.I').length,
-        'Autre ville': allLeads.filter(l=>l.status==='Autre ville').length,
-        'مسجل': allLeads.filter(l=>l.status==='registered_logha'||l.status==='registered_maharat'||l.status==='registered_takwin').length,
-      };
-      const total = Object.values(counts).reduce((s,v)=>s+v,0);
-      if (!total) return;
-      document.getElementById('donut-card').style.display = 'block';
-
-      const colors = ['#f59e0b','#8b5cf6','#ef4444','#6b7280','#06b6d4','#10b981'];
-      const labels = Object.keys(counts);
-      const data   = Object.values(counts);
-
-      if (donutChart) donutChart.destroy();
-      donutChart = new Chart(document.getElementById('donut-chart'), {
-        type: 'doughnut',
-        data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2 }] },
-        options: {
-          responsive: false, plugins: { legend: { display: false } },
-          cutout: '65%'
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: {
+          display: true, position: 'top',
+          labels: { font: { family: 'Cairo', size: 11 }, usePointStyle: true, padding: 12 }
+        },
+        tooltip: {
+          titleFont: { family: 'Cairo' },
+          bodyFont: { family: 'Cairo' },
+          rtl: true
         }
-      });
-
-      document.getElementById('donut-legend').innerHTML = labels.map((l,i) => `
-        <div class="donut-leg-item">
-          <span class="donut-leg-dot" style="background:${colors[i]}"></span>
-          <span class="donut-leg-label">${l}</span>
-          <span class="donut-leg-val">${data[i]}</span>
-        </div>`).join('');
-    }
-
-    // ===== AI Coach =====
-    async function runCoach() {
-      const btn = document.getElementById('coach-btn');
-      btn.disabled = true; btn.textContent = '⏳ جاري التحليل...';
-      try {
-        const res = await fetch(`${API}/analytics/my-coach`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
-        });
-        const data = await res.json();
-        const el = document.getElementById('coach-result');
-        el.style.display = 'block';
-        el.textContent   = data.analysis || 'لا توجد بيانات كافية للتحليل.';
-      } catch(e) { alert('فشل الاتصال بالمدرب الذكي'); }
-      finally {
-        btn.disabled = false; btn.textContent = '✨ ما الذي يجب أن أحسّنه؟';
-      }
-    }
-
-    // ===== Funnel Analytics =====
-    function renderFunnel() {
-      const total   = currentStats.total || 0;
-      const rdvBook = currentStats.total_rdv_booked || 0;
-      const showed  = currentStats.showed_up || 0;
-      const regs    = currentStats.registered_students || 0;
-
-      if (!total) { document.getElementById('funnel-card').style.display = 'none'; return; }
-      document.getElementById('funnel-card').style.display = 'block';
-
-      const MAX_H = 80;
-      const stages = [
-        { label: 'عملاء',   n: total,   pct: 100,                                           color: '#e63329' },
-        { label: 'RDV',     n: rdvBook, pct: total ? Math.round(rdvBook/total*100) : 0,     color: '#f59e0b' },
-        { label: 'حضروا',   n: showed,  pct: rdvBook ? Math.round(showed/rdvBook*100) : 0,  color: '#10b981' },
-        { label: 'مسجلين',  n: regs,    pct: showed ? Math.round(regs/showed*100) : 0,      color: '#3b82f6' },
-      ];
-
-      const maxN = Math.max(...stages.map(s => s.n)) || 1;
-      const container = document.getElementById('funnel-stages');
-      container.innerHTML = '';
-
-      stages.forEach((s, i) => {
-        const barH = Math.max(8, Math.round((s.n / maxN) * MAX_H));
-        const html = `
-          <div class="funnel-stage">
-            <div class="funnel-num">${s.n}</div>
-            <div class="funnel-pct">${i === 0 ? '100%' : s.pct + '%'}</div>
-            <div class="funnel-bar-wrap">
-              <div class="funnel-bar" style="height:${barH}px;background:${s.color};opacity:${0.6 + i*0.1}"></div>
-            </div>
-            <div class="funnel-lbl">${s.label}</div>
-          </div>
-        `;
-        container.insertAdjacentHTML('beforeend', html);
-        if (i < stages.length - 1) {
-          container.insertAdjacentHTML('beforeend', '<div class="funnel-arrow">‹</div>');
-        }
-      });
-    }
-
-    // ===== Goals =====
-    async function saveGoalsToDB(goals) {
-      try {
-        const res = await fetch(`${API}/agents/me`, {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ goals })
-        });
-        if (!res.ok) throw new Error('save failed');
-        // Also persist locally as backup
-        localStorage.setItem(GOAL_KEY, JSON.stringify(goals));
-      } catch(e) {
-        // Fallback: save to localStorage only
-        localStorage.setItem(GOAL_KEY, JSON.stringify(goals));
-      }
-    }
-
-    function selectGoalType(type, btn) {
-      document.querySelectorAll('.goal-type-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      document.getElementById('goal-custom-dates').style.display = type === 'master' ? 'block' : 'none';
-    }
-
-    function computeGoalValue(goal) {
-      const now   = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const weekStart = new Date(today); weekStart.setDate(today.getDate() - today.getDay());
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-      let fromDate;
-      if (goal.type === 'small')       fromDate = today;
-      else if (goal.type === 'medium') fromDate = weekStart;
-      else if (goal.startDate)         fromDate = new Date(goal.startDate);
-      else                             fromDate = monthStart;
-
-      const toDate = (goal.type === 'master' && goal.endDate) ? new Date(goal.endDate) : new Date(now.getFullYear(), now.getMonth()+1, 0);
-
-      const inRange = d => { const dt = new Date(d); return dt >= fromDate && dt <= toDate; };
-
-      switch (goal.metric) {
-        case 'rdv':
-          return allRdvs.filter(r => inRange(r.created_at || r.rdv_date)).length;
-        case 'inscription':
-          return allLeads.filter(l =>
-            (l.status === 'registered_logha' || l.status === 'registered_maharat' || l.status === 'registered_takwin')
-          ).length;
-        case 'leads':
-          return allLeads.filter(l => inRange(l.submitted_at)).length;
-        case 'showed_up':
-          return allRdvs.filter(r => r.status === 'showed_up' && inRange(r.created_at || r.rdv_date)).length;
-        case 'visited':
-          return allLeads.filter(l => l.status === 'visited_center').length;
-        default:
-          return 0;
-      }
-    }
-
-    const METRIC_LABEL = {
-      rdv: '📅 RDV', inscription: '⭐ تسجيل', leads: '👥 عميل',
-      showed_up: '✅ حضور', visited: '🏢 زيارة'
-    };
-    const TYPE_META = {
-      small:  { icon: '🎯', label: 'هدف يومي',   color: '#10b981' },
-      medium: { icon: '🚀', label: 'هدف أسبوعي', color: '#3b82f6' },
-      master: { icon: '👑', label: 'الهدف الكبير', color: '#f59e0b' }
-    };
-
-    async function saveGoal() {
-      const name   = (document.getElementById('goal-name-inp').value || '').trim();
-      const target = parseInt(document.getElementById('goal-target').value);
-      const metric = document.getElementById('goal-metric').value;
-      const typeBtn = document.querySelector('.goal-type-btn.active');
-      const type   = typeBtn ? typeBtn.dataset.type : 'small';
-
-      if (!name)              { alert('يرجى كتابة اسم الهدف'); return; }
-      if (!target || target < 1) { alert('يرجى تحديد عدد صحيح'); return; }
-
-      let startDate = '', endDate = '';
-      if (type === 'master') {
-        startDate = document.getElementById('goal-start').value;
-        endDate   = document.getElementById('goal-end').value;
-        if (!startDate || !endDate) { alert('يرجى تحديد تواريخ الهدف الكبير'); return; }
-        if (endDate <= startDate)   { alert('تاريخ النهاية يجب أن يكون بعد البداية'); return; }
-      }
-
-      const editId = document.getElementById('goal-popup').dataset.editId;
-      if (editId) {
-        agentGoals = agentGoals.map(g => g.id === editId
-          ? { ...g, name, type, metric, target, startDate, endDate }
-          : g);
-      } else {
-        agentGoals.push({ id: Date.now().toString(), name, type, metric, target, startDate, endDate });
-      }
-
-      await saveGoalsToDB(agentGoals);
-      closeAllPopups();
-      renderGoals();
-    }
-
-    async function deleteGoal(goalId) {
-      agentGoals = agentGoals.filter(g => g.id !== goalId);
-      await saveGoalsToDB(agentGoals);
-      renderGoals();
-    }
-
-    function openGoalPopup(editGoalId) {
-      const popup = document.getElementById('goal-popup');
-      popup.dataset.editId = editGoalId || '';
-
-      // Reset form
-      document.querySelectorAll('.goal-type-btn').forEach(b => b.classList.remove('active'));
-      document.querySelector('.goal-type-btn[data-type="small"]').classList.add('active');
-      document.getElementById('goal-custom-dates').style.display = 'none';
-      document.getElementById('goal-name-inp').value  = '';
-      document.getElementById('goal-target').value    = '';
-      document.getElementById('goal-metric').value    = 'rdv';
-      document.getElementById('goal-start').value     = '';
-      document.getElementById('goal-end').value       = '';
-
-      if (editGoalId) {
-        const g = agentGoals.find(x => x.id === editGoalId);
-        if (g) {
-          document.getElementById('goal-name-inp').value = g.name || '';
-          document.getElementById('goal-target').value   = g.target || g.targetStudents || '';
-          document.getElementById('goal-metric').value   = g.metric || 'inscription';
-          document.getElementById('goal-start').value    = g.startDate || '';
-          document.getElementById('goal-end').value      = g.endDate   || '';
-          const typeBtn = document.querySelector(`.goal-type-btn[data-type="${g.type || 'small'}"]`);
-          if (typeBtn) {
-            document.querySelectorAll('.goal-type-btn').forEach(b => b.classList.remove('active'));
-            typeBtn.classList.add('active');
-            document.getElementById('goal-custom-dates').style.display = g.type === 'master' ? 'block' : 'none';
-          }
+      },
+      scales: {
+        x: {
+          type: 'time',
+          time: { unit: 'day', displayFormats: { day: 'MM/dd' } },
+          min: goal.start_date,
+          max: goal.end_date,
+          ticks: { font: { family: 'Cairo', size: 10 }, maxTicksLimit: 8 },
+          grid: { display: false }
+        },
+        y: {
+          beginAtZero: true,
+          suggestedMax: goal.target_registered + 2,
+          ticks: { font: { family: 'Cairo', size: 11 }, stepSize: Math.ceil(goal.target_registered / 5) || 1 },
+          grid: { color: '#f3f4f6' }
         }
       }
-      showPopup('goal-popup');
+    }
+  });
+}
+
+async function createGoal() {
+  const target = document.getElementById('goalTarget')?.value;
+  const start = document.getElementById('goalStart')?.value;
+  const end = document.getElementById('goalEnd')?.value;
+
+  if (!target || !start || !end) { alert('أكمل جميع الحقول'); return; }
+  if (parseInt(target) <= 0) { alert('الهدف يجب أن يكون أكبر من صفر'); return; }
+  if (end <= start) { alert('تاريخ النهاية يجب أن يكون بعد البداية'); return; }
+
+  try {
+    const res = await fetch(API + '/reports/goals', {
+      method: 'POST', headers: hdrJson(),
+      body: JSON.stringify({ target_registered: parseInt(target), start_date: start, end_date: end })
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.detail || 'خطأ'); }
+    loadGoal();
+  } catch (e) { alert(e.message); }
+}
+
+async function deleteGoal(id) {
+  if (!confirm('هل تريد حذف هذا الهدف؟')) return;
+  try {
+    await fetch(API + `/reports/goals/${id}`, { method: 'DELETE', headers: hdr() });
+    loadGoal();
+  } catch (e) { alert('خطأ في الحذف'); }
+}
+
+// ── Load Last 7 Days Reports ──
+async function loadRecentReports() {
+  const container = document.getElementById('reportsContent');
+  try {
+    const today = new Date();
+    const from = new Date(today);
+    from.setDate(from.getDate() - 6);
+    const dateFrom = from.toISOString().split('T')[0];
+    const dateTo = today.toISOString().split('T')[0];
+
+    const res = await fetch(API + `/reports/my?date_from=${dateFrom}&date_to=${dateTo}`, { headers: hdr() });
+    if (!res.ok) throw new Error();
+    const reports = await res.json();
+
+    if (!reports.length) {
+      container.innerHTML = '<div class="empty-state">لا توجد تقارير بعد</div>';
+      return;
     }
 
-    function renderGoals() {
-      const btns = document.getElementById('goal-btns');
-      const body = document.getElementById('goal-body');
-      btns.innerHTML = `<button class="btn-set-goal" onclick="openGoalPopup()">+ هدف جديد</button>`;
+    // Sort by date descending
+    reports.sort((a, b) => b.report_date.localeCompare(a.report_date));
 
-      if (!agentGoals.length) {
-        body.innerHTML = `<div class="no-goal-text">لم تحدد هدفاً بعد. حدد هدفك الآن!</div>`;
-        return;
-      }
+    let html = `<div class="table-scroll"><table class="reports-table">
+      <thead><tr>
+        <th>التاريخ</th>
+        <th>رسائل</th>
+        <th>مواعيد</th>
+        <th>زيارات</th>
+        <th>مسجلين</th>
+      </tr></thead><tbody>`;
 
-      const order = ['master', 'medium', 'small'];
-      let html = '';
-
-      order.forEach(type => {
-        const goals = agentGoals.filter(g => (g.type || 'small') === type);
-        if (!goals.length) return;
-        const meta = TYPE_META[type];
-        html += `<div class="goal-group-label">${meta.icon} ${meta.label}</div>`;
-
-        goals.forEach(goal => {
-          const target  = goal.target || goal.targetStudents || 1;
-          const current = computeGoalValue(goal);
-          const pct     = Math.min(100, Math.round((current / target) * 100));
-          const isDone  = current >= target;
-          const metricLbl = METRIC_LABEL[goal.metric] || goal.metric || '⭐ تسجيل';
-
-          let periodLabel = '';
-          if (type === 'small')       periodLabel = 'اليوم';
-          else if (type === 'medium') periodLabel = 'هذا الأسبوع';
-          else if (goal.startDate && goal.endDate) {
-            const daysLeft = Math.max(0, Math.round((new Date(goal.endDate) - new Date()) / 86400000));
-            periodLabel = `${goal.startDate} → ${goal.endDate} · ${daysLeft} يوم`;
-          }
-
-          const trackClass = isDone ? 'track-done' : pct >= 50 ? 'track-ahead' : 'track-behind';
-          const trackText  = isDone
-            ? '🏆 أحسنت! حققت الهدف!'
-            : `${current} من ${target} ${metricLbl} · ${pct}%`;
-
-          html += `
-            <div class="goal-item type-${type}">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
-                <span style="font-size:13px;font-weight:700;color:#374151">${goal.name || 'هدف'}</span>
-                <div style="display:flex;gap:6px;align-items:center">
-                  <span style="font-size:10px;color:#9ca3af">${periodLabel}</span>
-                  <button class="btn-edit-goal" onclick="openGoalPopup('${goal.id}')">✏️</button>
-                  <button class="btn-edit-goal" style="color:#dc2626" onclick="deleteGoal('${goal.id}')">🗑</button>
-                </div>
-              </div>
-              <div class="progress-wrap">
-                <div class="progress-labels">
-                  <span style="color:${meta.color}">${current} / ${target} ${metricLbl}</span>
-                  <span>${pct}%</span>
-                </div>
-                <div class="progress-bar-bg">
-                  <div class="progress-bar-fill ${isDone ? 'prog-green' : pct >= 50 ? 'prog-green' : 'prog-red'}" style="width:${pct}%"></div>
-                </div>
-              </div>
-              <div class="track-badge ${trackClass}">${trackText}</div>
-            </div>`;
-        });
-      });
-
-      body.innerHTML = html;
+    for (const r of reports) {
+      const d = r.report_date.slice(5); // MM-DD
+      html += `<tr>
+        <td style="font-weight:600">${d}</td>
+        <td>${r.messages || 0}</td>
+        <td>${r.rdv || 0}</td>
+        <td>${r.visits || 0}</td>
+        <td style="font-weight:700; color:#e63329">${r.registered || 0}</td>
+      </tr>`;
     }
 
-    // ===== Filter =====
-    function setFilter(status, cardId) {
-      if (activeFilter === status && activeCardId === cardId) {
-        activeFilter = null; activeCardId = null;
-        document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
-        document.getElementById('filter-label').classList.remove('show');
-      } else {
-        activeFilter = status; activeCardId = cardId;
-        document.querySelectorAll('.stat-card').forEach(c => c.classList.remove('active'));
-        document.getElementById(cardId).classList.add('active');
-        const lbl = document.getElementById('filter-label');
-        lbl.textContent = status ? `🔎 ${status}` : '🔎 الكل';
-        lbl.classList.add('show');
-      }
-      document.getElementById('search-input').value = '';
-      applyFilters();
-    }
-    // Priority order for sorting leads (lower = shown first)
-    const STATUS_PRIORITY = {
-      'N.R': 0, 'B.V': 1,
-      'RDV': 2, 'visited_center': 3, 'interested': 4,
-      'cancelled_rdv': 5, 'cancelled_visit': 6,
-      'Autre ville': 7, 'P.I': 8,
-      'registered_logha': 9, 'registered_maharat': 9, 'registered_takwin': 9
-    };
+    html += '</tbody></table></div>';
+    container.innerHTML = html;
+  } catch (e) {
+    console.error('Reports error:', e);
+    container.innerHTML = '<div class="empty-state">خطأ في تحميل التقارير</div>';
+  }
+}
 
-    function updateCallProgress(leadsToShow) {
-      // Always compute from full allLeads (not filtered subset), excluding registered
-      const actionable = allLeads.filter(l => !['registered_logha','registered_maharat','registered_takwin'].includes(l.status));
-      const nrCount   = actionable.filter(l => l.status === 'N.R').length;
-      const bvCount   = actionable.filter(l => l.status === 'B.V').length;
-      const pending   = nrCount + bvCount;
-      const total     = actionable.length;
-      const done      = total - pending;
-
-      const card = document.getElementById('call-progress-card');
-      if (total === 0) { card.style.display = 'none'; return; }
-      card.style.display = 'block';
-
-      const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-      const fill = document.getElementById('cp-fill');
-      fill.style.width = pct + '%';
-      fill.className = 'call-progress-fill ' + (pending === 0 ? 'all-done' : 'in-progress');
-
-      document.getElementById('cp-count-text').textContent = pending === 0
-        ? '✅ أنجزت جميع المكالمات!'
-        : `${pending} عميل بانتظار المتابعة`;
-
-      const nrEl = document.getElementById('cp-nr');
-      const bvEl = document.getElementById('cp-bv');
-      const doneEl = document.getElementById('cp-done');
-
-      if (nrCount > 0) { nrEl.style.display = ''; nrEl.textContent = `${nrCount} N.R`; }
-      else nrEl.style.display = 'none';
-
-      if (bvCount > 0) { bvEl.style.display = ''; bvEl.textContent = `${bvCount} B.V`; }
-      else bvEl.style.display = 'none';
-
-      if (done > 0) { doneEl.style.display = ''; doneEl.textContent = `${done} مُنجَز`; }
-      else doneEl.style.display = 'none';
-    }
-
-    function applyFilters() {
-      const q = document.getElementById('search-input').value.trim().toLowerCase();
-      let leads = allLeads;
-      if (activeFilter) leads = leads.filter(l => l.status === activeFilter);
-      if (q) leads = leads.filter(l => (l.name||'').toLowerCase().includes(q) || (l.phone||'').includes(q));
-
-      // Sort: N.R first, B.V second, then by priority order
-      leads = leads.slice().sort((a, b) => {
-        const pa = STATUS_PRIORITY[a.status] ?? 50;
-        const pb = STATUS_PRIORITY[b.status] ?? 50;
-        if (pa !== pb) return pa - pb;
-        // Within same priority, newer first
-        return (b.submitted_at || '') > (a.submitted_at || '') ? 1 : -1;
-      });
-
-      updateCallProgress(leads);
-      renderLeads(leads);
-    }
-    function filterLeads() { applyFilters(); }
-
-    // ===== Swipe =====
-    function addSwipeHandlers(wrapper, leadId) {
-      let startX = 0, startY = 0, dragging = false;
-      const row = wrapper.querySelector('.lead-row');
-
-      wrapper.addEventListener('touchstart', e => {
-        startX = e.touches[0].clientX;
-        startY = e.touches[0].clientY;
-        dragging = false;
-      }, { passive: true });
-
-      wrapper.addEventListener('touchmove', e => {
-        const dx = e.touches[0].clientX - startX;
-        const dy = e.touches[0].clientY - startY;
-        if (!dragging && Math.abs(dy) > Math.abs(dx)) return; // vertical scroll
-        dragging = true;
-
-        if (dx > 60) { // swipe right → show actions on left
-          if (currentSwipedWrapper && currentSwipedWrapper !== wrapper) {
-            currentSwipedWrapper.classList.remove('swiped');
-          }
-          wrapper.classList.add('swiped');
-          currentSwipedWrapper = wrapper;
-        } else if (dx < -20) {
-          wrapper.classList.remove('swiped');
-          if (currentSwipedWrapper === wrapper) currentSwipedWrapper = null;
-        }
-      }, { passive: true });
-
-      wrapper.addEventListener('touchend', () => { dragging = false; }, { passive: true });
-    }
-
-    function closeSwipes() {
-      document.querySelectorAll('.lead-wrapper.swiped').forEach(w => w.classList.remove('swiped'));
-      currentSwipedWrapper = null;
-    }
-
-    // ===== Leads Render =====
-    function esc(s) { return (s||'').replace(/\\/g,'\\\\').replace(/'/g,"\\'"); }
-
-    function renderLeads(leads) {
-      const list = document.getElementById('leads-list');
-      list.innerHTML = '';
-      if (!leads.length) {
-        list.innerHTML = '<div class="empty-state">لا يوجد عملاء</div>';
-        return;
-      }
-      leads.forEach(lead => {
-        const isReg = lead.status === 'registered_logha' || lead.status === 'registered_maharat' || lead.status === 'registered_takwin';
-        const sc    = STATUS_CLASS[lead.status] || '';
-        const label = STATUS_LABEL[lead.status] || lead.status;
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'lead-wrapper';
-
-        // Swipe action panel (left side, revealed on swipe right)
-        const actionsDiv = document.createElement('div');
-        actionsDiv.className = 'lead-swipe-actions';
-        actionsDiv.innerHTML = `
-          <button class="swa-btn swa-call" onclick="event.stopPropagation();openCallPopup('${lead.phone}','${esc(lead.name)}')">
-            📞<span class="swa-label">اتصال</span>
-          </button>
-          <button class="swa-btn swa-note" onclick="event.stopPropagation();focusNote('${lead.id}')">
-            📝<span class="swa-label">ملاحظة</span>
-          </button>
-        `;
-        wrapper.appendChild(actionsDiv);
-
-        const rdvBtn = lead.status === 'RDV'
-          ? `<button class="icon-btn icon-btn-red" onclick="event.stopPropagation();openRdvPopup('${lead.id}','${esc(lead.name)}')" title="حجز RDV">📅</button>`
-          : '';
-
-        const notePreview = lead.note
-          ? `<div class="lead-note-preview">📝 ${lead.note.substring(0,40)}${lead.note.length>40?'…':''}</div>`
-          : '';
-
-        const rowDiv = document.createElement('div');
-        rowDiv.className = 'lead-row';
-        rowDiv.innerHTML = `
-          <div class="lead-main">
-            <div class="lead-top">
-              <div style="min-width:0;flex:1">
-                <div class="lead-name">${lead.name || '—'} ${getAgeTag(lead)}<button class="edit-lead-icon" onclick="event.stopPropagation();openEditLeadPopup('${lead.id}')" title="تعديل البيانات">✏️</button></div>
-                <div class="lead-phone">${lead.phone}</div>
-                ${notePreview}
-              </div>
-              <div class="lead-badges">
-                <span class="lead-status ${sc}">${label}</span>
-                ${rdvBtn}
-                <button class="icon-btn icon-btn-green" onclick="event.stopPropagation();openCallPopup('${lead.phone}','${esc(lead.name)}')">📞</button>
-              </div>
-            </div>
-            <div class="lead-detail" id="detail-${lead.id}">
-              <div class="lead-detail-row"><span class="lead-detail-label">المستوى</span><span>${lead.level || '—'}</span></div>
-              <div class="lead-detail-row"><span class="lead-detail-label">المدينة</span><span>${lead.city || '—'}</span></div>
-              <div class="lead-detail-row"><span class="lead-detail-label">تاريخ الإرسال</span><span>${new Date(lead.submitted_at).toLocaleDateString('ar-MA')}</span></div>
-              <div class="lead-detail-row"><span class="lead-detail-label">عدد التبادلات</span><span class="swap-badge">${lead.swap_count}/3</span></div>
-
-              <!-- Notes -->
-              <div class="note-section">
-                <div class="note-label">📝 ملاحظة خاصة</div>
-                <textarea
-                  class="note-textarea"
-                  id="note-${lead.id}"
-                  placeholder="أضف ملاحظة خاصة عن هذا العميل..."
-                  onblur="saveNote('${lead.id}', this.value)"
-                  onclick="event.stopPropagation()"
-                >${lead.note || ''}</textarea>
-                <div class="note-saved-hint" id="note-hint-${lead.id}">✅ تم حفظ الملاحظة</div>
-              </div>
-
-              ${!isReg ? `
-              <div class="lead-detail-actions">
-                <select class="status-select" id="ss-${lead.id}" onclick="event.stopPropagation()" onchange="toggleCustom('${lead.id}',this.value);if(this.value==='RDV'){event.stopPropagation();openRdvPopup('${lead.id}','${esc(lead.name)}')}">
-                  <option value="RDV"              ${lead.status==='RDV'?'selected':''}>📅 RDV — حجز موعد</option>
-                  <option value="visited_center"   ${lead.status==='visited_center'?'selected':''}>🏢 زار المركز</option>
-                  <option value="cancelled_visit"  ${lead.status==='cancelled_visit'?'selected':''}>❌ ألغى الزيارة</option>
-                  <option value="cancelled_rdv"    ${lead.status==='cancelled_rdv'?'selected':''}>❌ ألغى الموعد</option>
-                  <option value="interested"       ${lead.status==='interested'?'selected':''}>👍 مهتم</option>
-                  <option value="B.V"              ${lead.status==='B.V'?'selected':''}>B.V — بريد صوتي</option>
-                  <option value="N.R"              ${lead.status==='N.R'?'selected':''}>N.R — لم يرد</option>
-                  <option value="P.I"              ${lead.status==='P.I'?'selected':''}>P.I — غير مهتم</option>
-                  <option value="Autre ville"      ${lead.status==='Autre ville'?'selected':''}>Autre ville — مدينة أخرى</option>
-                  <option value="Blacklist"        ${lead.status==='Blacklist'?'selected':''}>🚫 بلاك ليست — رقم خاطئ / لا يرغب</option>
-                  <option value="__custom__">✏️ نص مخصص...</option>
-                </select>
-                <button class="btn-update-status" id="upd-${lead.id}" onclick="event.stopPropagation();updateStatus('${lead.id}')">تحديث</button>
-              </div>
-              <div id="csw-${lead.id}" style="display:none;margin-top:8px">
-                <input type="text" id="cs-${lead.id}" class="status-select" style="width:100%" placeholder="اكتب الحالة..." onclick="event.stopPropagation()" />
-              </div>
-              <button class="btn-register" id="reg-btn-${lead.id}" onclick="event.stopPropagation();openRegisterPopup('${lead.id}','${esc(lead.name)}')">✅ تسجيل الطالب</button>
-              ` : `<div style="color:#10b981;font-size:14px;font-weight:700;margin-top:10px;text-align:center">✅ تم تسجيل هذا الطالب</div>`}
-            </div>
-          </div>
-        `;
-
-        rowDiv.addEventListener('click', e => {
-          if (wrapper.classList.contains('swiped')) { closeSwipes(); return; }
-          document.getElementById(`detail-${lead.id}`).classList.toggle('open');
-        });
-
-        wrapper.appendChild(rowDiv);
-        addSwipeHandlers(wrapper, lead.id);
-        list.appendChild(wrapper);
-      });
-
-      // Close swipes when tapping elsewhere
-      document.addEventListener('touchstart', e => {
-        if (!e.target.closest('.lead-wrapper')) closeSwipes();
-      }, { passive: true });
-    }
-
-    function toggleCustom(id, val) {
-      const w = document.getElementById(`csw-${id}`);
-      if (w) w.style.display = val === '__custom__' ? 'block' : 'none';
-    }
-
-    // ===== Note =====
-    function focusNote(leadId) {
-      closeSwipes();
-      // Open detail if not open
-      const detail = document.getElementById(`detail-${leadId}`);
-      if (detail && !detail.classList.contains('open')) detail.classList.add('open');
-      setTimeout(() => {
-        const textarea = document.getElementById(`note-${leadId}`);
-        if (textarea) { textarea.focus(); textarea.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
-      }, 100);
-    }
-
-    async function saveNote(leadId, value) {
-      const note = value.trim();
-      try {
-        await fetch(`${API}/leads/${leadId}/note`, {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ note })
-        });
-        const hint = document.getElementById(`note-hint-${leadId}`);
-        if (hint) {
-          hint.style.display = 'block';
-          setTimeout(() => { hint.style.display = 'none'; }, 2000);
-        }
-        // Update local lead note
-        const lead = allLeads.find(l => l.id === leadId);
-        if (lead) lead.note = note;
-      } catch(e) {}
-    }
-
-    // ===== Quick Status from dropdown (call queue) =====
-    async function quickStatusFromSelect(leadId, name) {
-      const sel = document.getElementById(`cqs-${leadId}`);
-      const newStatus = sel ? sel.value : '';
-      if (!newStatus) return;
-
-      if (newStatus === 'RDV') {
-        openRdvPopup(leadId, name.replace(/\\'/g,"'"));
-        return;
-      }
-
-      const btn = document.getElementById(`cqb-upd-${leadId}`);
-      if (btn) { btn.disabled = true; btn.textContent = '...'; }
-
-      const res = await fetch(`${API}/leads/${leadId}/status`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-
-      if (res.ok) {
-        const meta = document.getElementById(`cq-meta-${leadId}`);
-        if (meta) meta.textContent = `✅ ${newStatus}`;
-        if (btn) { btn.textContent = '✅'; btn.style.background = '#10b981'; }
-        if (newStatus !== 'B.V' && newStatus !== 'N.R') {
-          const card = document.getElementById(`cq-${leadId}`);
-          if (card) { card.style.opacity = '0'; card.style.transition = 'opacity .3s'; setTimeout(() => card.remove(), 350); }
-        }
-        setTimeout(() => loadDashboard(), 700);
-      } else {
-        if (btn) { btn.disabled = false; btn.textContent = 'تحديث'; btn.style.background = ''; }
-        try { const d = await res.json(); alert(d.detail || 'خطأ في التحديث'); }
-        catch(e) { alert('خطأ في التحديث'); }
-      }
-    }
-
-    // ===== Quick Status (direct call, kept for compatibility) =====
-    async function quickStatus(leadId, newStatus) {
-      const res = await fetch(`${API}/leads/${leadId}/status`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-      if (res.ok) loadDashboard();
-      else { try { const d = await res.json(); alert(d.detail || 'خطأ'); } catch(e){} }
-    }
-
-    // ===== Mark Visited Center (without RDV) =====
-    async function markVisitedCenter(leadId) {
-      const visBtn = document.getElementById(`cqb-upd-${leadId}`);
-      if (visBtn) { visBtn.disabled = true; visBtn.textContent = '...'; }
-
-      const res = await fetch(`${API}/leads/${leadId}/visited-center`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
-      });
-
-      if (res.ok) {
-        if (visBtn) { visBtn.textContent = '✅ تم'; visBtn.style.background = '#d1fae5'; visBtn.style.color = '#065f46'; visBtn.disabled = false; }
-        // Also show in lead detail panel if open
-        const el = document.getElementById(`detail-${leadId}`);
-        if (el && el.classList.contains('open')) {
-          const msg = document.createElement('div');
-          msg.style.cssText = 'color:#92400e;background:#fef3c7;padding:8px;border-radius:8px;font-size:13px;font-weight:700;text-align:center;margin-top:6px';
-          msg.textContent = '🏢 تم تسجيل الزيارة';
-          el.appendChild(msg); setTimeout(() => msg.remove(), 2500);
-        }
-        setTimeout(() => loadDashboard(), 1200);
-      } else {
-        if (visBtn) { visBtn.disabled = false; visBtn.textContent = 'تحديث'; visBtn.style.background = ''; visBtn.style.color = ''; }
-        alert('خطأ في تسجيل الزيارة');
-      }
-    }
-
-    // ===== Status Update =====
-    async function updateStatus(leadId) {
-      const sel = document.getElementById(`ss-${leadId}`);
-      let newStatus = sel.value;
-      if (newStatus === '__custom__') {
-        newStatus = (document.getElementById(`cs-${leadId}`).value || '').trim();
-        if (!newStatus) return alert('يرجى كتابة الحالة');
-      }
-      const btn = document.getElementById(`upd-${leadId}`);
-      btn.disabled = true; btn.textContent = '...';
-      const res = await fetch(`${API}/leads/${leadId}/status`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-      });
-      btn.disabled = false; btn.textContent = 'تحديث';
-      if (res.ok) loadDashboard();
-      else { const d = await res.json(); alert(d.detail || 'خطأ في التحديث'); }
-    }
-
-    // ===== Register =====
-    function openRegisterPopup(leadId, name) {
-      if (registeringLeads.has(leadId)) return;
-      currentRegisterLeadId = leadId;
-      document.getElementById('register-lead-name').textContent = name || '';
-      showPopup('register-popup');
-    }
-    async function doRegister(type) {
-      const leadId = currentRegisterLeadId;
-      if (!leadId || registeringLeads.has(leadId)) return;
-      registeringLeads.add(leadId);
-      closeAllPopups();
-      const res = await fetch(`${API}/leads/${leadId}/register`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ registration_type: type })
-      });
-      registeringLeads.delete(leadId);
-      if (res.ok) {
-        const data = await res.json();
-        playMoneySound(); spawnMoney(data.points);
-        await loadDashboard();
-        const el = document.getElementById('money-amount');
-        el.classList.remove('money-pulse'); void el.offsetWidth; el.classList.add('money-pulse');
-      } else { const d = await res.json(); alert(d.detail || 'خطأ في التسجيل'); }
-    }
-
-    // ===== Money Effects =====
-    const _snd = new Audio('/sound effect.mp3');
-    function playMoneySound() {
-      try { _snd.currentTime = 0; _snd.play(); } catch(e) {}
-    }
-    function spawnMoney(points) {
-      const pool = ['💰','💵','💸','🤑'];
-      const count = Math.min(points * 5, 12);
-      for (let i = 0; i < count; i++) {
-        setTimeout(() => {
-          const el = document.createElement('div');
-          el.className = 'money-float';
-          el.textContent = pool[Math.floor(Math.random() * pool.length)];
-          el.style.left = (10 + Math.random() * 80) + '%';
-          el.style.top  = (25 + Math.random() * 45) + '%';
-          document.body.appendChild(el);
-          setTimeout(() => el.remove(), 1600);
-        }, i * 90);
-      }
-    }
-
-    // ===== Edit Lead Popup =====
-    function openEditLeadPopup(leadId) {
-      const lead = allLeads.find(l => l.id === leadId);
-      if (!lead) return;
-      document.getElementById('edit-lead-id').value = leadId;
-      document.getElementById('edit-name').value  = lead.name  || '';
-      document.getElementById('edit-phone').value = lead.phone || '';
-      document.getElementById('edit-level').value = lead.level || '';
-      document.getElementById('edit-city').value  = lead.city  || '';
-      showPopup('edit-lead-popup');
-    }
-
-    async function saveLeadInfo() {
-      const leadId = document.getElementById('edit-lead-id').value;
-      const name   = document.getElementById('edit-name').value.trim();
-      const phone  = document.getElementById('edit-phone').value.trim();
-      const level  = document.getElementById('edit-level').value.trim();
-      const city   = document.getElementById('edit-city').value.trim();
-
-      const btn = document.querySelector('#edit-lead-popup .popup-btn-primary');
-      btn.disabled = true;
-      btn.textContent = '⏳ جاري الحفظ...';
-
-      try {
-        const res = await fetch(`${API}/leads/${leadId}/info`, {
-          method: 'PATCH',
-          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, phone, level, city })
-        });
-        const data = await res.json();
-        if (!res.ok) { alert(data.detail || 'حدث خطأ'); return; }
-
-        // Update local copy
-        const lead = allLeads.find(l => l.id === leadId);
-        if (lead) {
-          if (name)  lead.name  = name;
-          if (phone) lead.phone = phone;
-          if (level) lead.level = level;
-          if (city)  lead.city  = city;
-        }
-        closeAllPopups();
-        applyFilters();
-      } catch (e) {
-        alert('خطأ في الاتصال بالخادم');
-      } finally {
-        btn.disabled = false;
-        btn.textContent = '💾 حفظ التعديلات';
-      }
-    }
-
-    // ===== Call Popup =====
-    function openCallPopup(phone, name) {
-      document.getElementById('popup-name').textContent = name || phone;
-      document.getElementById('call-normal-btn').href = `tel:${phone}`;
-      const wa = phone.startsWith('0') ? '212' + phone.slice(1) : phone;
-      document.getElementById('call-wa-btn').href = `https://wa.me/${wa}`;
-      showPopup('call-popup');
-    }
-
-    // ===== RDV Popup =====
-    function openRdvPopup(leadId, name) {
-      currentRdvLeadId = leadId;
-      document.getElementById('rdv-lead-name').textContent = name;
-      const t = new Date(); t.setDate(t.getDate()+1); t.setHours(10,0,0,0);
-      document.getElementById('rdv-date-input').value = t.toISOString().slice(0,16);
-      showPopup('rdv-popup');
-    }
-    async function confirmRdv() {
-      const dateVal = document.getElementById('rdv-date-input').value;
-      if (!dateVal) return alert('يرجى اختيار تاريخ الموعد');
-      const res = await fetch(`${API}/rdv/`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lead_id: currentRdvLeadId, rdv_date: new Date(dateVal).toISOString() })
-      });
-      if (res.ok) { closeAllPopups(); loadDashboard(); }
-      else { const d = await res.json(); alert(d.detail || 'خطأ في حجز الموعد'); }
-    }
-
-    // ===== Popup helpers =====
-    function showPopup(id) {
-      closeSwipes();
-      document.getElementById(id).classList.add('show');
-      document.getElementById('overlay').classList.add('show');
-    }
-    function closeAllPopups() {
-      ['call-popup','rdv-popup','register-popup','goal-popup','edit-lead-popup'].forEach(id =>
-        document.getElementById(id).classList.remove('show')
-      );
-      document.getElementById('overlay').classList.remove('show');
-    }
-
-    // ===== Logout =====
-    function logout() {
-      ['token','role','name','agent_id','avatar_cache'].forEach(k => localStorage.removeItem(k));
-      window.location.href = '/index.html';
-    }
-
-    async function updateLeadStatusFromRdv(leadId, rdvId) {
-      const sel = document.getElementById(`rdv-status-sel-${rdvId}`);
-      const status = sel ? sel.value : '';
-      if (!status) { alert('اختر حالة أولاً'); return; }
-      const res = await fetch(`${API}/leads/${leadId}/status`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status })
-      });
-      if (res.ok) { loadDashboard(); }
-      else { const d = await res.json(); alert(d.detail || 'خطأ في التحديث'); }
-    }
-
-    loadDashboard();
-  </script>
+// ── Init ──
+loadStats();
+loadGoal();
+loadRecentReports();
+</script>
 </body>
 </html>

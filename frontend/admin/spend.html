@@ -91,6 +91,7 @@
 <div class="container">
   <div class="tabs">
     <button class="tab-btn active" onclick="showTab('upload')">📤 رفع تقرير</button>
+    <button class="tab-btn" onclick="showTab('manual')">✍️ إدخال يدوي</button>
     <button class="tab-btn" onclick="showTab('history')">📋 السجل</button>
     <button class="tab-btn" onclick="showTab('aliases')">✏️ أسماء الإعلانات</button>
   </div>
@@ -145,6 +146,46 @@
         </table>
       </div>
       <button class="confirm-btn" onclick="confirmSpend()">✅ تأكيد وحفظ</button>
+    </div>
+  </div>
+
+  <!-- MANUAL ENTRY TAB -->
+  <div id="tab-manual" style="display:none">
+    <div class="card">
+      <div class="card-title">✍️ إدخال يدوي للإنفاق</div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px">الوكيل</label>
+          <select id="manual-agent" class="date-inp" style="width:100%">
+            <option value="">— اختر وكيل —</option>
+          </select>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px">الإنفاق (دم)</label>
+            <input type="number" id="manual-spend" class="date-inp" style="width:100%" placeholder="0" min="0" step="0.01" />
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px">عدد الرسائل</label>
+            <input type="number" id="manual-results" class="date-inp" style="width:100%" placeholder="0" min="0" />
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px">من تاريخ</label>
+            <input type="date" id="manual-from" class="date-inp" style="width:100%" />
+          </div>
+          <div>
+            <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px">إلى تاريخ</label>
+            <input type="date" id="manual-to" class="date-inp" style="width:100%" />
+          </div>
+        </div>
+        <div>
+          <label style="font-size:12px;font-weight:600;color:#374151;display:block;margin-bottom:4px">اسم الحملة (اختياري)</label>
+          <input type="text" id="manual-adset" class="date-inp" style="width:100%" placeholder="مثال: حملة الربيع" />
+        </div>
+        <button class="extract-btn" onclick="submitManualSpend()">حفظ</button>
+      </div>
     </div>
   </div>
 
@@ -216,12 +257,13 @@
   document.getElementById('period-to').value   = today.toISOString().split('T')[0];
 
   function showTab(tab) {
-    ['upload','history','aliases'].forEach(t => {
+    ['upload','manual','history','aliases'].forEach(t => {
       document.getElementById('tab-'+t).style.display = t === tab ? 'block' : 'none';
     });
     document.querySelectorAll('.tab-btn').forEach((b,i) => {
-      b.classList.toggle('active', ['upload','history','aliases'][i] === tab);
+      b.classList.toggle('active', ['upload','manual','history','aliases'][i] === tab);
     });
+    if (tab === 'manual')   loadManualAgents();
     if (tab === 'history')  loadHistory();
     if (tab === 'aliases')  loadAliases();
   }
@@ -401,6 +443,54 @@
       method: 'DELETE', headers: { Authorization: `Bearer ${token}` }
     });
     loadAliases();
+  }
+
+  let manualAgentsLoaded = false;
+  async function loadManualAgents() {
+    if (manualAgentsLoaded) return;
+    try {
+      const res = await fetch(`${API}/agents/?`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) return;
+      const agents = await res.json();
+      const sel = document.getElementById('manual-agent');
+      sel.innerHTML = '<option value="">— اختر وكيل —</option>' +
+        agents.map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+      manualAgentsLoaded = true;
+    } catch (e) {}
+    // Default dates
+    const t = new Date();
+    const m = new Date(t); m.setDate(t.getDate() - t.getDay() + 1);
+    document.getElementById('manual-from').value = m.toISOString().split('T')[0];
+    document.getElementById('manual-to').value = t.toISOString().split('T')[0];
+  }
+
+  async function submitManualSpend() {
+    const agentId = document.getElementById('manual-agent').value;
+    const spend = document.getElementById('manual-spend').value;
+    const results = document.getElementById('manual-results').value;
+    const from = document.getElementById('manual-from').value;
+    const to = document.getElementById('manual-to').value;
+    const adset = document.getElementById('manual-adset').value.trim();
+
+    if (!agentId || !spend || !from || !to) { alert('أكمل جميع الحقول المطلوبة'); return; }
+
+    try {
+      const res = await fetch(`${API}/spend/manual`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agent_id: agentId, spend: parseFloat(spend),
+          ad_results: parseInt(results) || 0,
+          period_start: from, period_end: to,
+          adset_name: adset || 'Manual Entry'
+        })
+      });
+      if (!res.ok) { const d = await res.json(); throw new Error(d.detail || 'خطأ'); }
+      showToast('تم حفظ الإنفاق');
+      document.getElementById('manual-spend').value = '';
+      document.getElementById('manual-results').value = '';
+      document.getElementById('manual-adset').value = '';
+    } catch (e) { alert(e.message); }
   }
 
   function showToast(msg) {
