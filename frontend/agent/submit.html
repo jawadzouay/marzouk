@@ -117,6 +117,55 @@
       text-align: center; font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 10px;
     }
     .remaining-badge span { font-weight: 900; color: #e63329; }
+
+    /* ─── Full-screen status overlay ───────────────────── */
+    .overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      display: none; align-items: center; justify-content: center;
+      z-index: 9999; padding: 20px; backdrop-filter: blur(2px);
+    }
+    .overlay.show { display: flex; }
+    .overlay-box {
+      background: white; border-radius: 20px; padding: 32px 24px;
+      max-width: 340px; width: 100%; text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+      animation: pop 0.25s ease;
+    }
+    @keyframes pop { from { transform: scale(0.85); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    .spinner {
+      width: 68px; height: 68px; margin: 0 auto 18px;
+      border: 6px solid #e5e7eb; border-top-color: #e63329;
+      border-radius: 50%; animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .check-circle {
+      width: 84px; height: 84px; margin: 0 auto 18px;
+      background: #10b981; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      animation: pop 0.4s cubic-bezier(0.17, 0.88, 0.32, 1.28);
+    }
+    .check-circle svg { width: 48px; height: 48px; stroke: white; stroke-width: 4; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+    .check-circle svg path { stroke-dasharray: 60; stroke-dashoffset: 60; animation: draw 0.5s 0.15s forwards; }
+    @keyframes draw { to { stroke-dashoffset: 0; } }
+    .x-circle {
+      width: 84px; height: 84px; margin: 0 auto 18px;
+      background: #dc2626; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      animation: shake 0.5s;
+    }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+    .x-circle svg { width: 44px; height: 44px; stroke: white; stroke-width: 4.5; fill: none; stroke-linecap: round; }
+    .overlay-title { font-size: 20px; font-weight: 900; margin-bottom: 6px; color: #1a1a1a; }
+    .overlay-msg { font-size: 14px; color: #6b7280; margin-bottom: 18px; line-height: 1.5; }
+    .overlay-btn {
+      padding: 12px 24px; border: none; border-radius: 10px;
+      font-family: 'Cairo', sans-serif; font-size: 15px; font-weight: 700;
+      cursor: pointer; margin: 0 4px; transition: all 0.15s;
+    }
+    .overlay-btn:active { transform: scale(0.96); }
+    .btn-retry { background: #e63329; color: white; }
+    .btn-close { background: #e5e7eb; color: #374151; }
+    .btn-ok    { background: #10b981; color: white; }
   </style>
 </head>
 <body>
@@ -188,6 +237,11 @@
 
   <button class="submit-btn" id="submit-btn" onclick="submitReport()">📤 إرسال التقرير</button>
   <div class="status-msg" id="status-msg"></div>
+</div>
+
+<!-- Full-screen status overlay -->
+<div class="overlay" id="overlay">
+  <div class="overlay-box" id="overlay-box"></div>
 </div>
 
 <script>
@@ -272,47 +326,123 @@
     } catch(e) {}
   }
 
-  async function submitReport() {
+  // ─── Overlay helpers ─────────────────────────────────
+  const overlay = document.getElementById('overlay');
+  const overlayBox = document.getElementById('overlay-box');
+
+  function showLoading(text) {
+    overlayBox.innerHTML = `
+      <div class="spinner"></div>
+      <div class="overlay-title">${text || 'جاري الإرسال...'}</div>
+      <div class="overlay-msg">يرجى الانتظار — لا تغلق الصفحة</div>`;
+    overlay.classList.add('show');
+  }
+
+  function showSuccess(title, msg, canEdit) {
+    overlayBox.innerHTML = `
+      <div class="check-circle"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <div class="overlay-title" style="color:#10b981">${title}</div>
+      <div class="overlay-msg">${msg}</div>
+      <div>
+        <button class="overlay-btn btn-ok" onclick="window.location.href='/agent/dashboard.html'">العودة للرئيسية</button>
+        ${canEdit ? '<button class="overlay-btn btn-close" onclick="closeOverlay()">تعديل وإعادة الإرسال</button>' : ''}
+      </div>`;
+  }
+
+  function showError(title, msg, canRetry) {
+    overlayBox.innerHTML = `
+      <div class="x-circle"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></div>
+      <div class="overlay-title" style="color:#dc2626">${title}</div>
+      <div class="overlay-msg">${msg}</div>
+      <div>
+        ${canRetry ? '<button class="overlay-btn btn-retry" onclick="closeOverlay(); submitReport(true)">🔄 إعادة المحاولة</button>' : ''}
+        <button class="overlay-btn btn-close" onclick="closeOverlay()">إغلاق</button>
+      </div>`;
+  }
+
+  function closeOverlay() {
+    overlay.classList.remove('show');
     const btn = document.getElementById('submit-btn');
-    const msg = document.getElementById('status-msg');
-    msg.className = 'status-msg'; msg.style.display = 'none';
+    btn.disabled = false;
+    btn.textContent = '📤 إرسال التقرير';
+  }
 
-    const messages = val('messages');
-    const badSum = val('autre_ville') + val('pi') + val('pe') + val('over_40');
-    if (messages > 0 && badSum > messages) {
-      msg.textContent = 'عدد الرسائل يجب أن يكون أكبر من مجموع (مدينة أخرى + غير مهتم + غير مؤهل + فوق 40)';
-      msg.className = 'status-msg error'; return;
-    }
-
-    btn.disabled = true; btn.textContent = '⏳ جاري الإرسال...';
-
+  // ─── Submit (resilient: timeout + 1 retry, no photo upload) ─
+  async function postReport(timeoutMs) {
     const fd = new FormData();
     fd.append('report_date', dateInput.value);
     FIELDS.forEach(f => fd.append(f, val(f)));
-    selectedPhotos.forEach(p => fd.append('photos', p));
+    // Note: photos stay client-side on purpose — backend doesn't persist them yet,
+    // and uploading megabytes over mobile was making the submission hang.
 
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
       const res = await fetch(`${API}/reports/submit`, {
-        method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: fd
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+        signal: ctrl.signal,
+        cache: 'no-store'
       });
-      const data = await res.json();
-      if (!res.ok) {
-        msg.textContent = data.detail || 'حدث خطأ';
-        msg.className = 'status-msg error';
-        btn.disabled = false;
-      } else {
-        msg.textContent = `${data.message} — تبقى لك ${data.remaining} محاولة`;
-        msg.className = 'status-msg success';
-        if (data.remaining > 0) btn.disabled = false;
-        try { new Audio('/sound effect.mp3').play(); } catch(e){}
-      }
-    } catch(e) {
-      msg.textContent = 'خطأ في الاتصال بالخادم';
-      msg.className = 'status-msg error';
-      btn.disabled = false;
+      clearTimeout(timer);
+      let data = {};
+      try { data = await res.json(); } catch(_) {}
+      return { ok: res.ok, status: res.status, data };
     } finally {
-      btn.textContent = '📤 إرسال التقرير';
+      clearTimeout(timer);
     }
+  }
+
+  async function submitReport(isRetry) {
+    const btn = document.getElementById('submit-btn');
+
+    // Client-side validation
+    const messages = val('messages');
+    const badSum = val('autre_ville') + val('pi') + val('pe') + val('over_40');
+    if (messages > 0 && badSum > messages) {
+      showError('خطأ في الأرقام',
+        'عدد الرسائل يجب أن يكون أكبر من مجموع (مدينة أخرى + غير مهتم + غير مؤهل + فوق 40)',
+        false);
+      overlay.classList.add('show');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '⏳ جاري الإرسال...';
+    showLoading(isRetry ? 'إعادة المحاولة...' : 'جاري الإرسال...');
+
+    const TIMEOUT = 25000;  // 25s hard cap
+    let result;
+    try {
+      result = await postReport(TIMEOUT);
+    } catch (e) {
+      // network error or timeout — try one auto-retry
+      try {
+        result = await postReport(TIMEOUT);
+      } catch (e2) {
+        showError('تعذّر الاتصال',
+          'لم نتمكن من الوصول للخادم. تأكد من الاتصال بالإنترنت ثم أعد المحاولة.',
+          true);
+        return;
+      }
+    }
+
+    if (!result.ok) {
+      const detail = (result.data && result.data.detail) || `خطأ من الخادم (${result.status})`;
+      const canRetry = result.status >= 500;
+      showError('فشل الإرسال', detail, canRetry);
+      return;
+    }
+
+    // Success
+    const d = result.data || {};
+    const remaining = typeof d.remaining === 'number' ? d.remaining : 0;
+    const extra = remaining > 0
+      ? `يمكنك التعديل والإرسال مرة أخرى (تبقى ${remaining} محاولة)`
+      : 'تم حفظ تقريرك اليوم بنجاح';
+    showSuccess('تم الإرسال ✅', extra, remaining > 0);
+    try { new Audio('/sound effect.mp3').play(); } catch(e){}
   }
 </script>
 </body>
