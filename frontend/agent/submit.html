@@ -179,10 +179,11 @@
   <div class="upload-card">
     <div class="upload-zone" id="upload-zone" onclick="document.getElementById('photo-input').click()">
       <div class="upload-icon" id="upload-icon">📸</div>
-      <div class="upload-text" id="upload-text">اضغط لرفع صورة الورقة</div>
+      <div class="upload-text" id="upload-text">اضغط لرفع صور الورقة (يمكن اختيار أكثر من صورة)</div>
       <div class="upload-file-name" id="upload-name"></div>
     </div>
-    <input type="file" style="display:none" id="photo-input" accept="image/*" capture="environment" onchange="onPhotoSelect(this)" />
+    <input type="file" style="display:none" id="photo-input" accept="image/*" multiple capture="environment" onchange="onPhotoSelect(this)" />
+    <div id="photo-previews" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"></div>
   </div>
 
   <button class="submit-btn" id="submit-btn" onclick="submitReport()">📤 إرسال التقرير</button>
@@ -195,7 +196,7 @@
   if (!token || localStorage.getItem('role') !== 'agent') window.location.href = '/index.html';
 
   const FIELDS = ['messages','rdv','autre_ville','pi','bv','pe','over_40','visits','registered'];
-  let selectedPhoto = null;
+  let selectedPhotos = [];
 
   const today = new Date().toISOString().split('T')[0];
   const dateInput = document.getElementById('report-date');
@@ -209,12 +210,36 @@
   function clamp(el) { if(parseInt(el.value)<0||isNaN(parseInt(el.value))) el.value=0; }
 
   function onPhotoSelect(input) {
-    if (input.files && input.files[0]) {
-      selectedPhoto = input.files[0];
+    if (input.files && input.files.length) {
+      selectedPhotos = Array.from(input.files);
       document.getElementById('upload-zone').classList.add('has-file');
       document.getElementById('upload-icon').textContent = '✅';
-      document.getElementById('upload-text').textContent = 'تم اختيار الصورة';
-      document.getElementById('upload-name').textContent = selectedPhoto.name;
+      document.getElementById('upload-text').textContent = `تم اختيار ${selectedPhotos.length} صورة — اضغط لتغيير`;
+      document.getElementById('upload-name').textContent = '';
+      renderPhotoPreviews();
+    }
+  }
+
+  function renderPhotoPreviews() {
+    const row = document.getElementById('photo-previews');
+    row.innerHTML = selectedPhotos.map((f, i) => `
+      <div style="position:relative;width:64px;height:64px;border-radius:8px;overflow:hidden;border:2px solid #10b981">
+        <img src="${URL.createObjectURL(f)}" style="width:100%;height:100%;object-fit:cover" />
+        <button type="button" onclick="removePhoto(${i})" style="position:absolute;top:2px;left:2px;background:rgba(0,0,0,0.6);color:white;border:none;width:18px;height:18px;border-radius:50%;font-size:11px;cursor:pointer;line-height:1;padding:0">×</button>
+      </div>
+    `).join('');
+  }
+
+  function removePhoto(i) {
+    selectedPhotos.splice(i, 1);
+    renderPhotoPreviews();
+    if (!selectedPhotos.length) {
+      document.getElementById('upload-zone').classList.remove('has-file');
+      document.getElementById('upload-icon').textContent = '📸';
+      document.getElementById('upload-text').textContent = 'اضغط لرفع صور الورقة (يمكن اختيار أكثر من صورة)';
+      document.getElementById('photo-input').value = '';
+    } else {
+      document.getElementById('upload-text').textContent = `تم اختيار ${selectedPhotos.length} صورة — اضغط لتغيير`;
     }
   }
 
@@ -264,7 +289,7 @@
     const fd = new FormData();
     fd.append('report_date', dateInput.value);
     FIELDS.forEach(f => fd.append(f, val(f)));
-    if (selectedPhoto) fd.append('photo', selectedPhoto);
+    selectedPhotos.forEach(p => fd.append('photos', p));
 
     try {
       const res = await fetch(`${API}/reports/submit`, {
@@ -274,15 +299,17 @@
       if (!res.ok) {
         msg.textContent = data.detail || 'حدث خطأ';
         msg.className = 'status-msg error';
+        btn.disabled = false;
       } else {
         msg.textContent = `${data.message} — تبقى لك ${data.remaining} محاولة`;
         msg.className = 'status-msg success';
-        if (data.remaining <= 0) btn.disabled = true;
+        if (data.remaining > 0) btn.disabled = false;
         try { new Audio('/sound effect.mp3').play(); } catch(e){}
       }
     } catch(e) {
       msg.textContent = 'خطأ في الاتصال بالخادم';
       msg.className = 'status-msg error';
+      btn.disabled = false;
     } finally {
       btn.textContent = '📤 إرسال التقرير';
     }

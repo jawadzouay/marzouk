@@ -118,6 +118,12 @@
       padding: 6px 14px; border-radius: 8px; font-size: 12px;
       font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600;
     }
+    .goal-edit-btn {
+      background: none; border: 1px solid #2563eb; color: #2563eb;
+      padding: 6px 14px; border-radius: 8px; font-size: 12px;
+      font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600;
+      margin-left: 6px;
+    }
 
     /* ===== Reports Table ===== */
     .reports-table {
@@ -425,9 +431,54 @@ function renderGoalProgress(goal, progress) {
       <span>${goal.start_date} → ${goal.end_date}</span>
     </div>
     <div style="text-align:center; margin-top:10px">
+      <button class="goal-edit-btn" onclick='startEditGoal(${JSON.stringify(goal)})'>تعديل الهدف</button>
       <button class="goal-delete-btn" onclick="deleteGoal('${goal.id}')">حذف الهدف</button>
     </div>
   `;
+}
+
+function startEditGoal(goal) {
+  const container = document.getElementById('goalContent');
+  container.innerHTML = `
+    <div class="goal-form">
+      <div>
+        <label>عدد المسجلين المستهدف</label>
+        <input type="number" id="editGoalTarget" min="1" value="${goal.target_registered}" />
+      </div>
+      <div class="goal-form-row">
+        <div>
+          <label>تاريخ البداية</label>
+          <input type="date" id="editGoalStart" value="${goal.start_date}" />
+        </div>
+        <div>
+          <label>تاريخ النهاية</label>
+          <input type="date" id="editGoalEnd" value="${goal.end_date}" />
+        </div>
+      </div>
+      <div style="display:flex; gap:8px">
+        <button class="goal-submit-btn" style="flex:1" onclick="saveEditGoal('${goal.id}')">حفظ التعديلات</button>
+        <button class="goal-delete-btn" style="flex:0 0 auto" onclick="loadGoal()">إلغاء</button>
+      </div>
+    </div>
+  `;
+}
+
+async function saveEditGoal(id) {
+  const target = document.getElementById('editGoalTarget')?.value;
+  const start = document.getElementById('editGoalStart')?.value;
+  const end = document.getElementById('editGoalEnd')?.value;
+  if (!target || !start || !end) { alert('أكمل جميع الحقول'); return; }
+  if (parseInt(target) <= 0) { alert('الهدف يجب أن يكون أكبر من صفر'); return; }
+  if (end <= start) { alert('تاريخ النهاية يجب أن يكون بعد البداية'); return; }
+
+  try {
+    const res = await fetch(API + `/reports/goals/${id}`, {
+      method: 'PATCH', headers: hdrJson(),
+      body: JSON.stringify({ target_registered: parseInt(target), start_date: start, end_date: end })
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.detail || 'خطأ'); }
+    loadGoal();
+  } catch (e) { alert(e.message); }
 }
 
 function renderGoalChart(goal, progress) {

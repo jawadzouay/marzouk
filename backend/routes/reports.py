@@ -4,6 +4,7 @@ from jose import jwt
 from services.supabase_service import get_client
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, date
+from typing import List, Optional
 import os
 import logging
 
@@ -49,7 +50,7 @@ async def submit_daily_report(
     over_40: int = Form(0),
     visits: int = Form(0),
     registered: int = Form(0),
-    photo: UploadFile = File(None),
+    photos: List[UploadFile] = File(None),
     user=Depends(get_current_user)
 ):
     sb = get_client()
@@ -67,20 +68,16 @@ async def submit_daily_report(
     else:
         new_count = 1
 
-    # Upload photo to Google Drive if provided
-    drive_file_id = None
-    if photo and photo.filename:
-        try:
-            from services.drive_service import upload_photo as drive_upload
-            agent_row = sb.table("agents").select("drive_folder_id").eq("id", agent_id).execute()
-            folder_id = agent_row.data[0].get("drive_folder_id") if agent_row.data else None
-            if folder_id:
-                photo_bytes = await photo.read()
-                ext = photo.filename.rsplit(".", 1)[-1] if "." in photo.filename else "jpg"
-                filename = f"{report_date}.{ext}"
-                drive_file_id = drive_upload(folder_id, photo_bytes, filename, photo.content_type or "image/jpeg")
-        except Exception as e:
-            logging.warning(f"[DRIVE UPLOAD] Failed: {e}")
+    # Read photos to consume the request body, but skip Drive upload for now
+    photo_count = 0
+    if photos:
+        for ph in photos:
+            if ph and ph.filename:
+                try:
+                    await ph.read()
+                    photo_count += 1
+                except Exception:
+                    pass
 
     report_data = {
         "agent_id": agent_id,
@@ -97,8 +94,6 @@ async def submit_daily_report(
         "submitted_at": datetime.utcnow().isoformat(),
         "submit_count": new_count,
     }
-    if drive_file_id:
-        report_data["drive_file_id"] = drive_file_id
 
     # Upsert (insert or update on conflict)
     result = sb.table("daily_reports").upsert(report_data, on_conflict="agent_id,report_date").execute()
@@ -109,6 +104,7 @@ async def submit_daily_report(
         "submit_count": new_count,
         "remaining": 2 - new_count,
         "is_first_submit": is_first,
+        "photo_count": photo_count,
         "report": result.data[0] if result.data else report_data
     }
 
@@ -238,6 +234,39 @@ def get_goals(
 
     result = q.order("created_at", desc=True).execute()
     return result.data
+
+
+@router.patch("/goals/{goal_id}")
+def update_goal(goal_id: str, body: dict, user=Depends(get_current_user)):
+    sb = get_client()
+    is_admin = user.get("role") == "admin"
+
+    goal = sb.table("agent_goals").select("*").eq("id", goal_id).execute()
+    if not goal.data:
+        raise HTTPException(404, "Goal not found")
+
+    g = goal.data[0]
+    if not is_admin and g.get("is_admin_goal"):
+        raise HTTPException(403, "لا يمكنك تعديل هدف المدير")
+    if not is_admin and g["agent_id"] != user["sub"]:
+        raise HTTPException(403, "Forbidden")
+
+    updates = {}
+    if "target_registered" in body:
+        t = int(body["target_registered"])
+        if t <= 0:
+            raise HTTPException(400, "الهدف يجب أن يكون أكبر من صفر")
+        updates["target_registered"] = t
+    if "start_date" in body:
+        updates["start_date"] = body["start_date"]
+    if "end_date" in body:
+        updates["end_date"] = body["end_date"]
+
+    if not updates:
+        raise HTTPException(400, "لا يوجد حقول للتحديث")
+
+    result = sb.table("agent_goals").update(updates).eq("id", goal_id).execute()
+    return result.data[0] if result.data else {"message": "تم التحديث"}
 
 
 @router.delete("/goals/{goal_id}")
