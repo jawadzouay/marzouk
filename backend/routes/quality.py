@@ -98,8 +98,14 @@ def compute_agent_score(totals: dict, thresholds: dict, report_count: int = 0) -
     avg_registered = registered / days
     avg_messages = messages / days
 
-    # Classify: GREEN / ORANGE / RED based on RDV/day
-    if avg_rdv >= thresholds["rdv_green_min"]:
+    # Classify: GREEN / ORANGE / RED based on RDV/day.
+    # Agents with zero messages are treated as "inactive" (ad not running
+    # or no reports submitted) — parked in the green column at the bottom
+    # rather than flagged red, since there's nothing to diagnose.
+    inactive = messages == 0
+    if inactive:
+        color = "green"
+    elif avg_rdv >= thresholds["rdv_green_min"]:
         color = "green"
     elif avg_rdv >= thresholds["rdv_orange_min"]:
         color = "orange"
@@ -139,6 +145,7 @@ def compute_agent_score(totals: dict, thresholds: dict, report_count: int = 0) -
         "avg_registered": round(avg_registered, 2),
         "avg_messages": round(avg_messages, 2),
         "color": color,
+        "inactive": inactive,
         "bottleneck": bottleneck,
     }
 

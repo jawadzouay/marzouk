@@ -155,6 +155,8 @@
     }
     .bottleneck-badge.ad { background: #dbeafe; color: #1e40af; }
     .bottleneck-badge.agent { background: #fce7f3; color: #9d174d; }
+    .bottleneck-badge.inactive { background: #f3f4f6; color: #6b7280; }
+    .agent-card.inactive { opacity: 0.65; }
 
     .agent-metrics {
       display: flex; gap: 6px; flex-wrap: wrap; font-size: 10px; color: #6b7280;
@@ -553,6 +555,12 @@ function renderColumns(scores) {
   const orange = sorted.filter(s => s.color === 'orange');
   const red = sorted.filter(s => s.color === 'red');
 
+  // Push inactive agents (no messages at all) to the bottom of the green column
+  green.sort((a, b) => {
+    if (a.inactive !== b.inactive) return a.inactive ? 1 : -1;
+    return (b.rdv || 0) - (a.rdv || 0);
+  });
+
   document.getElementById('greenCount').textContent = `(${green.length})`;
   document.getElementById('orangeCount').textContent = `(${orange.length})`;
   document.getElementById('redCount').textContent = `(${red.length})`;
@@ -573,9 +581,12 @@ function renderAgentCard(s) {
     'agent_closing': 'لا يغلق'
   };
   const bottleneckType = s.bottleneck === 'ad_quality' ? 'ad' : 'agent';
-  const badge = s.bottleneck
+  let badge = s.bottleneck
     ? `<span class="bottleneck-badge ${bottleneckType}">${bottleneckLabel[s.bottleneck] || s.bottleneck}</span>`
     : '';
+  if (s.inactive) {
+    badge = '<span class="bottleneck-badge inactive">بدون رسائل</span>';
+  }
 
   // Highlight chip for currently-selected metric filter
   let metricChip = '';
@@ -599,7 +610,7 @@ function renderAgentCard(s) {
   const badPct = (s.bad_lead_pct * 100).toFixed(0);
 
   return `
-    <div class="agent-card" onclick='showDetail(${JSON.stringify(s)})'>
+    <div class="agent-card ${s.inactive ? 'inactive' : ''}" onclick='showDetail(${JSON.stringify(s)})'>
       <div class="agent-card-header">
         <div>
           <span class="agent-card-name">${s.agent_name}</span>
