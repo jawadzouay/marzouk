@@ -117,30 +117,36 @@
     <div class="section-title">حدود جودة الإعلانات</div>
 
     <div class="field-hint" style="margin-bottom:14px">
-      تحدد هذه النسب متى يكون الوكيل في المنطقة الخضراء أو البرتقالية أو الحمراء في لوحة الجودة.
+      التصنيف الأخضر/البرتقالي/الأحمر يعتمد على متوسط عدد المواعيد في اليوم الواحد.
+      إذا حقق الوكيل مواعيد كافية فالإعلان جيد.
     </div>
 
     <div class="threshold-grid">
       <div class="field">
-        <label>الحد الأقصى للأخضر</label>
-        <input type="number" id="th-green" min="0" max="1" step="0.01" placeholder="0.30" />
-        <div class="field-hint">أقل من هذه النسبة = أخضر</div>
+        <label>الحد الأدنى للأخضر (مواعيد/يوم)</label>
+        <input type="number" id="th-rdv-green" min="0" step="1" placeholder="6" />
+        <div class="field-hint">أكثر أو يساوي هذا الرقم = أخضر</div>
       </div>
       <div class="field">
-        <label>الحد الأقصى للبرتقالي</label>
-        <input type="number" id="th-orange" min="0" max="1" step="0.01" placeholder="0.50" />
-        <div class="field-hint">أقل من هذه النسبة = برتقالي، أكثر = أحمر</div>
+        <label>الحد الأدنى للبرتقالي (مواعيد/يوم)</label>
+        <input type="number" id="th-rdv-orange" min="0" step="1" placeholder="3" />
+        <div class="field-hint">أقل من الأخضر وأكثر أو يساوي هذا = برتقالي، أقل = أحمر</div>
       </div>
       <div class="field">
-        <label>أدنى نسبة مواعيد</label>
+        <label>الحد الأقصى للعملاء السيئين</label>
+        <input type="number" id="th-bad" min="0" max="1" step="0.01" placeholder="0.50" />
+        <div class="field-hint">يُستخدم فقط لتشخيص: هل المشكلة من الإعلان أم الوكيل؟</div>
+      </div>
+      <div class="field">
+        <label>أدنى نسبة مواعيد (للتشخيص)</label>
         <input type="number" id="th-rdv" min="0" max="1" step="0.01" placeholder="0.20" />
       </div>
       <div class="field">
-        <label>أدنى نسبة حضور</label>
+        <label>أدنى نسبة حضور (للتشخيص)</label>
         <input type="number" id="th-show" min="0" max="1" step="0.01" placeholder="0.40" />
       </div>
       <div class="field">
-        <label>أدنى نسبة إغلاق</label>
+        <label>أدنى نسبة إغلاق (للتشخيص)</label>
         <input type="number" id="th-close" min="0" max="1" step="0.01" placeholder="0.30" />
       </div>
     </div>
@@ -227,22 +233,24 @@
       const res = await fetch(`${API}/quality/thresholds`, { headers: { Authorization: `Bearer ${token}` } });
       if (!res.ok) return;
       const data = await res.json();
-      document.getElementById('th-green').value = data.green_max ?? 0.30;
-      document.getElementById('th-orange').value = data.orange_max ?? 0.50;
-      document.getElementById('th-rdv').value = data.min_rdv_rate ?? 0.20;
-      document.getElementById('th-show').value = data.min_show_rate ?? 0.40;
-      document.getElementById('th-close').value = data.min_close_rate ?? 0.30;
+      document.getElementById('th-rdv-green').value  = data.rdv_green_min ?? 6;
+      document.getElementById('th-rdv-orange').value = data.rdv_orange_min ?? 3;
+      document.getElementById('th-bad').value        = data.bad_lead_max ?? 0.50;
+      document.getElementById('th-rdv').value        = data.min_rdv_rate ?? 0.20;
+      document.getElementById('th-show').value       = data.min_show_rate ?? 0.40;
+      document.getElementById('th-close').value      = data.min_close_rate ?? 0.30;
     } catch(e) {}
   }
 
   async function saveThresholds() {
     try {
       const body = {
-        quality_green_max: parseFloat(document.getElementById('th-green').value) || 0.30,
-        quality_orange_max: parseFloat(document.getElementById('th-orange').value) || 0.50,
-        quality_min_rdv_rate: parseFloat(document.getElementById('th-rdv').value) || 0.20,
-        quality_min_show_rate: parseFloat(document.getElementById('th-show').value) || 0.40,
-        quality_min_close_rate: parseFloat(document.getElementById('th-close').value) || 0.30,
+        quality_rdv_green_min:  parseFloat(document.getElementById('th-rdv-green').value)  || 6,
+        quality_rdv_orange_min: parseFloat(document.getElementById('th-rdv-orange').value) || 3,
+        quality_bad_lead_max:   parseFloat(document.getElementById('th-bad').value)        || 0.50,
+        quality_min_rdv_rate:   parseFloat(document.getElementById('th-rdv').value)        || 0.20,
+        quality_min_show_rate:  parseFloat(document.getElementById('th-show').value)       || 0.40,
+        quality_min_close_rate: parseFloat(document.getElementById('th-close').value)      || 0.30,
       };
       const res = await fetch(`${API}/quality/thresholds`, {
         method: 'PUT',

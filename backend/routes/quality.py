@@ -14,8 +14,14 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 ALGORITHM = "HS256"
 
 # Default thresholds (configurable from settings table)
-DEFAULT_GREEN_MAX = 0.30   # < 30% bad leads = GREEN
-DEFAULT_ORANGE_MAX = 0.50  # 30-50% = ORANGE, > 50% = RED
+# Color classification is now driven by RDV count per reporting day:
+#   avg_rdv_per_day >= GREEN_MIN   → GREEN
+#   ORANGE_MIN <= avg_rdv < GREEN  → ORANGE
+#   avg_rdv_per_day <  ORANGE_MIN  → RED
+DEFAULT_RDV_GREEN_MIN = 6   # 6+ RDV/day → green
+DEFAULT_RDV_ORANGE_MIN = 3  # 3-5 RDV/day → orange, <3 → red
+# Legacy percentage thresholds (still used for bottleneck diagnosis)
+DEFAULT_BAD_LEAD_MAX = 0.50
 DEFAULT_MIN_RDV_RATE = 0.20
 DEFAULT_MIN_SHOW_RATE = 0.40
 DEFAULT_MIN_CLOSE_RATE = 0.30
@@ -34,7 +40,8 @@ def require_admin(credentials: HTTPAuthorizationCredentials = Depends(security))
 def load_thresholds():
     """Load quality thresholds from settings table, with defaults."""
     sb = get_client()
-    keys = ["quality_green_max", "quality_orange_max",
+    keys = ["quality_rdv_green_min", "quality_rdv_orange_min",
+            "quality_bad_lead_max",
             "quality_min_rdv_rate", "quality_min_show_rate", "quality_min_close_rate"]
     try:
         rows = sb.table("settings").select("key, value").in_("key", keys).execute()
@@ -43,16 +50,23 @@ def load_thresholds():
         cfg = {}
 
     return {
-        "green_max": cfg.get("quality_green_max", DEFAULT_GREEN_MAX),
-        "orange_max": cfg.get("quality_orange_max", DEFAULT_ORANGE_MAX),
+        "rdv_green_min": cfg.get("quality_rdv_green_min", DEFAULT_RDV_GREEN_MIN),
+        "rdv_orange_min": cfg.get("quality_rdv_orange_min", DEFAULT_RDV_ORANGE_MIN),
+        "bad_lead_max": cfg.get("quality_bad_lead_max", DEFAULT_BAD_LEAD_MAX),
         "min_rdv_rate": cfg.get("quality_min_rdv_rate", DEFAULT_MIN_RDV_RATE),
         "min_show_rate": cfg.get("quality_min_show_rate", DEFAULT_MIN_SHOW_RATE),
         "min_close_rate": cfg.get("quality_min_close_rate", DEFAULT_MIN_CLOSE_RATE),
     }
 
 
-def compute_agent_score(totals: dict, thresholds: dict) -> dict:
-    """Compute quality metrics and classify an agent."""
+def compute_agent_score(totals: dict, thresholds: dict, report_count: int = 0) -> dict:
+    """Compute quality metrics and classify an agent.
+
+    Classification is driven by average RDV per reporting day:
+      <ORANGE_MIN  → red     (ads not producing bookings)
+      ORANGE..GREEN → orange
+      >=GREEN_MIN  → green   (ads are working)
+    """
     messages = totals.get("messages", 0)
     rdv = totals.get("rdv", 0)
     autre_ville = totals.get("autre_ville", 0)
@@ -77,28 +91,38 @@ def compute_agent_score(totals: dict, thresholds: dict) -> dict:
     show_rate = (visits / rdv) if rdv > 0 else 0
     close_rate = (registered / visits) if visits > 0 else 0
 
-    # Classify: GREEN / ORANGE / RED
-    if bad_lead_pct <= thresholds["green_max"]:
+    # Per-day averages (primary metrics)
+    days = max(report_count, 1)
+    avg_rdv = rdv / days
+    avg_visits = visits / days
+    avg_registered = registered / days
+    avg_messages = messages / days
+
+    # Classify: GREEN / ORANGE / RED based on RDV/day
+    if avg_rdv >= thresholds["rdv_green_min"]:
         color = "green"
-    elif bad_lead_pct <= thresholds["orange_max"]:
+    elif avg_rdv >= thresholds["rdv_orange_min"]:
         color = "orange"
     else:
         color = "red"
 
-    # Determine bottleneck
+    # Determine bottleneck (separate from color — explains WHY)
     bottleneck = None
-    if bad_lead_pct > thresholds["orange_max"]:
-        bottleneck = "ad_quality"  # Ad is bringing bad leads
+    if bad_lead_pct > thresholds["bad_lead_max"]:
+        bottleneck = "ad_quality"
     elif messages > 0 and rdv_rate < thresholds["min_rdv_rate"]:
-        bottleneck = "agent_conversion"  # Agent not converting leads to RDV
+        bottleneck = "agent_conversion"
     elif rdv > 0 and show_rate < thresholds["min_show_rate"]:
-        bottleneck = "agent_followup"  # Agent not getting people to show up
+        bottleneck = "agent_followup"
     elif visits > 0 and close_rate < thresholds["min_close_rate"]:
-        bottleneck = "agent_closing"  # Agent not closing deals
+        bottleneck = "agent_closing"
 
     return {
         "totals": totals,
         "messages": messages,
+        "rdv": rdv,
+        "visits": visits,
+        "registered": registered,
         "bad_leads": bad_leads,
         "bad_lead_pct": round(bad_lead_pct, 3),
         "autre_ville_pct": round(autre_ville_pct, 3),
@@ -110,6 +134,10 @@ def compute_agent_score(totals: dict, thresholds: dict) -> dict:
         "rdv_rate": round(rdv_rate, 3),
         "show_rate": round(show_rate, 3),
         "close_rate": round(close_rate, 3),
+        "avg_rdv": round(avg_rdv, 2),
+        "avg_visits": round(avg_visits, 2),
+        "avg_registered": round(avg_registered, 2),
+        "avg_messages": round(avg_messages, 2),
         "color": color,
         "bottleneck": bottleneck,
     }
@@ -155,12 +183,13 @@ def quality_scores(
             for key in totals:
                 totals[key] += r.get(key, 0)
 
-        score = compute_agent_score(totals, thresholds)
+        report_count = len(reports.data)
+        score = compute_agent_score(totals, thresholds, report_count)
         branch_info = agent.get("branches")
         score["agent_id"] = aid
         score["agent_name"] = agent["name"]
         score["branch_name"] = branch_info.get("name", "") if branch_info else ""
-        score["report_count"] = len(reports.data)
+        score["report_count"] = report_count
         results.append(score)
 
     # Sort: red first, then orange, then green (worst to best for attention)
@@ -183,7 +212,8 @@ def get_thresholds(admin=Depends(require_admin)):
 @router.put("/thresholds")
 def set_thresholds(body: dict, admin=Depends(require_admin)):
     sb = get_client()
-    valid_keys = ["quality_green_max", "quality_orange_max",
+    valid_keys = ["quality_rdv_green_min", "quality_rdv_orange_min",
+                  "quality_bad_lead_max",
                   "quality_min_rdv_rate", "quality_min_show_rate", "quality_min_close_rate"]
 
     for key in valid_keys:

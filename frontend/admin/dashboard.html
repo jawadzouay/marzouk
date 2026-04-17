@@ -164,6 +164,24 @@
     }
     .agent-metric.highlight { background: #fee2e2; color: #991b1b; }
 
+    /* Number-first stat tiles inside each agent card */
+    .stat-row {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px;
+    }
+    .stat-tile {
+      background: #f9fafb; border-radius: 8px; padding: 7px 4px; text-align: center;
+    }
+    .stat-tile.primary { background: #eff6ff; }
+    .stat-tile.good    { background: #ecfdf5; }
+    .stat-num {
+      font-size: 18px; font-weight: 900; color: #1a1a1a; line-height: 1.1;
+    }
+    .stat-num.primary { color: #1d4ed8; }
+    .stat-num.good    { color: #059669; }
+    .stat-lbl { font-size: 9px; color: #6b7280; font-weight: 700; margin-top: 1px; }
+    .stat-sub { font-size: 9px; color: #9ca3af; font-weight: 600; margin-top: 1px; }
+    .stat-sub.warn { color: #b91c1c; }
+
     /* ── Agent Detail Modal ── */
     .modal-overlay {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
@@ -559,12 +577,26 @@ function renderAgentCard(s) {
     ? `<span class="bottleneck-badge ${bottleneckType}">${bottleneckLabel[s.bottleneck] || s.bottleneck}</span>`
     : '';
 
-  // Determine which metric value to highlight
-  let metricVal = '';
+  // Highlight chip for currently-selected metric filter
+  let metricChip = '';
   if (currentMetric !== 'all') {
     const pct = s[currentMetric];
-    metricVal = pct !== undefined ? `<span class="agent-metric highlight">${(pct * 100).toFixed(0)}%</span>` : '';
+    if (pct !== undefined) {
+      metricChip = `<span class="agent-metric highlight">${(pct * 100).toFixed(0)}%</span>`;
+    }
   }
+
+  const days = s.report_count || 1;
+  const rdvLine = days > 1
+    ? `<div class="stat-sub">${s.avg_rdv}/يوم</div>`
+    : '';
+  const visitsLine = days > 1
+    ? `<div class="stat-sub">${s.avg_visits}/يوم</div>`
+    : '';
+  const regLine = days > 1
+    ? `<div class="stat-sub">${s.avg_registered}/يوم</div>`
+    : '';
+  const badPct = (s.bad_lead_pct * 100).toFixed(0);
 
   return `
     <div class="agent-card" onclick='showDetail(${JSON.stringify(s)})'>
@@ -575,13 +607,31 @@ function renderAgentCard(s) {
         </div>
         ${badge}
       </div>
-      <div class="agent-metrics">
-        ${metricVal}
-        <span class="agent-metric">رسائل: ${s.messages}</span>
-        <span class="agent-metric">سيئة: ${(s.bad_lead_pct * 100).toFixed(0)}%</span>
-        <span class="agent-metric">مواعيد: ${(s.rdv_rate * 100).toFixed(0)}%</span>
-        ${s.report_count !== undefined ? `<span class="agent-metric">تقارير: ${s.report_count}</span>` : ''}
+
+      <div class="stat-row">
+        <div class="stat-tile primary">
+          <div class="stat-num primary">${s.rdv}</div>
+          <div class="stat-lbl">مواعيد</div>
+          ${rdvLine}
+        </div>
+        <div class="stat-tile good">
+          <div class="stat-num good">${s.registered}</div>
+          <div class="stat-lbl">تسجيل</div>
+          ${regLine}
+        </div>
+        <div class="stat-tile">
+          <div class="stat-num">${s.visits}</div>
+          <div class="stat-lbl">زيارات</div>
+          ${visitsLine}
+        </div>
+        <div class="stat-tile">
+          <div class="stat-num">${s.messages}</div>
+          <div class="stat-lbl">رسائل</div>
+          <div class="stat-sub ${s.bad_lead_pct > 0.5 ? 'warn' : ''}">${badPct}% سيئة</div>
+        </div>
       </div>
+
+      ${metricChip ? `<div class="agent-metrics" style="margin-top:6px">${metricChip}</div>` : ''}
     </div>
   `;
 }
@@ -617,43 +667,53 @@ async function showDetail(score) {
     diagHtml = `<div class="diagnosis-box ok"><div class="diagnosis-title">أداء جيد</div>لا توجد مشاكل واضحة — استمر!</div>`;
   }
 
+  const days = score.report_count || 1;
+  const perDay = (v) => days > 1 ? `<div class="detail-pct">${(v / days).toFixed(1)}/يوم</div>` : '';
+  const badColor = score.bad_lead_pct > 0.5 ? '#ef4444' : score.bad_lead_pct > 0.3 ? '#f59e0b' : '#059669';
+
   content.innerHTML = `
     <div class="modal-agent-name">${score.agent_name} ${score.branch_name ? '— ' + score.branch_name : ''}</div>
     ${diagHtml}
     <div class="detail-grid">
+      <div class="detail-item" style="background:#eff6ff">
+        <div class="detail-val" style="color:#1d4ed8">${score.rdv}</div>
+        <div class="detail-lbl">مواعيد</div>
+        ${perDay(score.rdv)}
+      </div>
+      <div class="detail-item" style="background:#ecfdf5">
+        <div class="detail-val" style="color:#059669">${score.registered}</div>
+        <div class="detail-lbl">تسجيل</div>
+        ${perDay(score.registered)}
+      </div>
+      <div class="detail-item">
+        <div class="detail-val">${score.visits}</div>
+        <div class="detail-lbl">زيارات</div>
+        ${perDay(score.visits)}
+      </div>
       <div class="detail-item">
         <div class="detail-val">${score.messages}</div>
         <div class="detail-lbl">رسائل</div>
+        ${perDay(score.messages)}
       </div>
       <div class="detail-item">
-        <div class="detail-val" style="color:${score.bad_lead_pct > 0.5 ? '#ef4444' : score.bad_lead_pct > 0.3 ? '#f59e0b' : '#059669'}">${(score.bad_lead_pct * 100).toFixed(0)}%</div>
+        <div class="detail-val" style="color:${badColor}">${score.bad_leads}</div>
         <div class="detail-lbl">عملاء سيئون</div>
+        <div class="detail-pct">${(score.bad_lead_pct * 100).toFixed(0)}% من الرسائل</div>
       </div>
       <div class="detail-item">
         <div class="detail-val">${(score.rdv_rate * 100).toFixed(0)}%</div>
         <div class="detail-lbl">نسبة المواعيد</div>
-      </div>
-      <div class="detail-item">
-        <div class="detail-val">${(score.show_rate * 100).toFixed(0)}%</div>
-        <div class="detail-lbl">نسبة الحضور</div>
-      </div>
-      <div class="detail-item">
-        <div class="detail-val">${(score.close_rate * 100).toFixed(0)}%</div>
-        <div class="detail-lbl">نسبة الإغلاق</div>
-      </div>
-      <div class="detail-item">
-        <div class="detail-val">${score.bad_leads}</div>
-        <div class="detail-lbl">عملاء سيئون</div>
+        <div class="detail-pct">حضور ${(score.show_rate * 100).toFixed(0)}% · إغلاق ${(score.close_rate * 100).toFixed(0)}%</div>
       </div>
     </div>
 
     <div style="font-size:12px; color:#6b7280; margin-bottom:8px; font-weight:600">تفاصيل العملاء السيئين:</div>
     <div class="agent-metrics" style="margin-bottom:14px">
-      <span class="agent-metric ${score.autre_ville_pct > 0.15 ? 'highlight' : ''}">مدينة أخرى: ${(score.autre_ville_pct * 100).toFixed(0)}%</span>
-      <span class="agent-metric ${score.pi_pct > 0.15 ? 'highlight' : ''}">غير مهتم: ${(score.pi_pct * 100).toFixed(0)}%</span>
-      <span class="agent-metric ${score.bv_pct > 0.15 ? 'highlight' : ''}">بريد صوتي: ${(score.bv_pct * 100).toFixed(0)}%</span>
-      <span class="agent-metric ${score.pe_pct > 0.1 ? 'highlight' : ''}">غير مؤهل: ${(score.pe_pct * 100).toFixed(0)}%</span>
-      <span class="agent-metric ${score.over_40_pct > 0.1 ? 'highlight' : ''}">فوق 40: ${(score.over_40_pct * 100).toFixed(0)}%</span>
+      <span class="agent-metric ${score.autre_ville_pct > 0.15 ? 'highlight' : ''}">مدينة أخرى: ${score.totals.autre_ville} <span style="opacity:0.55;font-size:9px">(${(score.autre_ville_pct * 100).toFixed(0)}%)</span></span>
+      <span class="agent-metric ${score.pi_pct > 0.15 ? 'highlight' : ''}">غير مهتم: ${score.totals.pi} <span style="opacity:0.55;font-size:9px">(${(score.pi_pct * 100).toFixed(0)}%)</span></span>
+      <span class="agent-metric ${score.bv_pct > 0.15 ? 'highlight' : ''}">بريد صوتي: ${score.totals.bv} <span style="opacity:0.55;font-size:9px">(${(score.bv_pct * 100).toFixed(0)}%)</span></span>
+      <span class="agent-metric ${score.pe_pct > 0.1 ? 'highlight' : ''}">غير مؤهل: ${score.totals.pe} <span style="opacity:0.55;font-size:9px">(${(score.pe_pct * 100).toFixed(0)}%)</span></span>
+      <span class="agent-metric ${score.over_40_pct > 0.1 ? 'highlight' : ''}">فوق 40: ${score.totals.over_40} <span style="opacity:0.55;font-size:9px">(${(score.over_40_pct * 100).toFixed(0)}%)</span></span>
     </div>
 
     <div class="modal-goal-section">
