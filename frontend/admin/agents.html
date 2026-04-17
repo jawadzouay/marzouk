@@ -503,23 +503,31 @@
         list.innerHTML = '<div class="empty-state">لا يوجد طلبات معلقة ✅</div>';
         return;
       }
-      list.innerHTML = requests.map(r => `
+      list.innerHTML = requests.map(r => {
+        const reqCity   = r.requested_city || '';
+        const reqBranch = r.requested_branch_id || '';
+        const requestedLine = (reqCity || r.requested_branch_name)
+          ? `<div class="req-pass" style="color:#0369a1">📍 المدينة المطلوبة: <span>${reqCity || '—'}</span> · الفرع: <span>${r.requested_branch_name || '—'}</span></div>`
+          : '';
+        return `
         <div class="request-row" id="req-${r.id}">
           <div class="req-name">👤 ${r.requested_name}</div>
           <div class="req-pass">كلمة المرور: <span>${r.password_plain}</span></div>
+          ${requestedLine}
           <div class="req-date">📅 ${new Date(r.created_at).toLocaleString('ar-MA')}</div>
           <div class="req-edit-row">
             <input type="text" id="fname-${r.id}" value="${r.requested_name}" placeholder="الاسم النهائي" />
             <select id="fbranch-${r.id}">
               <option value="">— بدون فرع —</option>
-              ${allBranches.map(b => `<option value="${b.id}">${b.city ? b.city + ' — ' : ''}${b.name}</option>`).join('')}
+              ${allBranches.map(b => `<option value="${b.id}" ${b.id === reqBranch ? 'selected' : ''}>${b.city ? b.city + ' — ' : ''}${b.name}</option>`).join('')}
             </select>
           </div>
           <div class="req-actions">
             <button class="btn-approve" onclick="approveRequest('${r.id}')">✅ قبول</button>
             <button class="btn-reject"  onclick="rejectRequest('${r.id}','${escQ(r.requested_name)}')">❌ رفض</button>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     }
 
     async function approveRequest(id) {

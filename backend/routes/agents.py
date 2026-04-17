@@ -228,7 +228,18 @@ def update_my_profile(body: dict, user=Depends(get_current_user)):
 def list_requests(admin=Depends(require_admin)):
     sb = get_client()
     result = sb.table("agent_requests").select("*").eq("status", "pending").order("created_at").execute()
-    return result.data
+    rows = result.data or []
+
+    # Resolve branch name for each requested_branch_id so admin sees what the agent picked
+    branch_ids = {r.get("requested_branch_id") for r in rows if r.get("requested_branch_id")}
+    branch_map = {}
+    if branch_ids:
+        br = sb.table("branches").select("id, name, city").in_("id", list(branch_ids)).execute()
+        branch_map = {b["id"]: b for b in (br.data or [])}
+    for r in rows:
+        bid = r.get("requested_branch_id")
+        r["requested_branch_name"] = branch_map.get(bid, {}).get("name") if bid else None
+    return rows
 
 
 class ApproveRequest(BaseModel):
@@ -250,8 +261,9 @@ def approve_request(request_id: str, body: ApproveRequest, admin=Depends(require
         raise HTTPException(400, "هذا الاسم مستخدم مسبقاً")
     hashed = pwd_context.hash(req["password_plain"])
     data = {"name": name, "pin": hashed, "is_active": True}
-    if body.branch_id:
-        data["branch_id"] = body.branch_id
+    final_branch = body.branch_id or req.get("requested_branch_id")
+    if final_branch:
+        data["branch_id"] = final_branch
     sb.table("agents").insert(data).execute()
     sb.table("agent_requests").update({"status": "approved", "final_name": name}).eq("id", request_id).execute()
     return {"message": f"تم قبول الوكيل {name}"}

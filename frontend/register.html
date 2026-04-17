@@ -21,11 +21,13 @@
     .logo h2 { font-size: 18px; color: #1a1a1a; margin-bottom: 4px; }
     .logo p { color: #6b7280; font-size: 13px; }
     label { display: block; font-size: 14px; font-weight: 600; color: #374151; margin-bottom: 6px; }
-    input {
+    input, select {
       width: 100%; padding: 12px 16px; border: 2px solid #e5e7eb; border-radius: 10px;
       font-size: 16px; font-family: 'Cairo', sans-serif; direction: rtl; margin-bottom: 20px; transition: border 0.2s;
+      background: white;
     }
-    input:focus { outline: none; border-color: #e63329; }
+    input:focus, select:focus { outline: none; border-color: #e63329; }
+    select:disabled { background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
     .btn-submit {
       width: 100%; padding: 14px; background: #e63329; color: white; border: none;
       border-radius: 10px; font-size: 18px; font-family: 'Cairo', sans-serif;
@@ -58,6 +60,14 @@
       <form id="register-form">
         <label>اسم المستخدم</label>
         <input type="text" id="req-name" placeholder="أدخل اسمك" required autocomplete="username" />
+        <label>المدينة</label>
+        <select id="req-city" required>
+          <option value="">— اختر المدينة —</option>
+        </select>
+        <label>الفرع</label>
+        <select id="req-branch" required disabled>
+          <option value="">— اختر المدينة أولاً —</option>
+        </select>
         <label>كلمة المرور</label>
         <input type="password" id="req-password" placeholder="اختر كلمة مرور" required autocomplete="new-password" />
         <label>تأكيد كلمة المرور</label>
@@ -79,10 +89,44 @@
 
   <script>
     const API = window.location.origin;
+    let allBranches = [];
+
+    const citySel   = document.getElementById('req-city');
+    const branchSel = document.getElementById('req-branch');
+
+    async function loadBranches() {
+      try {
+        const res = await fetch(`${API}/branches/public`);
+        allBranches = await res.json();
+        const cities = Array.from(new Set(allBranches.map(b => b.city).filter(Boolean))).sort();
+        citySel.innerHTML = '<option value="">— اختر المدينة —</option>' +
+          cities.map(c => `<option value="${c}">${c}</option>`).join('');
+      } catch (e) {
+        document.getElementById('alert').innerHTML =
+          '<div class="alert alert-error">تعذّر تحميل قائمة الفروع</div>';
+      }
+    }
+
+    citySel.addEventListener('change', () => {
+      const city = citySel.value;
+      if (!city) {
+        branchSel.innerHTML = '<option value="">— اختر المدينة أولاً —</option>';
+        branchSel.disabled = true;
+        return;
+      }
+      const filtered = allBranches.filter(b => b.city === city);
+      branchSel.innerHTML = '<option value="">— اختر الفرع —</option>' +
+        filtered.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+      branchSel.disabled = false;
+    });
+
+    loadBranches();
 
     document.getElementById('register-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const name     = document.getElementById('req-name').value.trim();
+      const city     = citySel.value;
+      const branchId = branchSel.value;
       const password = document.getElementById('req-password').value;
       const confirm  = document.getElementById('req-confirm').value;
       const alertEl  = document.getElementById('alert');
@@ -92,6 +136,10 @@
 
       if (!name || !password) {
         alertEl.innerHTML = '<div class="alert alert-error">يرجى ملء جميع الحقول</div>';
+        return;
+      }
+      if (!city || !branchId) {
+        alertEl.innerHTML = '<div class="alert alert-error">يرجى اختيار المدينة والفرع</div>';
         return;
       }
       if (password !== confirm) {
@@ -110,7 +158,7 @@
         const res = await fetch(`${API}/auth/register-request`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ requested_name: name, password })
+          body: JSON.stringify({ requested_name: name, password, city, branch_id: branchId })
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || 'خطأ في الإرسال');

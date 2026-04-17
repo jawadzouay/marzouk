@@ -45,6 +45,14 @@ def list_branches(user=Depends(get_current_user)):
     return result.data
 
 
+@router.get("/public")
+def list_branches_public():
+    """Unauthenticated list used by the agent signup page (city + branch dropdowns)."""
+    sb = get_client()
+    result = sb.table("branches").select("id, name, city").order("city").order("name").execute()
+    return result.data
+
+
 @router.get("/cities")
 def list_cities(user=Depends(get_current_user)):
     sb = get_client()

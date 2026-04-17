@@ -4,6 +4,7 @@ from jose import jwt
 from passlib.context import CryptContext
 from services.supabase_service import get_client
 from dotenv import load_dotenv
+from typing import Optional
 import os
 from datetime import datetime, timedelta
 
@@ -24,6 +25,8 @@ class LoginRequest(BaseModel):
 class RegisterRequest(BaseModel):
     requested_name: str
     password: str
+    city: Optional[str] = None
+    branch_id: Optional[str] = None
 
 
 def create_token(data: dict, expires_hours: int = 24):
@@ -84,10 +87,15 @@ def register_request(req: RegisterRequest):
     pending = sb.table("agent_requests").select("id").eq("requested_name", req.requested_name.strip()).eq("status", "pending").execute()
     if pending.data:
         raise HTTPException(status_code=400, detail="يوجد طلب بهذا الاسم قيد الانتظار")
-    result = sb.table("agent_requests").insert({
+    payload = {
         "requested_name": req.requested_name.strip(),
-        "password_plain": req.password
-    }).execute()
+        "password_plain": req.password,
+    }
+    if req.city:
+        payload["requested_city"] = req.city.strip()
+    if req.branch_id:
+        payload["requested_branch_id"] = req.branch_id
+    result = sb.table("agent_requests").insert(payload).execute()
     return {"message": "تم إرسال طلبك. انتظر موافقة الإدارة.", "id": result.data[0]["id"]}
 
 
