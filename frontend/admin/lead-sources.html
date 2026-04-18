@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>مصادر الليدات — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; color: #1a1a1a; }
+
+    header {
+      background: #1a1a1a; color: white;
+      padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top));
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    header h1 { font-size: 16px; font-weight: 700; }
+    .logout-btn {
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      color: white; padding: 7px 14px; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+
+    .subnav {
+      background: white; padding: 0 16px; display: flex; gap: 14px;
+      overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid #e5e7eb;
+      position: sticky; top: 46px; z-index: 50;
+    }
+    .subnav::-webkit-scrollbar { display: none; }
+    .subnav a {
+      padding: 12px 4px; text-decoration: none; font-size: 14px; font-weight: 700;
+      color: #6b7280; border-bottom: 2px solid transparent; white-space: nowrap;
+    }
+    .subnav a.active { color: #1a1a1a; border-bottom-color: #e63329; }
+
+    .container { padding: 14px; max-width: 1200px; margin: 0 auto; }
+
+    .card {
+      background: white; border-radius: 14px; padding: 16px;
+      margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .card h2 { font-size: 15px; font-weight: 800; margin-bottom: 10px; }
+
+    .intro {
+      background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px;
+      padding: 10px 14px; font-size: 12px; color: #1e40af; line-height: 1.7;
+      margin-bottom: 14px;
+    }
+    .intro code {
+      background: white; padding: 1px 6px; border-radius: 4px;
+      font-size: 11px; color: #e63329;
+    }
+
+    .btn {
+      padding: 8px 14px; border-radius: 8px; border: none;
+      font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-primary { background: #1a1a1a; color: white; }
+    .btn-accent { background: #e63329; color: white; }
+    .btn-secondary { background: #f3f4f6; color: #1a1a1a; border: 1.5px solid #e5e7eb; }
+    .btn-danger { background: transparent; color: #dc2626; border: 1px solid #fecaca; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .new-config-row {
+      display: grid; grid-template-columns: auto 1fr 1fr 1fr auto; gap: 8px;
+      align-items: end;
+    }
+    .new-config-row label { display: block; font-size: 11px; font-weight: 700; color: #6b7280; margin-bottom: 3px; }
+    .new-config-row select, .new-config-row input {
+      width: 100%; padding: 8px 10px; border: 1.5px solid #e5e7eb; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; font-size: 13px;
+    }
+    .seg {
+      display: flex; background: #f3f4f6; border-radius: 8px; padding: 3px;
+    }
+    .seg button {
+      flex: 1; padding: 6px 10px; background: transparent; border: none;
+      border-radius: 6px; font-family: 'Cairo', sans-serif; font-size: 12px;
+      font-weight: 700; color: #4b5563; cursor: pointer; white-space: nowrap;
+    }
+    .seg button.active { background: white; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+    /* Config card */
+    .config-card {
+      background: white; border-radius: 14px; padding: 14px; margin-bottom: 12px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05); border-right: 4px solid #9ca3af;
+    }
+    .config-card.enabled { border-right-color: #10b981; }
+    .config-head {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 10px; margin-bottom: 10px;
+    }
+    .config-title {
+      font-size: 16px; font-weight: 800;
+    }
+    .config-scope {
+      display: inline-block; font-size: 11px; font-weight: 700;
+      padding: 2px 8px; border-radius: 10px; margin-right: 6px;
+    }
+    .config-scope.city { background: #dbeafe; color: #1e40af; }
+    .config-scope.branch { background: #fef3c7; color: #92400e; }
+    .config-stats {
+      font-size: 11px; color: #6b7280; margin-top: 3px;
+    }
+
+    /* Toggle switch */
+    .switch {
+      position: relative; display: inline-block; width: 46px; height: 24px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; inset: 0; background: #d1d5db;
+      transition: 0.2s; border-radius: 24px;
+    }
+    .slider::before {
+      content: ""; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px;
+      background: white; transition: 0.2s; border-radius: 50%;
+    }
+    input:checked + .slider { background: #10b981; }
+    input:checked + .slider::before { transform: translateX(-22px); }
+
+    .form-row { display: grid; grid-template-columns: 2fr 1fr auto; gap: 8px; margin-bottom: 10px; }
+    .form-row input {
+      padding: 9px 10px; border: 1.5px solid #e5e7eb; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; font-size: 13px;
+    }
+    .hint {
+      font-size: 11px; color: #9ca3af; margin-top: 3px;
+    }
+    .error-bar {
+      background: #fef2f2; border: 1px solid #fecaca; color: #991b1b;
+      padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600;
+      margin-top: 8px; display: none;
+    }
+    .error-bar.show { display: block; }
+
+    /* Column mapping table */
+    .cols-table {
+      width: 100%; border-collapse: separate; border-spacing: 0 4px;
+      font-size: 12px; margin-top: 8px;
+    }
+    .cols-table th {
+      font-size: 11px; color: #6b7280; font-weight: 700; text-align: right;
+      padding: 4px 8px;
+    }
+    .cols-table td {
+      background: #f9fafb; padding: 4px;
+    }
+    .cols-table td:first-child { border-radius: 0 8px 8px 0; padding-right: 10px; }
+    .cols-table td:last-child { border-radius: 8px 0 0 8px; text-align: center; }
+    .cols-table input, .cols-table select {
+      width: 100%; padding: 6px 8px; border: 1.5px solid transparent; border-radius: 6px;
+      background: white; font-family: 'Cairo', sans-serif; font-size: 12px;
+    }
+    .cols-table input:focus, .cols-table select:focus { border-color: #93c5fd; outline: none; }
+    .cols-table .src { color: #6b7280; font-weight: 600; padding-right: 10px; word-break: break-word; }
+    .type-badge {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      padding: 2px 6px; border-radius: 6px; background: #e5e7eb; color: #4b5563;
+    }
+    .type-badge.phone { background: #d1fae5; color: #065f46; }
+    .type-badge.key { background: #fce7f3; color: #9f1239; }
+    .type-badge.name { background: #dbeafe; color: #1e40af; }
+    .type-badge.date { background: #e0e7ff; color: #4338ca; }
+
+    .actions-bar {
+      display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;
+      padding-top: 10px; border-top: 1px solid #e5e7eb;
+    }
+
+    .toast {
+      position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+      padding: 10px 18px; background: #1a1a1a; color: white;
+      border-radius: 10px; font-size: 13px; font-weight: 700;
+      z-index: 2000; opacity: 0; transition: opacity 0.2s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .toast.error { background: #dc2626; }
+    .toast.success { background: #059669; }
+
+    @media (max-width: 760px) {
+      .new-config-row { grid-template-columns: 1fr 1fr; }
+      .new-config-row .btn { grid-column: 1 / -1; }
+      .form-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>مصادر الليدات</h1>
+    <button class="logout-btn" onclick="logout()">خروج</button>
+  </header>
+
+  <nav class="subnav">
+    <a href="dashboard.html">لوحة التحكم</a>
+    <a href="agents.html">الوكلاء</a>
+    <a href="ads.html">جودة الإعلانات</a>
+    <a href="lead-sources.html" class="active">مصادر الليدات</a>
+    <a href="spend.html">الإنفاق</a>
+    <a href="settings.html">الإعدادات</a>
+  </nav>
+
+  <div class="container">
+    <div class="intro">
+      شارك كل جدول Google Sheet مع حساب الخدمة بصلاحية <b>قراءة</b>:<br>
+      <code>marzouk-sheets@silent-rune-487820-b1.iam.gserviceaccount.com</code><br>
+      ثم أنشئ مصدرًا هنا، اختر المدينة أو الفرع، ألصق رابط الجدول، ثم اسحب الأعمدة وحدد نوع كل عمود (رقم هاتف / اسم / إعلان ...). المزامنة تلقائية كل 5 دقائق.
+    </div>
+
+    <!-- New config -->
+    <div class="card">
+      <h2>➕ إضافة مصدر جديد</h2>
+      <div class="new-config-row">
+        <div>
+          <label>نطاق</label>
+          <div class="seg" id="scopeSeg">
+            <button class="active" data-scope="branch" onclick="setScope('branch')">فرع</button>
+            <button data-scope="city" onclick="setScope('city')">مدينة</button>
+          </div>
+        </div>
+        <div>
+          <label id="scopeEntityLbl">الفرع</label>
+          <select id="scopeEntity"></select>
+        </div>
+        <div>
+          <label>اسم العرض</label>
+          <input id="newName" placeholder="مثال: ليدات القنيطرة" />
+        </div>
+        <div>
+          <label>رابط الجدول (اختياري)</label>
+          <input id="newSheet" placeholder="https://docs.google.com/spreadsheets/d/..." />
+        </div>
+        <button class="btn btn-primary" onclick="createConfig()">إضافة</button>
+      </div>
+      <div class="error-bar" id="newErr"></div>
+    </div>
+
+    <!-- Existing configs -->
+    <div id="configList"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.origin;
+const token = localStorage.getItem('token');
+if (!token || localStorage.getItem('role') !== 'admin') { location.href = '/index.html'; }
+
+let allBranches = [];
+let allCities = [];
+let scope = 'branch';
+let configs = [];
+
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'toast show ' + type;
+  setTimeout(() => el.classList.remove('show'), 2400);
+}
+function logout() { localStorage.clear(); location.href = '/index.html'; }
+
+async function api(path, opts={}) {
+  const headers = { 'Authorization': `Bearer ${token}`, ...(opts.headers||{}) };
+  if (opts.body && typeof opts.body !== 'string') {
+    headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(opts.body);
+  }
+  const res = await fetch(API + path, { ...opts, headers });
+  if (res.status === 401) { localStorage.clear(); location.href='/index.html'; return; }
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+function escapeHtml(s) { return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function fmtTime(t) { return t ? new Date(t).toLocaleString('ar-MA') : '—'; }
+
+// ============= Bootstrap =============
+
+async function loadEntities() {
+  const [branches, cities] = await Promise.all([
+    api('/branches/'),
+    api('/cities/').catch(() => []),
+  ]);
+  allBranches = branches || [];
+  allCities = cities || [];
+  renderScopeEntities();
+}
+
+function setScope(s) {
+  scope = s;
+  document.querySelectorAll('#scopeSeg button').forEach(b => b.classList.toggle('active', b.dataset.scope === s));
+  document.getElementById('scopeEntityLbl').textContent = s === 'city' ? 'المدينة' : 'الفرع';
+  renderScopeEntities();
+}
+
+function renderScopeEntities() {
+  const sel = document.getElementById('scopeEntity');
+  const items = scope === 'city' ? allCities.map(c => ({id: c.id, label: c.name}))
+                                 : allBranches.map(b => ({id: b.id, label: `${b.name} — ${b.city||''}`}));
+  sel.innerHTML = items.length
+    ? items.map(x => `<option value="${x.id}">${escapeHtml(x.label)}</option>`).join('')
+    : '<option value="">— لا توجد —</option>';
+}
+
+async function createConfig() {
+  const entityId = document.getElementById('scopeEntity').value;
+  const name = document.getElementById('newName').value.trim();
+  const sheetId = document.getElementById('newSheet').value.trim();
+  const err = document.getElementById('newErr');
+  err.classList.remove('show');
+
+  if (!entityId) { err.textContent = 'اختر مدينة أو فرع'; err.classList.add('show'); return; }
+  if (!name) { err.textContent = 'أدخل اسم العرض'; err.classList.add('show'); return; }
+
+  try {
+    await api('/ad-leads/admin/configs', {
+      method: 'POST',
+      body: { name, scope_type: scope, scope_id: entityId, sheet_id: sheetId || null, enabled: false }
+    });
+    document.getElementById('newName').value = '';
+    document.getElementById('newSheet').value = '';
+    toast('تم الإنشاء', 'success');
+    loadConfigs();
+  } catch (e) {
+    err.textContent = e.message || 'خطأ';
+    err.classList.add('show');
+  }
+}
+
+// ============= Configs list =============
+
+async function loadConfigs() {
+  try {
+    const d = await api('/ad-leads/admin/configs');
+    configs = d.configs || [];
+    // Load columns for each config lazily — fetch all in parallel
+    await Promise.all(configs.map(c =>
+      api(`/ad-leads/admin/configs/${c.id}/columns`)
+        .then(r => c.columns = r.columns || [])
+        .catch(() => c.columns = [])
+    ));
+    renderConfigs();
+  } catch (e) {
+    toast('تعذر تحميل المصادر', 'error');
+  }
+}
+
+function renderConfigs() {
+  const container = document.getElementById('configList');
+  if (!configs.length) {
+    container.innerHTML = '<div class="card" style="text-align:center;color:#9ca3af;">لا توجد مصادر بعد. أضف واحدًا من الأعلى.</div>';
+    return;
+  }
+  container.innerHTML = configs.map(c => renderConfigCard(c)).join('');
+}
+
+function renderConfigCard(c) {
+  const scopeLbl = c.scope_type === 'city' ? 'مدينة' : 'فرع';
+  const statsLine = c.last_synced_at
+    ? `${c.last_row_count || 0} صف • آخر مزامنة: ${fmtTime(c.last_synced_at)}`
+    : 'لم تتم المزامنة بعد';
+  const errLine = c.last_error
+    ? `<div style="color:#dc2626;font-size:11px;font-weight:600;margin-top:3px;">⚠️ ${escapeHtml(c.last_error)}</div>`
+    : '';
+  const cols = c.columns || [];
+  const colsTable = cols.length
+    ? `<table class="cols-table">
+         <thead><tr>
+           <th>عمود الجدول</th>
+           <th>الاسم المعروض</th>
+           <th>النوع</th>
+           <th>الترتيب</th>
+           <th>عرض</th>
+           <th></th>
+         </tr></thead>
+         <tbody id="cols-${c.id}">
+           ${cols.map((col, i) => renderColRow(c.id, col, i)).join('')}
+         </tbody>
+       </table>`
+    : '<div class="hint" style="margin-top:8px;">لم يتم جلب الأعمدة بعد. اضغط "جلب أعمدة الجدول".</div>';
+
+  return `
+    <div class="config-card ${c.enabled ? 'enabled' : ''}">
+      <div class="config-head">
+        <div>
+          <span class="config-scope ${c.scope_type}">${scopeLbl}: ${escapeHtml(c.scope_label || '')}</span>
+          <span class="config-title" contenteditable="true" onblur="updateName('${c.id}', this.innerText)">${escapeHtml(c.name)}</span>
+          <div class="config-stats">${statsLine}</div>
+          ${errLine}
+        </div>
+        <label class="switch" title="${c.enabled ? 'مفعّل' : 'معطّل'}">
+          <input type="checkbox" ${c.enabled ? 'checked' : ''} onchange="toggleEnabled('${c.id}', this.checked)" />
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="form-row">
+        <input id="sheet-${c.id}" placeholder="رابط أو معرّف الجدول" value="${escapeHtml(c.sheet_id || '')}" />
+        <input id="tab-${c.id}" placeholder="اسم التبويب (اختياري)" value="${escapeHtml(c.sheet_tab || '')}" />
+        <button class="btn btn-secondary" onclick="saveSheet('${c.id}')">حفظ الرابط</button>
+      </div>
+
+      ${colsTable}
+
+      <div class="actions-bar">
+        <button class="btn btn-secondary" onclick="fetchHeaders('${c.id}')">📥 جلب أعمدة الجدول</button>
+        <button class="btn btn-primary" onclick="saveColumns('${c.id}')" ${cols.length ? '' : 'disabled'}>💾 حفظ التعيين</button>
+        <button class="btn btn-accent" onclick="syncNow('${c.id}')" ${c.enabled && c.sheet_id ? '' : 'disabled'}>🔄 مزامنة الآن</button>
+        <div style="flex:1"></div>
+        <button class="btn btn-danger" onclick="deleteConfig('${c.id}')">🗑️ حذف</button>
+      </div>
+    </div>
+  `;
+}
+
+const TYPES = [
+  ['text',     'نص'],
+  ['name',     'اسم الليد'],
+  ['phone',    'رقم هاتف'],
+  ['date',     'تاريخ'],
+  ['ad_name',  'اسم الإعلان'],
+  ['platform', 'منصة'],
+  ['number',   'رقم'],
+  ['key',      'مفتاح فريد'],
+];
+
+function renderColRow(configId, col, idx) {
+  const typeOpts = TYPES.map(([v,l]) => `<option value="${v}" ${col.column_type===v?'selected':''}>${l}</option>`).join('');
+  return `
+    <tr data-idx="${idx}">
+      <td class="src">${escapeHtml(col.source_header)}</td>
+      <td><input type="text" value="${escapeHtml(col.display_name)}" data-f="display_name" /></td>
+      <td><select data-f="column_type">${typeOpts}</select></td>
+      <td><input type="number" value="${col.display_order || 0}" data-f="display_order" style="width:60px;" /></td>
+      <td><input type="checkbox" data-f="visible" ${col.visible !== false ? 'checked' : ''} /></td>
+      <td><button class="btn-danger" style="padding:4px 8px;border-radius:6px;border:none;background:transparent;color:#dc2626;cursor:pointer;" onclick="removeCol('${configId}', ${idx})">×</button></td>
+    </tr>
+  `;
+}
+
+// ============= Config actions =============
+
+async function toggleEnabled(id, val) {
+  try {
+    await api(`/ad-leads/admin/configs/${id}`, { method: 'PUT', body: { enabled: val } });
+    const c = configs.find(x => x.id === id);
+    if (c) c.enabled = val;
+    renderConfigs();
+    toast(val ? 'تم التفعيل' : 'تم التعطيل', 'success');
+  } catch (e) { toast('فشل', 'error'); }
+}
+
+async function updateName(id, name) {
+  name = (name||'').trim();
+  if (!name) return;
+  try { await api(`/ad-leads/admin/configs/${id}`, { method: 'PUT', body: { name } }); }
+  catch (e) { toast('فشل حفظ الاسم', 'error'); }
+}
+
+async function saveSheet(id) {
+  const sheetId = document.getElementById(`sheet-${id}`).value;
+  const tab = document.getElementById(`tab-${id}`).value;
+  try {
+    await api(`/ad-leads/admin/configs/${id}`, { method: 'PUT', body: { sheet_id: sheetId, sheet_tab: tab } });
+    toast('تم حفظ الرابط', 'success');
+    loadConfigs();
+  } catch (e) { toast('فشل الحفظ', 'error'); }
+}
+
+async function fetchHeaders(id) {
+  toast('جاري جلب الأعمدة...');
+  try {
+    const r = await api(`/ad-leads/admin/configs/${id}/fetch-headers`, { method: 'POST' });
+    const c = configs.find(x => x.id === id);
+    if (!c) return;
+    const existing = new Map((c.columns || []).map(col => [col.source_header, col]));
+    c.columns = (r.headers || []).filter(h => h).map((h, i) => {
+      const prev = existing.get(h);
+      return prev || {
+        source_header: h,
+        display_name: h,
+        column_type: guessType(h),
+        display_order: i,
+        visible: true,
+      };
+    });
+    renderConfigs();
+    toast(`تم جلب ${c.columns.length} عمود`, 'success');
+  } catch (e) { toast('تعذر قراءة الجدول: ' + e.message, 'error'); }
+}
+
+function guessType(header) {
+  const h = (header || '').toLowerCase();
+  if (/phone|tel|رقم|هاتف/.test(h)) return 'phone';
+  if (/name|اسم/.test(h)) return 'name';
+  if (/time|date|created|تاريخ/.test(h)) return 'date';
+  if (/^id$|lead_id|fb_lead/.test(h)) return 'key';
+  if (/ad_name|ad name|اسم الإعلان/.test(h)) return 'ad_name';
+  if (/platform|منصة/.test(h)) return 'platform';
+  return 'text';
+}
+
+function readColRows(id) {
+  const rows = document.querySelectorAll(`#cols-${id} tr`);
+  const c = configs.find(x => x.id === id);
+  const out = [];
+  rows.forEach((tr, idx) => {
+    const src = (c.columns[idx] && c.columns[idx].source_header) || '';
+    const display = tr.querySelector('[data-f="display_name"]').value.trim();
+    const ctype = tr.querySelector('[data-f="column_type"]').value;
+    const order = parseInt(tr.querySelector('[data-f="display_order"]').value || '0', 10);
+    const visible = tr.querySelector('[data-f="visible"]').checked;
+    out.push({
+      source_header: src,
+      display_name: display || src,
+      column_type: ctype,
+      display_order: isNaN(order) ? idx : order,
+      visible
+    });
+  });
+  return out;
+}
+
+async function saveColumns(id) {
+  const columns = readColRows(id);
+  if (!columns.length) { toast('لا توجد أعمدة', 'error'); return; }
+  // Require at least one 'key' column — fall back to hashing if none
+  try {
+    await api(`/ad-leads/admin/configs/${id}/columns`, { method: 'PUT', body: { columns } });
+    toast('تم الحفظ', 'success');
+    loadConfigs();
+  } catch (e) { toast('فشل الحفظ: ' + e.message, 'error'); }
+}
+
+function removeCol(id, idx) {
+  const c = configs.find(x => x.id === id);
+  if (!c || !c.columns) return;
+  c.columns.splice(idx, 1);
+  renderConfigs();
+}
+
+async function syncNow(id) {
+  toast('جاري المزامنة...');
+  try {
+    const r = await api(`/ad-leads/admin/configs/${id}/sync`, { method: 'POST' });
+    if (r.ok === false) { toast('فشل: ' + (r.error || ''), 'error'); return; }
+    toast(`تم: ${r.inserted || 0} جديد، ${r.assigned || 0} موزّع`, 'success');
+    loadConfigs();
+  } catch (e) { toast('خطأ: ' + e.message, 'error'); }
+}
+
+async function deleteConfig(id) {
+  if (!confirm('حذف هذا المصدر سيحذف كل الليدات المرتبطة به. هل أنت متأكد؟')) return;
+  try {
+    await api(`/ad-leads/admin/configs/${id}`, { method: 'DELETE' });
+    toast('تم الحذف', 'success');
+    loadConfigs();
+  } catch (e) { toast('فشل الحذف', 'error'); }
+}
+
+// ============= Init =============
+
+(async function init() {
+  await loadEntities();
+  loadConfigs();
+})();
+</script>
+</body>
+</html>

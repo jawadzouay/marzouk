@@ -168,10 +168,14 @@ def get_my_profile(user=Depends(get_current_user)):
     agent_id = user["sub"]
     if agent_id == "admin":
         raise HTTPException(400, "Admin has no profile")
-    res = sb.table("agents").select("id, name, avatar_url, goals").eq("id", agent_id).execute()
+    res = sb.table("agents").select("id, name, avatar_url, goals, branch_id, branches(name, city)").eq("id", agent_id).execute()
     if not res.data:
         raise HTTPException(404, "Not found")
-    return res.data[0]
+    row = res.data[0]
+    br = row.pop("branches", None) or {}
+    row["branch_name"] = br.get("name")
+    row["branch_city"] = br.get("city")
+    return row
 
 
 @router.patch("/me/credentials")

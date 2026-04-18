@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>جودة الإعلانات — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; }
+
+    header {
+      background: #1a1a1a; color: white;
+      padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top));
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    header h1 { font-size: 16px; font-weight: 700; }
+    .logout-btn, .back-btn {
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      color: white; padding: 7px 14px; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; font-weight: 600;
+      text-decoration: none;
+    }
+
+    .subnav {
+      background: white; padding: 0 16px; display: flex; gap: 14px;
+      overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid #e5e7eb;
+      position: sticky; top: 0; z-index: 50;
+    }
+    .subnav::-webkit-scrollbar { display: none; }
+    .subnav a {
+      padding: 12px 4px; text-decoration: none; font-size: 14px; font-weight: 700;
+      color: #6b7280; border-bottom: 2px solid transparent; white-space: nowrap;
+    }
+    .subnav a.active { color: #1a1a1a; border-bottom-color: #e63329; }
+
+    .container {
+      padding: 14px; max-width: 1200px; margin: 0 auto;
+    }
+
+    /* Sync bar */
+    .sync-bar {
+      background: white; border-radius: 12px; padding: 10px 14px;
+      margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05); flex-wrap: wrap; gap: 8px;
+    }
+    .sync-info { font-size: 12px; color: #6b7280; }
+    .sync-info b { color: #1a1a1a; }
+    .btn {
+      padding: 8px 14px; border-radius: 8px; border: none;
+      font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700;
+      cursor: pointer;
+    }
+    .btn-primary { background: #1a1a1a; color: white; }
+    .btn-secondary { background: #f3f4f6; color: #1a1a1a; border: 1.5px solid #e5e7eb; }
+
+    /* Date chips */
+    .chips-row {
+      display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+      margin-bottom: 10px; padding-bottom: 2px;
+    }
+    .chips-row::-webkit-scrollbar { display: none; }
+    .chip {
+      flex-shrink: 0; padding: 8px 14px; border-radius: 20px; background: white;
+      color: #4b5563; font-size: 13px; font-weight: 700; cursor: pointer;
+      border: 1.5px solid transparent; user-select: none;
+    }
+    .chip.active { background: #e63329; color: white; border-color: #e63329; }
+
+    /* Summary tiles */
+    .summary-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;
+      margin-bottom: 14px;
+    }
+    .sum-tile {
+      background: white; border-radius: 12px; padding: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .sum-num { font-size: 26px; font-weight: 900; color: #1a1a1a; line-height: 1.1; }
+    .sum-lbl { font-size: 12px; font-weight: 600; color: #6b7280; margin-top: 4px; }
+    .sum-tile.primary .sum-num { color: #e63329; }
+    .sum-tile.good .sum-num { color: #059669; }
+    .sum-tile.info .sum-num { color: #2563eb; }
+
+    /* Filters */
+    .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+    .filters select {
+      padding: 8px 10px; border-radius: 8px; border: 1.5px solid #e5e7eb;
+      font-family: 'Cairo', sans-serif; font-size: 13px; background: white;
+    }
+
+    /* Ad card */
+    .ad-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px;
+    }
+    .ad-card {
+      background: white; border-radius: 14px; padding: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      border-right: 5px solid #d1d5db;
+    }
+    .ad-card.green { border-right-color: #10b981; }
+    .ad-card.orange { border-right-color: #f59e0b; }
+    .ad-card.red { border-right-color: #dc2626; }
+
+    .ad-head {
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
+      margin-bottom: 10px;
+    }
+    .ad-name { font-size: 14px; font-weight: 800; color: #1a1a1a; word-break: break-word; }
+    .ad-meta {
+      display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
+    }
+    .ad-meta .tag {
+      font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+      background: #f3f4f6; color: #4b5563;
+    }
+    .ad-meta .tag.platform { background: #f3e8ff; color: #6b21a8; }
+
+    .maturity-pill {
+      font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 14px;
+      flex-shrink: 0; white-space: nowrap;
+    }
+    .maturity-pill.fresh { background: #dbeafe; color: #1e40af; }
+    .maturity-pill.evaluating { background: #fef3c7; color: #92400e; }
+    .maturity-pill.mature { background: #d1fae5; color: #065f46; }
+
+    .funnel {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+      margin-bottom: 10px;
+    }
+    .funnel-tile {
+      background: #f9fafb; border-radius: 10px; padding: 8px; text-align: center;
+    }
+    .funnel-num { font-size: 20px; font-weight: 900; color: #1a1a1a; line-height: 1.1; }
+    .funnel-lbl { font-size: 10px; color: #6b7280; font-weight: 700; margin-top: 2px; }
+    .funnel-tile.primary .funnel-num { color: #e63329; }
+    .funnel-tile.good .funnel-num { color: #059669; }
+
+    .rates-row {
+      display: flex; justify-content: space-around; padding-top: 8px;
+      border-top: 1px dashed #e5e7eb; font-size: 11px; color: #6b7280;
+    }
+    .rates-row b { color: #1a1a1a; font-size: 13px; }
+
+    .empty {
+      background: white; border-radius: 14px; padding: 40px; text-align: center;
+      color: #9ca3af; font-weight: 600;
+    }
+
+    .toast {
+      position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+      padding: 10px 18px; background: #1a1a1a; color: white;
+      border-radius: 10px; font-size: 13px; font-weight: 700;
+      z-index: 2000; opacity: 0; transition: opacity 0.2s;
+      pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .toast.error { background: #dc2626; }
+    .toast.success { background: #059669; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>جودة الإعلانات</h1>
+    <button class="logout-btn" onclick="logout()">خروج</button>
+  </header>
+
+  <nav class="subnav">
+    <a href="dashboard.html">لوحة التحكم</a>
+    <a href="agents.html">الوكلاء</a>
+    <a href="ads.html" class="active">جودة الإعلانات</a>
+    <a href="lead-sources.html">مصادر الليدات</a>
+    <a href="spend.html">الإنفاق</a>
+    <a href="settings.html">الإعدادات</a>
+  </nav>
+
+  <div class="container">
+    <div class="sync-bar">
+      <div class="sync-info">
+        <span id="sourcesSummary">—</span>
+      </div>
+      <div style="display:flex; gap: 6px;">
+        <button class="btn btn-secondary" onclick="redistribute()">إعادة التوزيع</button>
+        <button class="btn btn-primary" onclick="manualSync()">🔄 مزامنة الكل</button>
+      </div>
+    </div>
+
+    <div class="chips-row" id="dateChips">
+      <div class="chip" data-range="today">اليوم</div>
+      <div class="chip" data-range="yesterday">أمس</div>
+      <div class="chip" data-range="last3">آخر 3 أيام</div>
+      <div class="chip" data-range="week">هذا الأسبوع</div>
+      <div class="chip active" data-range="month">هذا الشهر</div>
+    </div>
+
+    <div class="summary-grid">
+      <div class="sum-tile"><div class="sum-num" id="sumLeads">0</div><div class="sum-lbl">إجمالي الليدات</div></div>
+      <div class="sum-tile primary"><div class="sum-num" id="sumRdv">0</div><div class="sum-lbl">مواعيد</div></div>
+      <div class="sum-tile info"><div class="sum-num" id="sumVisits">0</div><div class="sum-lbl">زيارات</div></div>
+      <div class="sum-tile good"><div class="sum-num" id="sumReg">0</div><div class="sum-lbl">مُسجلين</div></div>
+    </div>
+
+    <div class="filters">
+      <select id="filterScope">
+        <option value="">كل النطاقات</option>
+      </select>
+      <select id="filterPlatform">
+        <option value="">كل المنصات</option>
+        <option value="fb">فيسبوك</option>
+        <option value="ig">إنستغرام</option>
+      </select>
+      <select id="filterMaturity">
+        <option value="">كل الأعمار</option>
+        <option value="fresh">جديدة (<3 أيام)</option>
+        <option value="evaluating">قيد التقييم (3-7)</option>
+        <option value="mature">ناضجة (7+)</option>
+      </select>
+      <select id="filterColor">
+        <option value="">كل الألوان</option>
+        <option value="red">🔴 تحتاج مراجعة</option>
+        <option value="orange">🟡 متوسط</option>
+        <option value="green">🟢 جيد</option>
+      </select>
+    </div>
+
+    <div class="ad-grid" id="adGrid"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.origin;
+const token = localStorage.getItem('token');
+if (!token || localStorage.getItem('role') !== 'admin') { location.href = '/index.html'; }
+
+let currentRange = 'month';
+let allAds = [];
+
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'toast show ' + type;
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+function logout() { localStorage.clear(); location.href = '/index.html'; }
+
+async function api(path, opts={}) {
+  const headers = { 'Authorization': `Bearer ${token}`, ...(opts.headers||{}) };
+  if (opts.body && typeof opts.body !== 'string') {
+    headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(opts.body);
+  }
+  const res = await fetch(API + path, { ...opts, headers });
+  if (res.status === 401) { localStorage.clear(); location.href='/index.html'; return; }
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+// Date chips
+document.querySelectorAll('#dateChips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('#dateChips .chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    currentRange = c.dataset.range;
+    loadAds();
+  });
+});
+
+['filterScope','filterPlatform','filterMaturity','filterColor'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => { loadAds(); });
+});
+
+let allSources = [];
+
+async function loadSources() {
+  try {
+    const d = await api('/ad-leads/admin/configs');
+    allSources = d.configs || [];
+    const enabled = allSources.filter(c => c.enabled);
+    const totalRows = allSources.reduce((a, c) => a + (c.last_row_count || 0), 0);
+    const latest = allSources
+      .map(c => c.last_synced_at).filter(Boolean)
+      .sort().reverse()[0];
+    const lastLbl = latest ? new Date(latest).toLocaleString('ar-MA') : '—';
+    document.getElementById('sourcesSummary').innerHTML =
+      `📊 <b>${enabled.length}</b> مصدر مفعّل • <b>${totalRows}</b> صف في المجموع • آخر مزامنة: <b>${lastLbl}</b>`;
+
+    const sel = document.getElementById('filterScope');
+    sel.innerHTML = '<option value="">كل النطاقات</option>' +
+      allSources.map(c =>
+        `<option value="${c.scope_type}:${c.scope_id}">${c.scope_type === 'city' ? '🏙️' : '🏢'} ${escapeHtml(c.scope_label || '')} — ${escapeHtml(c.name)}</option>`
+      ).join('');
+  } catch (e) {}
+}
+
+async function manualSync() {
+  toast('جاري المزامنة...');
+  try {
+    const r = await api('/ad-leads/admin/sync-all', { method: 'POST' });
+    const total = (r.configs || []).reduce((a, c) => a + (c.inserted || 0), 0);
+    const moved = (r.configs || []).reduce((a, c) => a + (c.assigned || 0), 0);
+    toast(`تم: ${total} جديد، ${moved} موزّع`, 'success');
+    loadSources();
+    loadAds();
+  } catch (e) { toast('خطأ: ' + e.message, 'error'); }
+}
+
+async function redistribute() {
+  try {
+    const r = await api('/ad-leads/redistribute', { method: 'POST' });
+    toast(`تم توزيع ${r.assigned || 0} ليد`, 'success');
+    loadAds();
+  } catch (e) { toast('فشل التوزيع', 'error'); }
+}
+
+async function loadAds() {
+  try {
+    const scopeVal = document.getElementById('filterScope').value;
+    const params = new URLSearchParams({ range: currentRange });
+    if (scopeVal) {
+      const [st, sid] = scopeVal.split(':');
+      params.set('scope_type', st);
+      params.set('scope_id', sid);
+    }
+    const d = await api(`/ad-leads/admin/ad-quality?${params.toString()}`);
+    allAds = d.ads || [];
+    render();
+  } catch (e) { toast('تعذر تحميل الإعلانات', 'error'); }
+}
+
+function pct(v) { return (v*100).toFixed(0) + '%'; }
+
+function render() {
+  const fp = document.getElementById('filterPlatform').value;
+  const fm = document.getElementById('filterMaturity').value;
+  const fc = document.getElementById('filterColor').value;
+
+  const ads = allAds.filter(a =>
+    (!fp || (a.platform || '').toLowerCase() === fp) &&
+    (!fm || a.maturity === fm) &&
+    (!fc || a.color === fc)
+  );
+
+  // summary
+  let L=0, R=0, V=0, Rg=0;
+  allAds.forEach(a => { L+=a.leads; R+=a.rdv; V+=a.visits; Rg+=a.registered; });
+  document.getElementById('sumLeads').textContent = L;
+  document.getElementById('sumRdv').textContent = R;
+  document.getElementById('sumVisits').textContent = V;
+  document.getElementById('sumReg').textContent = Rg;
+
+  const grid = document.getElementById('adGrid');
+  if (!ads.length) {
+    grid.innerHTML = '<div class="empty">لا توجد إعلانات في هذه الفترة. اضغط "مزامنة الآن" لتحميل البيانات من Google Sheet.</div>';
+    return;
+  }
+
+  grid.innerHTML = ads.map(a => {
+    const matLbl = { fresh: 'جديد', evaluating: 'قيد التقييم', mature: 'ناضج' }[a.maturity];
+    const tags = [];
+    if (a.platform) tags.push(`<span class="tag platform">${a.platform.toUpperCase()}</span>`);
+    return `
+      <div class="ad-card ${a.color}">
+        <div class="ad-head">
+          <div>
+            <div class="ad-name">${escapeHtml(a.ad_name)}</div>
+            <div class="ad-meta">${tags.join('')}</div>
+          </div>
+          <div class="maturity-pill ${a.maturity}">${matLbl} · ${a.age_days}ي</div>
+        </div>
+        <div class="funnel">
+          <div class="funnel-tile"><div class="funnel-num">${a.leads}</div><div class="funnel-lbl">ليدات</div></div>
+          <div class="funnel-tile primary"><div class="funnel-num">${a.rdv}</div><div class="funnel-lbl">مواعيد</div></div>
+          <div class="funnel-tile"><div class="funnel-num">${a.visits}</div><div class="funnel-lbl">زيارات</div></div>
+          <div class="funnel-tile good"><div class="funnel-num">${a.registered}</div><div class="funnel-lbl">مسجلين</div></div>
+        </div>
+        <div class="rates-row">
+          <div>RDV: <b>${pct(a.rdv_rate)}</b></div>
+          <div>Show: <b>${pct(a.show_rate)}</b></div>
+          <div>Close: <b>${pct(a.close_rate)}</b></div>
+          <div>Reg: <b>${pct(a.registered_rate)}</b></div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function escapeHtml(s) { return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+(async function() {
+  await loadSources();
+  loadAds();
+})();
+</script>
+</body>
+</html>

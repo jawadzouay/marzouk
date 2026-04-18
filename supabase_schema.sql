@@ -181,3 +181,122 @@ CREATE TABLE IF NOT EXISTS agent_requests (
 );
 ALTER TABLE agent_requests ADD COLUMN IF NOT EXISTS requested_city TEXT;
 ALTER TABLE agent_requests ADD COLUMN IF NOT EXISTS requested_branch_id UUID REFERENCES branches(id);
+
+-- ============================================================================
+-- LEAD SOURCES — per-city or per-branch Google Sheet feeds with dynamic columns
+--
+-- Each config points to one sheet; the admin picks which columns to surface,
+-- names them in Arabic, and marks their type (phone/name/date/etc). Leads are
+-- synced every 5 minutes by the in-process scheduler and round-robin
+-- distributed among active agents in the config's scope (city or branch).
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS lead_sheet_configs (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name            TEXT NOT NULL,
+  scope_type      TEXT NOT NULL,                 -- 'city' | 'branch'
+  scope_id        UUID NOT NULL,
+  enabled         BOOLEAN NOT NULL DEFAULT false,
+  sheet_id        TEXT,
+  sheet_tab       TEXT,                          -- null/empty => first visible tab
+  last_synced_at  TIMESTAMPTZ,
+  last_row_count  INT DEFAULT 0,
+  last_error      TEXT,
+  created_at      TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(scope_type, scope_id)
+);
+
+-- Column mapping: one row per column the admin chose to surface.
+-- column_type drives behaviour:
+--   key       -> unique row identifier (only one per config); dedup key
+--   name      -> lead full name (only one per config); mirrored to full_name
+--   date      -> lead created_time (only one per config); mirrored
+--   phone     -> normalized as Moroccan phone; multiple allowed; first valid
+--                goes to phone_primary, all valid ones to phones[]
+--   ad_name   -> ad identifier for quality dashboard grouping
+--   platform  -> source platform (fb/ig/...)
+--   number    -> numeric display
+--   text      -> plain text display
+CREATE TABLE IF NOT EXISTS lead_sheet_columns (
+  id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  config_id       UUID NOT NULL REFERENCES lead_sheet_configs(id) ON DELETE CASCADE,
+  source_header   TEXT NOT NULL,
+  display_name    TEXT NOT NULL,
+  column_type     TEXT NOT NULL DEFAULT 'text',
+  display_order   INT DEFAULT 0,
+  visible         BOOLEAN DEFAULT true,
+  UNIQUE(config_id, source_header)
+);
+
+-- Drop old Kenitra-only schema if it exists (feature never shipped).
+DROP TABLE IF EXISTS lead_transfers   CASCADE;
+DROP TABLE IF EXISTS ad_leads         CASCADE;
+DROP TABLE IF EXISTS ad_leads_sync_state CASCADE;
+
+-- AD LEADS — generic. Free-form `data` JSONB holds everything the admin
+-- mapped; the few hot columns are promoted for cheap filtering and grouping.
+CREATE TABLE ad_leads (
+  id                 UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  config_id          UUID NOT NULL REFERENCES lead_sheet_configs(id) ON DELETE CASCADE,
+  scope_type         TEXT NOT NULL,                     -- copied from config
+  scope_id           UUID NOT NULL,                     -- copied from config
+  source_row_key     TEXT NOT NULL,                     -- unique per config
+  data               JSONB NOT NULL DEFAULT '{}'::jsonb,
+  phone_primary      TEXT,                              -- normalized 10-digit 06/07
+  phones             JSONB NOT NULL DEFAULT '[]'::jsonb, -- [{label,number}]
+  full_name          TEXT,
+  ad_name            TEXT,
+  platform           TEXT,
+  created_time       TIMESTAMPTZ,
+  assigned_agent_id  UUID REFERENCES agents(id),
+  original_agent_id  UUID REFERENCES agents(id),
+  assigned_at        TIMESTAMPTZ,
+  status             TEXT DEFAULT 'new',
+  contacted_at       TIMESTAMPTZ,
+  last_note          TEXT,
+  inserted_at        TIMESTAMPTZ DEFAULT now(),
+  updated_at         TIMESTAMPTZ DEFAULT now(),
+  UNIQUE(config_id, source_row_key)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ad_leads_scope     ON ad_leads(scope_type, scope_id);
+CREATE INDEX IF NOT EXISTS idx_ad_leads_assigned  ON ad_leads(assigned_agent_id, status);
+CREATE INDEX IF NOT EXISTS idx_ad_leads_created   ON ad_leads(created_time DESC);
+CREATE INDEX IF NOT EXISTS idx_ad_leads_phone     ON ad_leads(phone_primary);
+CREATE INDEX IF NOT EXISTS idx_ad_leads_config    ON ad_leads(config_id);
+CREATE INDEX IF NOT EXISTS idx_ad_leads_ad_name   ON ad_leads(ad_name);
+
+-- ============================================================================
+-- AGENT OFF-DATES — per-agent list of future off days (unchanged)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS agent_off_dates (
+  agent_id  UUID REFERENCES agents(id) ON DELETE CASCADE,
+  off_date  DATE NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  PRIMARY KEY (agent_id, off_date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_off_dates_date ON agent_off_dates(off_date);
+
+-- ============================================================================
+-- LEAD TRANSFERS — audit log of agent-to-agent transfers (same-branch only)
+-- ============================================================================
+
+CREATE TABLE lead_transfers (
+  id             UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  lead_id        UUID REFERENCES ad_leads(id) ON DELETE CASCADE,
+  from_agent_id  UUID REFERENCES agents(id),
+  to_agent_id    UUID REFERENCES agents(id),
+  transferred_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_lead_transfers_lead ON lead_transfers(lead_id);
+CREATE INDEX IF NOT EXISTS idx_lead_transfers_to   ON lead_transfers(to_agent_id);
+
+-- Round-robin bookkeeping. Updated only on system auto-assign; transfers
+-- between agents don't touch it so transferred leads stay additive.
+ALTER TABLE agents ADD COLUMN IF NOT EXISTS last_distributed_at TIMESTAMPTZ;
+
+-- Drop stale Kenitra single-sheet setting if it exists.
+DELETE FROM settings WHERE key = 'kenitra_sheet_id';

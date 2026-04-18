@@ -8,7 +8,7 @@ import logging
 
 load_dotenv()
 
-from routes import auth, agents, admin, spend, analytics, branches, cities, reports, quality
+from routes import auth, agents, admin, spend, analytics, branches, cities, reports, quality, ad_leads
 
 app = FastAPI(title="Marzouk Academy — Ad Quality Tracker")
 
@@ -35,10 +35,45 @@ app.include_router(branches.router,  prefix="/branches",  tags=["branches"])
 app.include_router(cities.router,    prefix="/cities",    tags=["cities"])
 app.include_router(reports.router,   prefix="/reports",   tags=["reports"])
 app.include_router(quality.router,   prefix="/quality",   tags=["quality"])
+app.include_router(ad_leads.router,  prefix="/ad-leads",  tags=["ad-leads"])
 
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+# ---------------------------------------------------------------------------
+# Background scheduler — pulls Kenitra lead-ads sheet every 5 minutes
+# ---------------------------------------------------------------------------
+
+SYNC_INTERVAL_MIN = int(os.getenv("AD_LEADS_SYNC_INTERVAL_MIN", "5"))
+SYNC_ENABLED = os.getenv("AD_LEADS_SYNC_ENABLED", "true").lower() in ("1", "true", "yes")
+
+
+@app.on_event("startup")
+def start_sync_scheduler():
+    if not SYNC_ENABLED:
+        logging.info("[ad_leads] scheduler disabled via AD_LEADS_SYNC_ENABLED=false")
+        return
+    try:
+        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        from services.ad_leads_sync import sync_leads_from_sheet
+
+        def run_sync():
+            try:
+                r = sync_leads_from_sheet()
+                logging.info(f"[ad_leads] sync: {r}")
+            except Exception as e:
+                logging.warning(f"[ad_leads] sync failed: {e}")
+
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(run_sync, "interval", minutes=SYNC_INTERVAL_MIN, id="ad_leads_sync",
+                          next_run_time=None, coalesce=True, max_instances=1)
+        scheduler.start()
+        app.state.scheduler = scheduler
+        logging.info(f"[ad_leads] scheduler started — every {SYNC_INTERVAL_MIN} min")
+    except Exception as e:
+        logging.warning(f"[ad_leads] could not start scheduler: {e}")
 
 # Serve frontend static files with no-cache headers
 from fastapi import Request

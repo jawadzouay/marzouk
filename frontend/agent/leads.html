@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>الليدات — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; }
+
+    header {
+      background: #1a1a1a; color: white;
+      padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top));
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    header h1 { font-size: 16px; font-weight: 700; }
+    .back-btn, .action-btn {
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      color: white; padding: 7px 14px; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; font-weight: 600;
+      text-decoration: none;
+    }
+
+    .container {
+      padding: 12px;
+      padding-bottom: max(80px, calc(20px + env(safe-area-inset-bottom)));
+      max-width: 640px; margin: 0 auto;
+    }
+
+    .toolbar {
+      background: white; border-radius: 14px; padding: 10px;
+      margin-bottom: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .chips {
+      display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+      padding-bottom: 2px;
+    }
+    .chips::-webkit-scrollbar { display: none; }
+    .chip {
+      flex-shrink: 0; padding: 7px 14px; border-radius: 20px;
+      background: #f3f4f6; color: #4b5563; font-size: 13px; font-weight: 700;
+      cursor: pointer; border: 1.5px solid transparent; user-select: none;
+      font-family: 'Cairo', sans-serif;
+    }
+    .chip.active { background: #e63329; color: white; border-color: #e63329; }
+    .custom-range { display: none; margin-top: 10px; gap: 8px; align-items: center; }
+    .custom-range.show { display: flex; }
+    .custom-range input[type="date"] {
+      flex: 1; padding: 8px 10px; border: 1.5px solid #e5e7eb; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; font-size: 13px;
+    }
+
+    .actions-row { display: flex; gap: 8px; margin-top: 10px; }
+    .btn-primary, .btn-secondary {
+      flex: 1; padding: 10px; border-radius: 10px; border: none;
+      font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-primary { background: #1a1a1a; color: white; }
+    .btn-secondary { background: #f3f4f6; color: #1a1a1a; border: 1.5px solid #e5e7eb; }
+    .btn-primary:active, .btn-secondary:active { transform: scale(0.98); }
+
+    .summary-row {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+      margin-bottom: 10px;
+    }
+    .summary-tile {
+      background: white; border-radius: 12px; padding: 10px;
+      text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .summary-num { font-size: 22px; font-weight: 900; color: #1a1a1a; line-height: 1.1; }
+    .summary-lbl { font-size: 11px; font-weight: 600; color: #6b7280; margin-top: 2px; }
+    .summary-tile.good .summary-num { color: #059669; }
+    .summary-tile.primary .summary-num { color: #e63329; }
+
+    .lead-card {
+      background: white; border-radius: 12px; padding: 12px;
+      margin-bottom: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+      display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: start;
+    }
+    .lead-card.new { border-right: 4px solid #f59e0b; }
+    .lead-card.contacted { border-right: 4px solid #6b7280; }
+    .lead-card.rdv { border-right: 4px solid #10b981; }
+    .lead-card.registered { border-right: 4px solid #e63329; }
+    .lead-card.visits { border-right: 4px solid #3b82f6; }
+
+    .lead-check {
+      width: 22px; height: 22px; border-radius: 6px; border: 2px solid #d1d5db;
+      cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+      background: white; font-size: 14px; font-weight: 900; color: white;
+    }
+    .lead-check.checked { background: #e63329; border-color: #e63329; }
+    .lead-check.checked::before { content: '✓'; }
+    .lead-check.hidden { display: none; }
+
+    .lead-main { min-width: 0; }
+    .lead-name {
+      font-size: 14px; font-weight: 700; color: #1a1a1a;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .lead-fields {
+      display: flex; flex-direction: column; gap: 2px; margin-top: 6px;
+    }
+    .lead-field {
+      font-size: 11px; color: #4b5563; line-height: 1.4;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .lead-field b { color: #6b7280; font-weight: 700; margin-left: 4px; }
+    .lead-meta { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+    .badge {
+      font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
+      background: #f3f4f6; color: #4b5563;
+    }
+    .badge.platform { background: #f3e8ff; color: #6b21a8; }
+    .badge.ad { background: #dbeafe; color: #1e40af; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .lead-time { font-size: 11px; color: #9ca3af; margin-top: 4px; }
+
+    .lead-right { display: flex; flex-direction: column; align-items: stretch; gap: 6px; flex-shrink: 0; }
+    select.status-select {
+      padding: 6px 24px 6px 8px; border-radius: 8px; border: 1.5px solid #e5e7eb;
+      font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700;
+      background: white; cursor: pointer; max-width: 110px;
+    }
+    select.status-select.new { background: #fef3c7; color: #92400e; border-color: #fbbf24; }
+    select.status-select.contacted { background: #e5e7eb; color: #374151; }
+    select.status-select.rdv { background: #d1fae5; color: #065f46; border-color: #10b981; }
+    select.status-select.registered { background: #fee2e2; color: #991b1b; border-color: #e63329; }
+    select.status-select.visits { background: #dbeafe; color: #1e40af; border-color: #3b82f6; }
+
+    .phone-icon-btn {
+      width: 100%; height: 36px; border-radius: 10px; border: none;
+      background: #10b981; color: white; font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0;
+    }
+    .phone-icon-btn:disabled { background: #d1d5db; cursor: not-allowed; }
+    .phone-icon-btn:active:not(:disabled) { transform: scale(0.95); }
+
+    .empty {
+      text-align: center; padding: 40px 20px; color: #9ca3af;
+      font-size: 14px; font-weight: 600;
+    }
+
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      z-index: 1000; align-items: center; justify-content: center; padding: 16px;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal {
+      background: white; border-radius: 16px; padding: 16px; width: 100%;
+      max-width: 420px; max-height: 90vh; overflow-y: auto;
+    }
+    .modal h3 {
+      font-size: 16px; font-weight: 700; color: #1a1a1a; margin-bottom: 12px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .modal .close-x {
+      background: transparent; border: none; font-size: 22px; cursor: pointer;
+      color: #6b7280; font-weight: 900; line-height: 1;
+    }
+    .phone-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px; margin-bottom: 8px; border-radius: 10px; background: #f9fafb;
+      gap: 8px;
+    }
+    .phone-row .phone-label { font-size: 11px; color: #6b7280; font-weight: 700; }
+    .phone-row .phone-num {
+      font-size: 16px; font-weight: 700; color: #1a1a1a; direction: ltr; unicode-bidi: isolate;
+    }
+    .phone-btns { display: flex; gap: 6px; }
+    .phone-btns a {
+      text-decoration: none; padding: 8px 10px; border-radius: 8px; font-size: 12px;
+      font-weight: 700; display: flex; align-items: center; gap: 4px; color: white;
+    }
+    .phone-btns .call { background: #3b82f6; }
+    .phone-btns .wa { background: #25d366; }
+
+    .segmented {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+      background: #f3f4f6; padding: 4px; border-radius: 10px; margin-bottom: 12px;
+    }
+    .segmented button {
+      padding: 8px; border: none; background: transparent; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; font-size: 13px; font-weight: 700;
+      cursor: pointer; color: #4b5563;
+    }
+    .segmented button.active { background: white; color: #1a1a1a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+    .form-group { margin-bottom: 12px; }
+    .form-group label { display: block; font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 4px; }
+    .form-group input, .form-group select {
+      width: 100%; padding: 10px; border: 1.5px solid #e5e7eb; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; font-size: 14px;
+    }
+    .form-hint { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+
+    .date-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .date-chip {
+      padding: 6px 12px; background: #fee2e2; color: #991b1b;
+      font-size: 12px; font-weight: 700; border-radius: 16px; cursor: pointer;
+      display: flex; align-items: center; gap: 4px;
+    }
+    .date-chip .x { font-weight: 900; }
+
+    .banner-availability {
+      background: #fff7ed; border: 1.5px solid #f59e0b; border-radius: 10px;
+      padding: 10px 14px; margin-bottom: 10px; font-size: 12px; font-weight: 600;
+      color: #92400e; display: none;
+    }
+    .banner-availability.show { display: block; }
+
+    .toast {
+      position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+      padding: 10px 18px; background: #1a1a1a; color: white;
+      border-radius: 10px; font-size: 13px; font-weight: 700;
+      z-index: 2000; opacity: 0; transition: opacity 0.2s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .toast.error { background: #dc2626; }
+    .toast.success { background: #059669; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📋 الليدات</h1>
+    <div style="display: flex; gap: 6px;">
+      <button class="action-btn" onclick="openAvailabilityModal()">🗓️ الإجازة</button>
+      <a href="dashboard.html" class="back-btn">رجوع</a>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="banner-availability" id="availBanner"></div>
+
+    <div class="toolbar">
+      <div class="chips" id="dateChips">
+        <div class="chip active" data-range="today">اليوم</div>
+        <div class="chip" data-range="yesterday">أمس</div>
+        <div class="chip" data-range="last3">آخر 3 أيام</div>
+        <div class="chip" data-range="week">هذا الأسبوع</div>
+        <div class="chip" data-range="month">هذا الشهر</div>
+        <div class="chip" data-range="custom">مخصص</div>
+      </div>
+      <div class="custom-range" id="customRange">
+        <input type="date" id="dateFrom" />
+        <span>→</span>
+        <input type="date" id="dateTo" />
+        <button class="btn-primary" style="flex:0; padding: 6px 12px;" onclick="applyCustomRange()">تطبيق</button>
+      </div>
+      <div class="actions-row">
+        <button class="btn-primary" onclick="openTransferModal()">🔄 تحويل الليدات</button>
+        <button class="btn-secondary" id="selectModeBtn" onclick="toggleSelectMode()">☰ اختيار</button>
+      </div>
+    </div>
+
+    <div class="summary-row">
+      <div class="summary-tile"><div class="summary-num" id="sumTotal">0</div><div class="summary-lbl">المجموع</div></div>
+      <div class="summary-tile primary"><div class="summary-num" id="sumNew">0</div><div class="summary-lbl">جدد</div></div>
+      <div class="summary-tile good"><div class="summary-num" id="sumRdv">0</div><div class="summary-lbl">مواعيد</div></div>
+    </div>
+
+    <div id="leadsList"></div>
+  </div>
+
+  <!-- Phone popup -->
+  <div class="modal-overlay" id="phoneModal" onclick="if(event.target===this)closeModal('phoneModal')">
+    <div class="modal">
+      <h3><span id="phoneModalTitle">اتصال</span><button class="close-x" onclick="closeModal('phoneModal')">×</button></h3>
+      <div id="phoneModalBody"></div>
+    </div>
+  </div>
+
+  <!-- Transfer modal -->
+  <div class="modal-overlay" id="transferModal" onclick="if(event.target===this)closeModal('transferModal')">
+    <div class="modal">
+      <h3>🔄 تحويل الليدات<button class="close-x" onclick="closeModal('transferModal')">×</button></h3>
+      <div class="segmented">
+        <button id="tabByCount" class="active" onclick="setTransferTab('count')">بالعدد</button>
+        <button id="tabBySelection" onclick="setTransferTab('selection')">المحددة</button>
+      </div>
+      <div id="transferCountPane">
+        <div class="form-group">
+          <label>كم عدد الليدات التي تريد تحويلها؟</label>
+          <input type="number" id="xferCount" min="1" value="5" />
+          <div class="form-hint">يتم تحويل الليدات الجديدة (غير المُتواصل معها) فقط، من الأقدم إلى الأحدث. لديك <b id="availNewCount">0</b> ليد جديد.</div>
+        </div>
+      </div>
+      <div id="transferSelectionPane" style="display:none;">
+        <div class="form-hint" style="margin-bottom:8px;">سيتم تحويل الليدات المحددة في القائمة (<b id="selectedCount">0</b> ليد).</div>
+      </div>
+      <div class="form-group">
+        <label>الوكيل المُستلم</label>
+        <select id="xferRecipient"><option value="">— اختر وكيل —</option></select>
+        <div class="form-hint">يمكن تحويل الليدات فقط لوكلاء من نفس الفرع.</div>
+      </div>
+      <button class="btn-primary" style="width:100%;" onclick="submitTransfer()">تحويل</button>
+    </div>
+  </div>
+
+  <!-- Availability modal -->
+  <div class="modal-overlay" id="availModal" onclick="if(event.target===this)closeModal('availModal')">
+    <div class="modal">
+      <h3>🗓️ أيام الإجازة<button class="close-x" onclick="closeModal('availModal')">×</button></h3>
+      <p style="font-size: 12px; color: #6b7280; margin-bottom: 10px;">
+        اختر الأيام المستقبلية التي لن تستقبل فيها ليدات. ستظل تستقبل الليدات حتى يحل اليوم المحدد.
+      </p>
+      <div class="form-group">
+        <label>إضافة يوم إجازة</label>
+        <div style="display: flex; gap: 6px;">
+          <input type="date" id="newOffDate" style="flex:1;" />
+          <button class="btn-primary" style="flex:0; padding: 8px 14px;" onclick="addOffDate()">إضافة</button>
+        </div>
+      </div>
+      <div class="date-grid" id="offDateGrid"></div>
+      <div class="empty" id="noOffDatesMsg" style="padding: 14px 0;">لا توجد أيام إجازة مسجلة</div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+const API = window.location.origin;
+const token = localStorage.getItem('token');
+if (!token) { window.location.href = '/index.html'; }
+
+let currentRange = 'today';
+let customDates = null;
+let allLeads = [];
+let columns = [];                // visible columns from backend: [{display_name, column_type, display_order}]
+let selectMode = false;
+let selected = new Set();
+let currentOffDates = [];
+
+// Column types that get rendered as structured lead fields under the name
+const INLINE_TYPES = new Set(['text', 'number', 'date']);
+// Types with dedicated UI slots — skip in the generic rendering
+const HANDLED_TYPES = new Set(['name', 'phone', 'key', 'ad_name', 'platform']);
+
+function toast(msg, type='') {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.className = 'toast show ' + type;
+  setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+function qs(params) {
+  return Object.entries(params).filter(([,v]) => v != null && v !== '').map(([k,v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+}
+
+async function api(path, opts={}) {
+  const headers = { 'Authorization': `Bearer ${token}`, ...(opts.headers||{}) };
+  if (opts.body && typeof opts.body !== 'string') {
+    headers['Content-Type'] = 'application/json';
+    opts.body = JSON.stringify(opts.body);
+  }
+  const res = await fetch(API + path, { ...opts, headers });
+  if (res.status === 401) { localStorage.clear(); window.location.href='/index.html'; return; }
+  if (!res.ok) { throw new Error(await res.text()); }
+  return res.json();
+}
+
+function escapeHtml(s) { return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+document.querySelectorAll('#dateChips .chip').forEach(c => {
+  c.addEventListener('click', () => {
+    document.querySelectorAll('#dateChips .chip').forEach(x => x.classList.remove('active'));
+    c.classList.add('active');
+    currentRange = c.dataset.range;
+    const cr = document.getElementById('customRange');
+    if (currentRange === 'custom') {
+      cr.classList.add('show');
+    } else {
+      cr.classList.remove('show');
+      customDates = null;
+      loadLeads();
+    }
+  });
+});
+
+function applyCustomRange() {
+  const f = document.getElementById('dateFrom').value;
+  const t = document.getElementById('dateTo').value;
+  if (!f || !t) { toast('اختر تاريخين', 'error'); return; }
+  customDates = { from: f, to: t };
+  loadLeads();
+}
+
+async function loadLeads() {
+  try {
+    const params = { range: currentRange };
+    if (currentRange === 'custom' && customDates) {
+      params.date_from = customDates.from;
+      params.date_to = customDates.to;
+    }
+    const data = await api(`/ad-leads/my?${qs(params)}`);
+    allLeads = data.leads || [];
+    columns = (data.columns || []).filter(c => INLINE_TYPES.has(c.column_type) && !HANDLED_TYPES.has(c.column_type));
+    render();
+  } catch (e) {
+    console.error(e);
+    toast('تعذر تحميل الليدات', 'error');
+  }
+}
+
+function statusLabel(s) {
+  return {
+    new: 'جديد', contacted: 'تم التواصل', rdv: 'موعد',
+    bv: 'بريد صوتي', pi: 'غير مهتم', pe: 'غير مؤهل',
+    autre_ville: 'مدينة أخرى', over_40: 'فوق 40',
+    visits: 'زيارة', registered: 'مسجل'
+  }[s] || s;
+}
+
+function render() {
+  document.getElementById('sumTotal').textContent = allLeads.length;
+  document.getElementById('sumNew').textContent = allLeads.filter(l => l.status === 'new').length;
+  document.getElementById('sumRdv').textContent = allLeads.filter(l => l.status === 'rdv').length;
+
+  const list = document.getElementById('leadsList');
+  if (!allLeads.length) {
+    list.innerHTML = '<div class="empty">لا توجد ليدات في هذه الفترة</div>';
+    return;
+  }
+
+  list.innerHTML = allLeads.map(l => {
+    const status = l.status || 'new';
+    const data = l.data || {};
+    const name = l.full_name || '—';
+    const time = l.created_time ? new Date(l.created_time).toLocaleString('ar-MA', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'short' }) : '';
+
+    const fieldsHtml = columns.map(col => {
+      const v = data[col.display_name];
+      if (v == null || v === '') return '';
+      return `<div class="lead-field"><b>${escapeHtml(col.display_name)}:</b>${escapeHtml(v)}</div>`;
+    }).filter(Boolean).join('');
+
+    const badges = [];
+    if (l.platform) badges.push(`<span class="badge platform">${escapeHtml(l.platform.toUpperCase())}</span>`);
+    if (l.ad_name) badges.push(`<span class="badge ad" title="${escapeHtml(l.ad_name)}">${escapeHtml(l.ad_name)}</span>`);
+
+    const statusOpts = ['new','contacted','rdv','bv','pi','pe','autre_ville','over_40','visits','registered']
+      .map(s => `<option value="${s}" ${s===status?'selected':''}>${statusLabel(s)}</option>`).join('');
+
+    const checkHtml = selectMode && status === 'new'
+      ? `<div class="lead-check ${selected.has(l.id)?'checked':''}" onclick="toggleSelect('${l.id}')"></div>`
+      : `<div class="lead-check hidden"></div>`;
+
+    const hasPhones = (l.phones && l.phones.length) || l.phone_primary;
+
+    return `
+      <div class="lead-card ${status}">
+        ${checkHtml}
+        <div class="lead-main">
+          <div class="lead-name">${escapeHtml(name)}</div>
+          ${fieldsHtml ? `<div class="lead-fields">${fieldsHtml}</div>` : ''}
+          ${badges.length ? `<div class="lead-meta">${badges.join('')}</div>` : ''}
+          ${time ? `<div class="lead-time">${time}</div>` : ''}
+        </div>
+        <div class="lead-right">
+          <select class="status-select ${status}" onchange="updateStatus('${l.id}', this.value)">${statusOpts}</select>
+          <button class="phone-icon-btn" onclick="showPhones('${l.id}')" ${hasPhones ? '' : 'disabled'}>📞</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+async function updateStatus(id, status) {
+  try {
+    await api(`/ad-leads/${id}/status`, { method: 'PATCH', body: { status } });
+    const lead = allLeads.find(l => l.id === id);
+    if (lead) lead.status = status;
+    render();
+    toast('تم التحديث', 'success');
+  } catch (e) {
+    toast('فشل التحديث', 'error');
+  }
+}
+
+function showPhones(id) {
+  const lead = allLeads.find(l => l.id === id);
+  if (!lead) return;
+  const phones = (lead.phones && lead.phones.length)
+    ? lead.phones
+    : (lead.phone_primary ? [{ label: 'رقم الهاتف', number: lead.phone_primary }] : []);
+
+  if (!phones.length) {
+    toast('لا يوجد رقم صالح', 'error');
+    return;
+  }
+
+  document.getElementById('phoneModalTitle').textContent = lead.full_name || 'اتصال';
+  document.getElementById('phoneModalBody').innerHTML = phones.map(p => {
+    const num = p.number || '';
+    const valid = /^0[67]\d{8}$/.test(num);
+    const wa = valid ? `https://wa.me/212${num.slice(1)}` : '#';
+    return `
+      <div class="phone-row">
+        <div>
+          <div class="phone-label">${escapeHtml(p.label || '')}</div>
+          <div class="phone-num">${escapeHtml(num)}</div>
+        </div>
+        ${valid ? `<div class="phone-btns">
+          <a class="call" href="tel:${num}">📞 اتصال</a>
+          <a class="wa" href="${wa}" target="_blank">💬 واتساب</a>
+        </div>` : '<span style="color:#dc2626; font-size:11px; font-weight:700;">⚠️ صيغة غير صالحة</span>'}
+      </div>`;
+  }).join('');
+  document.getElementById('phoneModal').classList.add('show');
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+function toggleSelectMode() {
+  selectMode = !selectMode;
+  if (!selectMode) selected.clear();
+  document.getElementById('selectModeBtn').textContent = selectMode ? '✕ إلغاء الاختيار' : '☰ اختيار';
+  render();
+}
+
+function toggleSelect(id) {
+  if (selected.has(id)) selected.delete(id); else selected.add(id);
+  render();
+  document.getElementById('selectedCount').textContent = selected.size;
+}
+
+// Transfer
+
+let transferTab = 'count';
+
+function setTransferTab(tab) {
+  transferTab = tab;
+  document.getElementById('tabByCount').classList.toggle('active', tab==='count');
+  document.getElementById('tabBySelection').classList.toggle('active', tab==='selection');
+  document.getElementById('transferCountPane').style.display = tab==='count' ? '' : 'none';
+  document.getElementById('transferSelectionPane').style.display = tab==='selection' ? '' : 'none';
+}
+
+async function openTransferModal() {
+  try {
+    const [peers, counts] = await Promise.all([
+      api('/ad-leads/transfer/peers'),
+      api('/ad-leads/new-count'),
+    ]);
+    const sel = document.getElementById('xferRecipient');
+    sel.innerHTML = '<option value="">— اختر وكيل —</option>' +
+      (peers || []).map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+    document.getElementById('availNewCount').textContent = counts.count;
+    document.getElementById('selectedCount').textContent = selected.size;
+    setTransferTab(transferTab);
+    document.getElementById('transferModal').classList.add('show');
+  } catch (e) {
+    toast('تعذر فتح نافذة التحويل', 'error');
+  }
+}
+
+async function submitTransfer() {
+  const to = document.getElementById('xferRecipient').value;
+  if (!to) { toast('اختر وكيل', 'error'); return; }
+  try {
+    let res;
+    if (transferTab === 'count') {
+      const n = parseInt(document.getElementById('xferCount').value || '0', 10);
+      if (n <= 0) { toast('أدخل عدد صحيح', 'error'); return; }
+      res = await api('/ad-leads/transfer/by-count', {
+        method: 'POST',
+        body: { to_agent_id: to, count: n }
+      });
+    } else {
+      if (!selected.size) { toast('لم تختر أي ليد', 'error'); return; }
+      res = await api('/ad-leads/transfer/by-selection', {
+        method: 'POST',
+        body: { to_agent_id: to, lead_ids: [...selected] }
+      });
+    }
+    toast(`تم تحويل ${res.transferred} ليد`, 'success');
+    closeModal('transferModal');
+    selected.clear();
+    if (selectMode) toggleSelectMode();
+    loadLeads();
+  } catch (e) {
+    toast('فشل التحويل', 'error');
+  }
+}
+
+// Availability
+
+async function openAvailabilityModal() {
+  try {
+    const data = await api('/ad-leads/availability');
+    currentOffDates = data.off_dates || [];
+    renderOffDates(currentOffDates);
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+    document.getElementById('newOffDate').min = tomorrow.toISOString().slice(0,10);
+    document.getElementById('newOffDate').value = tomorrow.toISOString().slice(0,10);
+    document.getElementById('availModal').classList.add('show');
+  } catch (e) {
+    toast('تعذر فتح الإعدادات', 'error');
+  }
+}
+
+function renderOffDates(dates) {
+  currentOffDates = dates;
+  const grid = document.getElementById('offDateGrid');
+  const msg = document.getElementById('noOffDatesMsg');
+  if (!dates.length) {
+    grid.innerHTML = '';
+    msg.style.display = 'block';
+  } else {
+    msg.style.display = 'none';
+    grid.innerHTML = dates.map(d => {
+      const dt = new Date(d).toLocaleDateString('ar-MA', { day: 'numeric', month: 'short', weekday: 'short' });
+      return `<div class="date-chip" onclick="removeOffDate('${d}')">${dt}<span class="x">×</span></div>`;
+    }).join('');
+  }
+  updateAvailBanner(dates);
+}
+
+async function addOffDate() {
+  const d = document.getElementById('newOffDate').value;
+  if (!d) return;
+  const today = new Date().toISOString().slice(0,10);
+  if (d <= today) { toast('اختر يوم مستقبلي', 'error'); return; }
+  if (currentOffDates.includes(d)) return;
+  currentOffDates = [...new Set([...currentOffDates, d])].sort();
+  await saveOffDates();
+}
+
+async function removeOffDate(d) {
+  currentOffDates = currentOffDates.filter(x => x !== d);
+  await saveOffDates();
+}
+
+async function saveOffDates() {
+  try {
+    const res = await api('/ad-leads/availability', { method: 'PUT', body: { off_dates: currentOffDates } });
+    currentOffDates = res.off_dates || [];
+    renderOffDates(currentOffDates);
+    toast('تم الحفظ', 'success');
+  } catch (e) {
+    toast('فشل الحفظ', 'error');
+  }
+}
+
+function updateAvailBanner(dates) {
+  const banner = document.getElementById('availBanner');
+  if (!dates.length) { banner.classList.remove('show'); return; }
+  const next = dates[0];
+  const dt = new Date(next).toLocaleDateString('ar-MA', { day: 'numeric', month: 'short' });
+  banner.textContent = `📅 أنت في إجازة يوم ${dt}. لن تستقبل ليدات جديدة في ذلك اليوم.`;
+  banner.classList.add('show');
+}
+
+async function init() {
+  try {
+    const data = await api('/ad-leads/availability');
+    currentOffDates = data.off_dates || [];
+    updateAvailBanner(currentOffDates);
+  } catch (e) {}
+  loadLeads();
+}
+
+init();
+</script>
+</body>
+</html>
