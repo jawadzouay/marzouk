@@ -83,8 +83,8 @@ def resolve_range(range_key: str, date_from: Optional[str], date_to: Optional[st
     return today.isoformat(), today.isoformat()
 
 
-def apply_date_filter(q, df: str, dt: str):
-    return q.gte("created_time", f"{df}T00:00:00+00:00").lte("created_time", f"{dt}T23:59:59+00:00")
+def apply_date_filter(q, df: str, dt: str, field: str = "created_time"):
+    return q.gte(field, f"{df}T00:00:00+00:00").lte(field, f"{dt}T23:59:59+00:00")
 
 
 def _agent_scopes(sb, agent_id: str):
@@ -176,10 +176,12 @@ def my_leads(
         "id, created_time, full_name, phone_primary, phones, ad_name, "
         "platform, status, assigned_at, contacted_at, last_note, data"
     ).eq("assigned_agent_id", agent["sub"])
-    q = apply_date_filter(q, df, dt)
+    # Filter on assigned_at so leads with no source-side date still show up;
+    # this also matches the agent's mental model of "leads I got today".
+    q = apply_date_filter(q, df, dt, field="assigned_at")
     if status:
         q = q.eq("status", status)
-    res = q.order("created_time", desc=True).execute()
+    res = q.order("assigned_at", desc=True).execute()
 
     # Include visible column defs so the UI can render the dynamic table
     configs = _configs_for_agent(sb, agent["sub"])
@@ -199,7 +201,7 @@ def my_counts(agent=Depends(require_agent)):
     today_start = f"{date.today().isoformat()}T00:00:00+00:00"
     r = sb.table("ad_leads").select("status") \
         .eq("assigned_agent_id", agent["sub"]) \
-        .gte("created_time", today_start).execute()
+        .gte("assigned_at", today_start).execute()
     rows = r.data or []
     by_status: Dict[str, int] = {}
     for row in rows:
@@ -614,7 +616,7 @@ def admin_pool(
 
     today_start = f"{today}T00:00:00+00:00"
     leads = sb.table("ad_leads").select("assigned_agent_id") \
-        .in_("assigned_agent_id", ids).gte("created_time", today_start).execute()
+        .in_("assigned_agent_id", ids).gte("assigned_at", today_start).execute()
     count_map: Dict[str, int] = {}
     for r in (leads.data or []):
         aid = r["assigned_agent_id"]
