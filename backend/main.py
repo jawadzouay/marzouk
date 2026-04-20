@@ -58,6 +58,7 @@ def start_sync_scheduler():
     try:
         from apscheduler.schedulers.asyncio import AsyncIOScheduler
         from services.ad_leads_sync import sync_leads_from_sheet
+        from datetime import datetime, timezone, timedelta
 
         def run_sync():
             try:
@@ -66,12 +67,21 @@ def start_sync_scheduler():
             except Exception as e:
                 logging.warning(f"[ad_leads] sync failed: {e}")
 
-        scheduler = AsyncIOScheduler()
-        scheduler.add_job(run_sync, "interval", minutes=SYNC_INTERVAL_MIN, id="ad_leads_sync",
-                          next_run_time=None, coalesce=True, max_instances=1)
+        scheduler = AsyncIOScheduler(timezone="UTC")
+        # First run 30s after boot (so the app is ready), then every N minutes.
+        first = datetime.now(timezone.utc) + timedelta(seconds=30)
+        scheduler.add_job(
+            run_sync, "interval",
+            minutes=SYNC_INTERVAL_MIN,
+            id="ad_leads_sync",
+            next_run_time=first,
+            coalesce=True,
+            max_instances=1,
+            replace_existing=True,
+        )
         scheduler.start()
         app.state.scheduler = scheduler
-        logging.info(f"[ad_leads] scheduler started — every {SYNC_INTERVAL_MIN} min")
+        logging.info(f"[ad_leads] scheduler started — first run at {first.isoformat()}, then every {SYNC_INTERVAL_MIN} min")
     except Exception as e:
         logging.warning(f"[ad_leads] could not start scheduler: {e}")
 
