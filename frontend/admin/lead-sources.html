@@ -566,12 +566,23 @@ async function deleteConfig(id) {
 
 async function loadServiceAccount() {
   const el = document.getElementById('svcEmail');
-  try {
-    const r = await fetch(API + '/admin/service-account', { headers: hdr() });
-    const d = await r.json();
-    el.textContent = d.client_email || '—';
-  } catch (e) {
-    el.textContent = 'تعذر قراءة حساب الخدمة من Railway';
+  const paths = ['/admin/service-account', '/admin/sheets-test'];
+  for (const p of paths) {
+    try {
+      const r = await fetch(API + p, { headers: hdr() });
+      if (!r.ok) {
+        if (p === paths[paths.length - 1]) {
+          el.textContent = `تعذر القراءة (${r.status}) — أعد تحميل الصفحة بعد دقيقة`;
+        }
+        continue;
+      }
+      const d = await r.json();
+      if (d.client_email) { el.textContent = d.client_email; return; }
+    } catch (e) {
+      if (p === paths[paths.length - 1]) {
+        el.textContent = 'تعذر الاتصال بالخادم — انتظر نشر Railway ثم أعد التحميل';
+      }
+    }
   }
 }
 
