@@ -50,26 +50,36 @@ SYNC_INTERVAL_MIN = int(os.getenv("AD_LEADS_SYNC_INTERVAL_MIN", "5"))
 SYNC_ENABLED = os.getenv("AD_LEADS_SYNC_ENABLED", "true").lower() in ("1", "true", "yes")
 
 
+app.state.last_sync_result = None
+app.state.last_sync_at = None
+
+
 @app.on_event("startup")
 def start_sync_scheduler():
     if not SYNC_ENABLED:
         logging.info("[ad_leads] scheduler disabled via AD_LEADS_SYNC_ENABLED=false")
         return
     try:
-        from apscheduler.schedulers.asyncio import AsyncIOScheduler
+        from apscheduler.schedulers.background import BackgroundScheduler
         from services.ad_leads_sync import sync_leads_from_sheet
         from datetime import datetime, timezone, timedelta
 
         def run_sync():
             try:
                 r = sync_leads_from_sheet()
+                app.state.last_sync_result = r
+                app.state.last_sync_at = datetime.now(timezone.utc).isoformat()
                 logging.info(f"[ad_leads] sync: {r}")
             except Exception as e:
+                app.state.last_sync_result = {"ok": False, "error": str(e)}
+                app.state.last_sync_at = datetime.now(timezone.utc).isoformat()
                 logging.warning(f"[ad_leads] sync failed: {e}")
 
-        scheduler = AsyncIOScheduler(timezone="UTC")
-        # First run 30s after boot (so the app is ready), then every N minutes.
-        first = datetime.now(timezone.utc) + timedelta(seconds=30)
+        # BackgroundScheduler runs in its own daemon thread — unaffected by
+        # uvicorn's event loop state, and safe for blocking Google/Supabase
+        # HTTP calls that would otherwise stall AsyncIOScheduler.
+        scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
+        first = datetime.now(timezone.utc) + timedelta(seconds=15)
         scheduler.add_job(
             run_sync, "interval",
             minutes=SYNC_INTERVAL_MIN,
@@ -81,9 +91,42 @@ def start_sync_scheduler():
         )
         scheduler.start()
         app.state.scheduler = scheduler
-        logging.info(f"[ad_leads] scheduler started — first run at {first.isoformat()}, then every {SYNC_INTERVAL_MIN} min")
+        logging.info(f"[ad_leads] BackgroundScheduler started — first run at {first.isoformat()}, then every {SYNC_INTERVAL_MIN} min")
     except Exception as e:
         logging.warning(f"[ad_leads] could not start scheduler: {e}")
+
+
+@app.on_event("shutdown")
+def stop_sync_scheduler():
+    sched = getattr(app.state, "scheduler", None)
+    if sched:
+        try:
+            sched.shutdown(wait=False)
+        except Exception:
+            pass
+
+
+@app.get("/admin/scheduler-status")
+def scheduler_status():
+    """Diagnostic — returns whether the scheduler is running and when it
+    last fired. Not auth-protected because it only exposes timing metadata."""
+    sched = getattr(app.state, "scheduler", None)
+    jobs = []
+    if sched:
+        for job in sched.get_jobs():
+            jobs.append({
+                "id": job.id,
+                "next_run_time": job.next_run_time.isoformat() if job.next_run_time else None,
+                "trigger": str(job.trigger),
+            })
+    return {
+        "scheduler_running": bool(sched and sched.running),
+        "sync_enabled": SYNC_ENABLED,
+        "interval_min": SYNC_INTERVAL_MIN,
+        "jobs": jobs,
+        "last_sync_at": getattr(app.state, "last_sync_at", None),
+        "last_sync_result": getattr(app.state, "last_sync_result", None),
+    }
 
 # Serve frontend static files with no-cache headers
 from fastapi import Request
