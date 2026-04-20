@@ -319,21 +319,38 @@ def sync_config(config_id: str) -> dict:
     header_row = [(h or "").strip() for h in rows[0]]
 
     # Fetch existing row keys for this config so we only insert new ones
-    existing = sb.table("ad_leads").select("source_row_key") \
+    existing = sb.table("ad_leads").select("id, source_row_key") \
         .eq("config_id", config_id).execute()
-    known = {r["source_row_key"] for r in (existing.data or [])}
+    known: Dict[str, str] = {r["source_row_key"]: r["id"] for r in (existing.data or [])}
 
     to_insert: List[dict] = []
+    to_update: List[Tuple[str, dict]] = []
     seen_batch = set()
     for r in rows[1:]:
         lead = _build_lead_from_row(r, header_row, columns, config)
         if not lead:
             continue
         k = lead["source_row_key"]
-        if k in known or k in seen_batch:
+        if k in seen_batch:
             continue
         seen_batch.add(k)
-        to_insert.append(lead)
+        if k in known:
+            # Existing row — refresh mapping-derived fields so a remap
+            # (e.g. marking a column as `phone`) fixes leads that were
+            # synced before the mapping existed. Never touch assignment,
+            # status, or timestamps that belong to the agent workflow.
+            to_update.append((known[k], {
+                "data": lead["data"],
+                "phone_primary": lead["phone_primary"],
+                "phones": lead["phones"],
+                "full_name": lead["full_name"],
+                "ad_name": lead["ad_name"],
+                "platform": lead["platform"],
+                "created_time": lead["created_time"],
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }))
+        else:
+            to_insert.append(lead)
 
     inserted = 0
     if to_insert:
@@ -346,6 +363,14 @@ def sync_config(config_id: str) -> dict:
                 _mark_error(config_id, f"insert failed: {e}")
                 return {"ok": False, "error": f"insert failed: {e}", "inserted": inserted}
 
+    updated = 0
+    for lead_id, patch in to_update:
+        try:
+            sb.table("ad_leads").update(patch).eq("id", lead_id).execute()
+            updated += 1
+        except Exception as e:
+            log.warning("[ad_leads] update failed for %s: %s", lead_id, e)
+
     _mark_sync(config_id, len(rows) - 1, None)
     assigned = distribute_unassigned_for_scope(config["scope_type"], config["scope_id"])
 
@@ -353,6 +378,7 @@ def sync_config(config_id: str) -> dict:
         "ok": True,
         "total_rows": len(rows) - 1,
         "inserted": inserted,
+        "updated": updated,
         "assigned": assigned,
     }
 

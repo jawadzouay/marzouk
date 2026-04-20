@@ -550,10 +550,11 @@ async function syncNow(id) {
     if (r.ok === false) { toast('فشل: ' + (r.error || ''), 'error'); return; }
     const total = r.total_rows ?? 0;
     const ins = r.inserted || 0;
+    const upd = r.updated || 0;
     const asg = r.assigned || 0;
-    let msg = `قُرئت ${total} صف، أُضيف ${ins}، وُزّع ${asg}`;
-    if (total > 0 && ins === 0) msg += ' — كلها موجودة مسبقاً أو لم تُطابق الأعمدة';
-    toast(msg, ins > 0 ? 'success' : 'error');
+    let msg = `قُرئت ${total} صف، أُضيف ${ins}، حُدِّث ${upd}، وُزّع ${asg}`;
+    if (total > 0 && ins === 0 && upd === 0) msg += ' — لم تُطابق الأعمدة مع الجدول';
+    toast(msg, (ins + upd) > 0 ? 'success' : 'error');
     loadConfigs();
   } catch (e) { toast('خطأ: ' + e.message, 'error'); }
 }
