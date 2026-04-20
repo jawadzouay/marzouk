@@ -548,7 +548,12 @@ async function syncNow(id) {
   try {
     const r = await api(`/ad-leads/admin/configs/${id}/sync`, { method: 'POST' });
     if (r.ok === false) { toast('فشل: ' + (r.error || ''), 'error'); return; }
-    toast(`تم: ${r.inserted || 0} جديد، ${r.assigned || 0} موزّع`, 'success');
+    const total = r.total_rows ?? 0;
+    const ins = r.inserted || 0;
+    const asg = r.assigned || 0;
+    let msg = `قُرئت ${total} صف، أُضيف ${ins}، وُزّع ${asg}`;
+    if (total > 0 && ins === 0) msg += ' — كلها موجودة مسبقاً أو لم تُطابق الأعمدة';
+    toast(msg, ins > 0 ? 'success' : 'error');
     loadConfigs();
   } catch (e) { toast('خطأ: ' + e.message, 'error'); }
 }
