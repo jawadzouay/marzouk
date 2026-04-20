@@ -1,6 +1,6 @@
 {
   "$schema": "https://railway.com/railway.schema.json",
   "deploy": {
-    "startCommand": "cd backend && python -m uvicorn main:app --host 0.0.0.0 --port $PORT --workers 1"
+    "startCommand": "python -m uvicorn --app-dir backend main:app --host 0.0.0.0 --port $PORT --workers 1"
   }
 }
