@@ -100,6 +100,20 @@ def _cell(row: list, idx: Optional[int]) -> Optional[str]:
     return s
 
 
+def _is_test_lead_row(row: list) -> bool:
+    """Meta/Facebook emits a placeholder row with cells like
+    '<test lead: dummy data for ...>' whenever an admin uses the form
+    preview. Real lead rows never contain that marker — skip any row
+    that has it anywhere."""
+    for v in row:
+        if v is None:
+            continue
+        s = str(v)
+        if "<test lead:" in s or s.startswith("p:<test lead:"):
+            return True
+    return False
+
+
 def _parse_created_time(raw: Optional[str]) -> Optional[str]:
     if not raw:
         return None
@@ -325,8 +339,16 @@ def sync_config(config_id: str) -> dict:
 
     to_insert: List[dict] = []
     to_update: List[Tuple[str, dict]] = []
+    to_delete: List[str] = []
     seen_batch = set()
     for r in rows[1:]:
+        if _is_test_lead_row(r):
+            # If a test-lead row previously slipped through and is in the DB,
+            # its hash matches the current row — delete that DB record.
+            stale_key = _row_key(r, header_row, None)
+            if stale_key in known:
+                to_delete.append(known[stale_key])
+            continue
         lead = _build_lead_from_row(r, header_row, columns, config)
         if not lead:
             continue
@@ -371,6 +393,14 @@ def sync_config(config_id: str) -> dict:
         except Exception as e:
             log.warning("[ad_leads] update failed for %s: %s", lead_id, e)
 
+    deleted = 0
+    if to_delete:
+        try:
+            sb.table("ad_leads").delete().in_("id", to_delete).execute()
+            deleted = len(to_delete)
+        except Exception as e:
+            log.warning("[ad_leads] test-lead cleanup failed: %s", e)
+
     _mark_sync(config_id, len(rows) - 1, None)
     assigned = distribute_unassigned_for_scope(config["scope_type"], config["scope_id"])
 
@@ -379,6 +409,7 @@ def sync_config(config_id: str) -> dict:
         "total_rows": len(rows) - 1,
         "inserted": inserted,
         "updated": updated,
+        "deleted": deleted,
         "assigned": assigned,
     }
 
