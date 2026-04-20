@@ -133,6 +133,16 @@
         <div class="field-hint">أقل من الأخضر وأكثر أو يساوي هذا = برتقالي، أقل = أحمر</div>
       </div>
       <div class="field">
+        <label>الحد الأدنى للأخضر (تسجيل/يوم — طويل الأمد)</label>
+        <input type="number" id="th-reg-green" min="0" step="0.1" placeholder="0.5" />
+        <div class="field-hint">مقدار التسجيلات اليومية المطلوبة ليكون الوكيل أخضر على المدى البعيد</div>
+      </div>
+      <div class="field">
+        <label>الحد الأدنى للبرتقالي (تسجيل/يوم)</label>
+        <input type="number" id="th-reg-orange" min="0" step="0.1" placeholder="0.2" />
+        <div class="field-hint">أقل من هذا = أحمر. لون الوكيل = الأسوأ بين المواعيد والتسجيلات.</div>
+      </div>
+      <div class="field">
         <label>الحد الأقصى للعملاء السيئين</label>
         <input type="number" id="th-bad" min="0" max="1" step="0.01" placeholder="0.50" />
         <div class="field-hint">يُستخدم فقط لتشخيص: هل المشكلة من الإعلان أم الوكيل؟</div>
@@ -164,11 +174,11 @@
 
   <!-- Lead sources moved to dedicated page -->
   <div class="section-card">
-    <div class="section-title">📋 مصادر الليدات (Google Sheets)</div>
+    <div class="section-title">📋 مصادر الرسائل (Google Sheets)</div>
     <p style="font-size:12px;color:#6b7280;margin-bottom:10px;line-height:1.7">
       تم نقل إعدادات جداول ليدات الإعلانات إلى صفحة مستقلة. من هناك يمكنك ربط جدول لكل مدينة أو فرع، تعيين الأعمدة، وتفعيل أو تعطيل كل مصدر على حدة.
     </p>
-    <a href="lead-sources.html" class="btn-save" style="display:inline-block;text-decoration:none">⚙️ فتح مصادر الليدات</a>
+    <a href="lead-sources.html" class="btn-save" style="display:inline-block;text-decoration:none">⚙️ فتح مصادر الرسائل</a>
   </div>
 
 </div>
@@ -244,6 +254,8 @@
       const data = await res.json();
       document.getElementById('th-rdv-green').value  = data.rdv_green_min ?? 6;
       document.getElementById('th-rdv-orange').value = data.rdv_orange_min ?? 3;
+      document.getElementById('th-reg-green').value  = data.reg_green_min ?? 0.5;
+      document.getElementById('th-reg-orange').value = data.reg_orange_min ?? 0.2;
       document.getElementById('th-bad').value        = data.bad_lead_max ?? 0.50;
       document.getElementById('th-rdv').value        = data.min_rdv_rate ?? 0.20;
       document.getElementById('th-show').value       = data.min_show_rate ?? 0.40;
@@ -256,6 +268,8 @@
       const body = {
         quality_rdv_green_min:  parseFloat(document.getElementById('th-rdv-green').value)  || 6,
         quality_rdv_orange_min: parseFloat(document.getElementById('th-rdv-orange').value) || 3,
+        quality_reg_green_min:  parseFloat(document.getElementById('th-reg-green').value)  || 0.5,
+        quality_reg_orange_min: parseFloat(document.getElementById('th-reg-orange').value) || 0.2,
         quality_bad_lead_max:   parseFloat(document.getElementById('th-bad').value)        || 0.50,
         quality_min_rdv_rate:   parseFloat(document.getElementById('th-rdv').value)        || 0.20,
         quality_min_show_rate:  parseFloat(document.getElementById('th-show').value)       || 0.40,

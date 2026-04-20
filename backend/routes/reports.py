@@ -1,12 +1,10 @@
-from fastapi import APIRouter, HTTPException, Depends, Query, Form, UploadFile, File
+from fastapi import APIRouter, HTTPException, Depends, Query, Form
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import jwt
 from services.supabase_service import get_client
 from dotenv import load_dotenv
 from datetime import datetime, timedelta, date
-from typing import List, Optional
 import os
-import logging
 
 load_dotenv()
 
@@ -48,9 +46,9 @@ async def submit_daily_report(
     bv: int = Form(0),
     pe: int = Form(0),
     over_40: int = Form(0),
+    contra: int = Form(0),
     visits: int = Form(0),
     registered: int = Form(0),
-    photos: List[UploadFile] = File(None),
     user=Depends(get_current_user)
 ):
     sb = get_client()
@@ -68,17 +66,6 @@ async def submit_daily_report(
     else:
         new_count = 1
 
-    # Read photos to consume the request body, but skip Drive upload for now
-    photo_count = 0
-    if photos:
-        for ph in photos:
-            if ph and ph.filename:
-                try:
-                    await ph.read()
-                    photo_count += 1
-                except Exception:
-                    pass
-
     report_data = {
         "agent_id": agent_id,
         "report_date": report_date,
@@ -89,6 +76,7 @@ async def submit_daily_report(
         "bv": bv,
         "pe": pe,
         "over_40": over_40,
+        "contra": contra,
         "visits": visits,
         "registered": registered,
         "submitted_at": datetime.utcnow().isoformat(),
@@ -104,7 +92,6 @@ async def submit_daily_report(
         "submit_count": new_count,
         "remaining": 2 - new_count,
         "is_first_submit": is_first,
-        "photo_count": photo_count,
         "report": result.data[0] if result.data else report_data
     }
 

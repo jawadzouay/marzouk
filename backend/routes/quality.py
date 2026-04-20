@@ -14,12 +14,16 @@ JWT_SECRET = os.getenv("JWT_SECRET")
 ALGORITHM = "HS256"
 
 # Default thresholds (configurable from settings table)
-# Color classification is now driven by RDV count per reporting day:
-#   avg_rdv_per_day >= GREEN_MIN   → GREEN
-#   ORANGE_MIN <= avg_rdv < GREEN  → ORANGE
-#   avg_rdv_per_day <  ORANGE_MIN  → RED
-DEFAULT_RDV_GREEN_MIN = 6   # 6+ RDV/day → green
-DEFAULT_RDV_ORANGE_MIN = 3  # 3-5 RDV/day → orange, <3 → red
+# Color classification uses TWO primary metrics (the "main matrix"):
+#   - avg RDV per reporting day   → short-term signal (ad producing bookings)
+#   - avg Registered per day      → long-term signal (bookings converting to students)
+# An agent's final color = the WORSE of the two metric colors (so both must be
+# healthy to land in green). Defaults are starting points — admin tunes them
+# from the settings page as real ad performance comes in.
+DEFAULT_RDV_GREEN_MIN = 6     # 6+ RDV/day → green (short-term)
+DEFAULT_RDV_ORANGE_MIN = 3    # 3-5 → orange, <3 → red
+DEFAULT_REG_GREEN_MIN = 0.5   # ~10 registrations/month → green (long-term)
+DEFAULT_REG_ORANGE_MIN = 0.2  # ~4/month → orange, <0.2/day → red
 # Legacy percentage thresholds (still used for bottleneck diagnosis)
 DEFAULT_BAD_LEAD_MAX = 0.50
 DEFAULT_MIN_RDV_RATE = 0.20
@@ -41,6 +45,7 @@ def load_thresholds():
     """Load quality thresholds from settings table, with defaults."""
     sb = get_client()
     keys = ["quality_rdv_green_min", "quality_rdv_orange_min",
+            "quality_reg_green_min", "quality_reg_orange_min",
             "quality_bad_lead_max",
             "quality_min_rdv_rate", "quality_min_show_rate", "quality_min_close_rate"]
     try:
@@ -52,6 +57,8 @@ def load_thresholds():
     return {
         "rdv_green_min": cfg.get("quality_rdv_green_min", DEFAULT_RDV_GREEN_MIN),
         "rdv_orange_min": cfg.get("quality_rdv_orange_min", DEFAULT_RDV_ORANGE_MIN),
+        "reg_green_min": cfg.get("quality_reg_green_min", DEFAULT_REG_GREEN_MIN),
+        "reg_orange_min": cfg.get("quality_reg_orange_min", DEFAULT_REG_ORANGE_MIN),
         "bad_lead_max": cfg.get("quality_bad_lead_max", DEFAULT_BAD_LEAD_MAX),
         "min_rdv_rate": cfg.get("quality_min_rdv_rate", DEFAULT_MIN_RDV_RATE),
         "min_show_rate": cfg.get("quality_min_show_rate", DEFAULT_MIN_SHOW_RATE),
@@ -62,10 +69,13 @@ def load_thresholds():
 def compute_agent_score(totals: dict, thresholds: dict, report_count: int = 0) -> dict:
     """Compute quality metrics and classify an agent.
 
-    Classification is driven by average RDV per reporting day:
-      <ORANGE_MIN  → red     (ads not producing bookings)
-      ORANGE..GREEN → orange
-      >=GREEN_MIN  → green   (ads are working)
+    Classification uses BOTH primary metrics (the main matrix):
+      - avg RDV/day         → short-term (ad producing bookings)
+      - avg Registered/day  → long-term (bookings becoming students)
+
+    For each metric we derive a color (green/orange/red) from its thresholds.
+    The agent's final color is the WORSE of the two — so an agent must be
+    healthy on BOTH dimensions to land in green.
     """
     messages = totals.get("messages", 0)
     rdv = totals.get("rdv", 0)
@@ -74,11 +84,14 @@ def compute_agent_score(totals: dict, thresholds: dict, report_count: int = 0) -
     bv = totals.get("bv", 0)
     pe = totals.get("pe", 0)
     over_40 = totals.get("over_40", 0)
+    contra = totals.get("contra", 0)
     visits = totals.get("visits", 0)
     registered = totals.get("registered", 0)
 
-    bad_leads = autre_ville + pi_count + pe + over_40
-    actionable = messages - autre_ville - pe - over_40  # PI and BV are still "real" leads in terms of ad targeting
+    # Contra = leads who want a direct job/contract (something we don't offer),
+    # so they count as bad leads from the ad — same bucket as autre_ville/pe/over_40.
+    bad_leads = autre_ville + pi_count + pe + over_40 + contra
+    actionable = messages - autre_ville - pe - over_40 - contra  # PI and BV are still "real" leads in terms of ad targeting
 
     bad_lead_pct = (bad_leads / messages) if messages > 0 else 0
     autre_ville_pct = (autre_ville / messages) if messages > 0 else 0
@@ -86,6 +99,7 @@ def compute_agent_score(totals: dict, thresholds: dict, report_count: int = 0) -
     bv_pct = (bv / messages) if messages > 0 else 0
     pe_pct = (pe / messages) if messages > 0 else 0
     over_40_pct = (over_40 / messages) if messages > 0 else 0
+    contra_pct = (contra / messages) if messages > 0 else 0
 
     rdv_rate = (rdv / actionable) if actionable > 0 else 0
     show_rate = (visits / rdv) if rdv > 0 else 0
@@ -98,19 +112,25 @@ def compute_agent_score(totals: dict, thresholds: dict, report_count: int = 0) -
     avg_registered = registered / days
     avg_messages = messages / days
 
-    # Classify: GREEN / ORANGE / RED based on RDV/day.
+    # Classify: GREEN / ORANGE / RED.
     # Agents with zero messages are treated as "inactive" (ad not running
     # or no reports submitted) — parked in the green column at the bottom
     # rather than flagged red, since there's nothing to diagnose.
+    def _color(value, green_min, orange_min):
+        if value >= green_min: return "green"
+        if value >= orange_min: return "orange"
+        return "red"
+
+    rdv_color = _color(avg_rdv, thresholds["rdv_green_min"], thresholds["rdv_orange_min"])
+    reg_color = _color(avg_registered, thresholds["reg_green_min"], thresholds["reg_orange_min"])
+
     inactive = messages == 0
     if inactive:
         color = "green"
-    elif avg_rdv >= thresholds["rdv_green_min"]:
-        color = "green"
-    elif avg_rdv >= thresholds["rdv_orange_min"]:
-        color = "orange"
     else:
-        color = "red"
+        # Worst of the two colors wins — both metrics must be healthy to be green.
+        rank = {"red": 0, "orange": 1, "green": 2}
+        color = rdv_color if rank[rdv_color] <= rank[reg_color] else reg_color
 
     # Determine bottleneck (separate from color — explains WHY)
     bottleneck = None
@@ -136,6 +156,7 @@ def compute_agent_score(totals: dict, thresholds: dict, report_count: int = 0) -
         "bv_pct": round(bv_pct, 3),
         "pe_pct": round(pe_pct, 3),
         "over_40_pct": round(over_40_pct, 3),
+        "contra_pct": round(contra_pct, 3),
         "actionable": actionable,
         "rdv_rate": round(rdv_rate, 3),
         "show_rate": round(show_rate, 3),
@@ -145,6 +166,8 @@ def compute_agent_score(totals: dict, thresholds: dict, report_count: int = 0) -
         "avg_registered": round(avg_registered, 2),
         "avg_messages": round(avg_messages, 2),
         "color": color,
+        "rdv_color": rdv_color,
+        "reg_color": reg_color,
         "inactive": inactive,
         "bottleneck": bottleneck,
     }
@@ -184,7 +207,8 @@ def quality_scores(
 
         totals = {
             "messages": 0, "rdv": 0, "autre_ville": 0, "pi": 0,
-            "bv": 0, "pe": 0, "over_40": 0, "visits": 0, "registered": 0
+            "bv": 0, "pe": 0, "over_40": 0, "contra": 0,
+            "visits": 0, "registered": 0
         }
         for r in reports.data:
             for key in totals:
@@ -199,9 +223,17 @@ def quality_scores(
         score["report_count"] = report_count
         results.append(score)
 
-    # Sort: red first, then orange, then green (worst to best for attention)
+    # Sort:
+    #   1. Color bucket: red → orange → green (worst first, so attention goes there)
+    #   2. Inactive agents (messages == 0) pushed to bottom within green
+    #   3. Within each bucket: registered DESC (long-term > short-term), then RDV DESC
     color_order = {"red": 0, "orange": 1, "green": 2}
-    results.sort(key=lambda x: color_order.get(x["color"], 3))
+    results.sort(key=lambda x: (
+        color_order.get(x["color"], 3),
+        1 if x.get("inactive") else 0,
+        -x.get("avg_registered", 0),
+        -x.get("avg_rdv", 0),
+    ))
 
     return {
         "scores": results,
@@ -220,6 +252,7 @@ def get_thresholds(admin=Depends(require_admin)):
 def set_thresholds(body: dict, admin=Depends(require_admin)):
     sb = get_client()
     valid_keys = ["quality_rdv_green_min", "quality_rdv_orange_min",
+                  "quality_reg_green_min", "quality_reg_orange_min",
                   "quality_bad_lead_max",
                   "quality_min_rdv_rate", "quality_min_show_rate", "quality_min_close_rate"]
 

@@ -82,20 +82,6 @@
     .stepper-value::-webkit-inner-spin-button { -webkit-appearance: none; }
     .stepper-value:focus { outline: none; }
 
-    .upload-card {
-      background: white; border-radius: 14px; padding: 16px;
-      margin-bottom: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); text-align: center;
-    }
-    .upload-zone {
-      border: 2.5px dashed #d1d5db; border-radius: 12px;
-      padding: 24px 16px; cursor: pointer; transition: all 0.2s;
-    }
-    .upload-zone:hover { border-color: #e63329; background: #fff5f5; }
-    .upload-zone.has-file { border-color: #10b981; background: #f0fdf4; }
-    .upload-icon { font-size: 36px; margin-bottom: 6px; }
-    .upload-text { font-size: 13px; color: #6b7280; font-weight: 600; }
-    .upload-file-name { font-size: 12px; color: #10b981; font-weight: 700; margin-top: 4px; }
-
     .submit-btn {
       width: 100%; padding: 16px; background: #10b981; color: white;
       border: none; border-radius: 14px; font-size: 18px; font-weight: 900;
@@ -216,6 +202,10 @@
     <div class="field-info"><span class="field-icon">👴</span><div><div class="field-label">فوق 40 سنة</div><div class="field-sublabel">Over 40</div></div></div>
     <div class="stepper"><button class="stepper-btn stepper-minus" onclick="step('over_40',-1)">−</button><input class="stepper-value" id="v-over_40" value="0" type="number" min="0" inputmode="numeric" onchange="clamp(this)" /><button class="stepper-btn stepper-plus" onclick="step('over_40',1)">+</button></div>
   </div>
+  <div class="field-card">
+    <div class="field-info"><span class="field-icon">💼</span><div><div class="field-label">كونترا (يريد عقد مباشر)</div><div class="field-sublabel">Contra — wants direct contract</div></div></div>
+    <div class="stepper"><button class="stepper-btn stepper-minus" onclick="step('contra',-1)">−</button><input class="stepper-value" id="v-contra" value="0" type="number" min="0" inputmode="numeric" onchange="clamp(this)" /><button class="stepper-btn stepper-plus" onclick="step('contra',1)">+</button></div>
+  </div>
   <div class="field-card field-green">
     <div class="field-info"><span class="field-icon">🏢</span><div><div class="field-label">الزيارات</div><div class="field-sublabel">Visits — showed up</div></div></div>
     <div class="stepper"><button class="stepper-btn stepper-minus" onclick="step('visits',-1)">−</button><input class="stepper-value" id="v-visits" value="0" type="number" min="0" inputmode="numeric" onchange="clamp(this)" /><button class="stepper-btn stepper-plus" onclick="step('visits',1)">+</button></div>
@@ -223,16 +213,6 @@
   <div class="field-card field-green">
     <div class="field-info"><span class="field-icon">⭐</span><div><div class="field-label">المسجلين</div><div class="field-sublabel">Registered students</div></div></div>
     <div class="stepper"><button class="stepper-btn stepper-minus" onclick="step('registered',-1)">−</button><input class="stepper-value" id="v-registered" value="0" type="number" min="0" inputmode="numeric" onchange="clamp(this)" /><button class="stepper-btn stepper-plus" onclick="step('registered',1)">+</button></div>
-  </div>
-
-  <div class="upload-card">
-    <div class="upload-zone" id="upload-zone" onclick="document.getElementById('photo-input').click()">
-      <div class="upload-icon" id="upload-icon">📸</div>
-      <div class="upload-text" id="upload-text">اضغط لرفع صور الورقة (يمكن اختيار أكثر من صورة)</div>
-      <div class="upload-file-name" id="upload-name"></div>
-    </div>
-    <input type="file" style="display:none" id="photo-input" accept="image/*" multiple onchange="onPhotoSelect(this)" />
-    <div id="photo-previews" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px"></div>
   </div>
 
   <button class="submit-btn" id="submit-btn" onclick="submitReport()">📤 إرسال التقرير</button>
@@ -249,8 +229,7 @@
   const token = localStorage.getItem('token');
   if (!token || localStorage.getItem('role') !== 'agent') window.location.href = '/index.html';
 
-  const FIELDS = ['messages','rdv','autre_ville','pi','bv','pe','over_40','visits','registered'];
-  let selectedPhotos = [];
+  const FIELDS = ['messages','rdv','autre_ville','pi','bv','pe','over_40','contra','visits','registered'];
 
   const today = new Date().toISOString().split('T')[0];
   const dateInput = document.getElementById('report-date');
@@ -262,40 +241,6 @@
   function val(f) { return parseInt(document.getElementById('v-'+f).value) || 0; }
   function step(f, d) { const el = document.getElementById('v-'+f); let v = (parseInt(el.value)||0)+d; if(v<0)v=0; el.value=v; }
   function clamp(el) { if(parseInt(el.value)<0||isNaN(parseInt(el.value))) el.value=0; }
-
-  function onPhotoSelect(input) {
-    if (input.files && input.files.length) {
-      selectedPhotos = Array.from(input.files);
-      document.getElementById('upload-zone').classList.add('has-file');
-      document.getElementById('upload-icon').textContent = '✅';
-      document.getElementById('upload-text').textContent = `تم اختيار ${selectedPhotos.length} صورة — اضغط لتغيير`;
-      document.getElementById('upload-name').textContent = '';
-      renderPhotoPreviews();
-    }
-  }
-
-  function renderPhotoPreviews() {
-    const row = document.getElementById('photo-previews');
-    row.innerHTML = selectedPhotos.map((f, i) => `
-      <div style="position:relative;width:64px;height:64px;border-radius:8px;overflow:hidden;border:2px solid #10b981">
-        <img src="${URL.createObjectURL(f)}" style="width:100%;height:100%;object-fit:cover" />
-        <button type="button" onclick="removePhoto(${i})" style="position:absolute;top:2px;left:2px;background:rgba(0,0,0,0.6);color:white;border:none;width:18px;height:18px;border-radius:50%;font-size:11px;cursor:pointer;line-height:1;padding:0">×</button>
-      </div>
-    `).join('');
-  }
-
-  function removePhoto(i) {
-    selectedPhotos.splice(i, 1);
-    renderPhotoPreviews();
-    if (!selectedPhotos.length) {
-      document.getElementById('upload-zone').classList.remove('has-file');
-      document.getElementById('upload-icon').textContent = '📸';
-      document.getElementById('upload-text').textContent = 'اضغط لرفع صور الورقة (يمكن اختيار أكثر من صورة)';
-      document.getElementById('photo-input').value = '';
-    } else {
-      document.getElementById('upload-text').textContent = `تم اختيار ${selectedPhotos.length} صورة — اضغط لتغيير`;
-    }
-  }
 
   async function checkExisting() {
     const d = dateInput.value;
@@ -344,7 +289,7 @@
       <div class="overlay-title" style="color:#10b981">${title}</div>
       <div class="overlay-msg">${msg}</div>
       <div>
-        <button class="overlay-btn btn-ok" onclick="window.location.href='/agent/dashboard.html'">العودة للرئيسية</button>
+        <button class="overlay-btn btn-ok" onclick="window.location.href='/agent/leads.html'">العودة للرئيسية</button>
         ${canEdit ? '<button class="overlay-btn btn-close" onclick="closeOverlay()">تعديل وإعادة الإرسال</button>' : ''}
       </div>`;
   }
@@ -367,13 +312,11 @@
     btn.textContent = '📤 إرسال التقرير';
   }
 
-  // ─── Submit (resilient: timeout + 1 retry, no photo upload) ─
+  // ─── Submit (resilient: timeout + 1 retry) ─
   async function postReport(timeoutMs) {
     const fd = new FormData();
     fd.append('report_date', dateInput.value);
     FIELDS.forEach(f => fd.append(f, val(f)));
-    // Note: photos stay client-side on purpose — backend doesn't persist them yet,
-    // and uploading megabytes over mobile was making the submission hang.
 
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs);
@@ -399,10 +342,10 @@
 
     // Client-side validation
     const messages = val('messages');
-    const badSum = val('autre_ville') + val('pi') + val('pe') + val('over_40');
+    const badSum = val('autre_ville') + val('pi') + val('pe') + val('over_40') + val('contra');
     if (messages > 0 && badSum > messages) {
       showError('خطأ في الأرقام',
-        'عدد الرسائل يجب أن يكون أكبر من مجموع (مدينة أخرى + غير مهتم + غير مؤهل + فوق 40)',
+        'عدد الرسائل يجب أن يكون أكبر من مجموع (مدينة أخرى + غير مهتم + غير مؤهل + فوق 40 + كونترا)',
         false);
       overlay.classList.add('show');
       return;

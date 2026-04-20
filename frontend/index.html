@@ -126,7 +126,7 @@
         localStorage.setItem('name', data.name);
         if (data.agent_id) localStorage.setItem('agent_id', data.agent_id);
 
-        window.location.href = data.role === 'admin' ? '/admin/dashboard.html' : '/agent/dashboard.html';
+        window.location.href = data.role === 'admin' ? '/admin/dashboard.html' : '/agent/leads.html';
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';

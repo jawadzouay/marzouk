@@ -183,6 +183,13 @@
     .stat-lbl { font-size: 9px; color: #6b7280; font-weight: 700; margin-top: 1px; }
     .stat-sub { font-size: 9px; color: #9ca3af; font-weight: 600; margin-top: 1px; }
     .stat-sub.warn { color: #b91c1c; }
+    .stat-sub.good { color: #059669; }
+    .stat-sub.mid  { color: #b45309; }
+    .stat-sub.bad  { color: #b91c1c; }
+    .stat-sub .dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; margin-left: 3px; vertical-align: middle; }
+    .stat-sub.good .dot { background: #10b981; }
+    .stat-sub.mid  .dot { background: #f59e0b; }
+    .stat-sub.bad  .dot { background: #ef4444; }
 
     /* ── Agent Detail Modal ── */
     .modal-overlay {
@@ -267,7 +274,7 @@
   <a href="dashboard.html" class="active">لوحة التحكم</a>
   <a href="agents.html">الوكلاء</a>
   <a href="ads.html">جودة الإعلانات</a>
-  <a href="lead-sources.html">مصادر الليدات</a>
+  <a href="lead-sources.html">مصادر الرسائل</a>
   <a href="spend.html">الإنفاق</a>
   <a href="settings.html">الإعدادات</a>
 </nav>
@@ -318,6 +325,7 @@
     <button class="metric-chip" data-metric="bv_pct">بريد صوتي</button>
     <button class="metric-chip" data-metric="pe_pct">غير مؤهل</button>
     <button class="metric-chip" data-metric="over_40_pct">فوق 40</button>
+    <button class="metric-chip" data-metric="contra_pct">كونترا</button>
     <button class="metric-chip" data-metric="rdv_rate">نسبة المواعيد</button>
     <button class="metric-chip" data-metric="show_rate">نسبة الحضور</button>
     <button class="metric-chip" data-metric="close_rate">نسبة الإغلاق</button>
@@ -557,10 +565,22 @@ function renderColumns(scores) {
   const orange = sorted.filter(s => s.color === 'orange');
   const red = sorted.filter(s => s.color === 'red');
 
-  // Push inactive agents (no messages at all) to the bottom of the green column
+  // Within each column, sort by the main matrix (registered DESC, then RDV DESC)
+  // — except when the user has picked an explicit metric filter above (that
+  // takes priority). Inactive agents are always parked at the bottom of green.
+  const matrixSort = (a, b) => {
+    const dr = (b.avg_registered || 0) - (a.avg_registered || 0);
+    if (dr !== 0) return dr;
+    return (b.avg_rdv || 0) - (a.avg_rdv || 0);
+  };
+  if (currentMetric === 'all') {
+    orange.sort(matrixSort);
+    red.sort(matrixSort);
+  }
   green.sort((a, b) => {
     if (a.inactive !== b.inactive) return a.inactive ? 1 : -1;
-    return (b.rdv || 0) - (a.rdv || 0);
+    if (currentMetric !== 'all') return 0;
+    return matrixSort(a, b);
   });
 
   document.getElementById('greenCount').textContent = `(${green.length})`;
@@ -600,14 +620,18 @@ function renderAgentCard(s) {
   }
 
   const days = s.report_count || 1;
-  const rdvLine = days > 1
-    ? `<div class="stat-sub">${s.avg_rdv}/يوم</div>`
+  const toneOf = (c) => c === 'green' ? 'good' : c === 'orange' ? 'mid' : 'bad';
+  // Always show the main-matrix pills (RDV/day + registered/day) with color
+  // dots — the admin needs to see both signals at a glance, even on a single-day
+  // view, since those two drive the column classification.
+  const rdvLine = !s.inactive
+    ? `<div class="stat-sub ${toneOf(s.rdv_color)}"><span class="dot"></span>${s.avg_rdv}/يوم</div>`
+    : '';
+  const regLine = !s.inactive
+    ? `<div class="stat-sub ${toneOf(s.reg_color)}"><span class="dot"></span>${s.avg_registered}/يوم</div>`
     : '';
   const visitsLine = days > 1
     ? `<div class="stat-sub">${s.avg_visits}/يوم</div>`
-    : '';
-  const regLine = days > 1
-    ? `<div class="stat-sub">${s.avg_registered}/يوم</div>`
     : '';
   const badPct = (s.bad_lead_pct * 100).toFixed(0);
 
@@ -727,6 +751,7 @@ async function showDetail(score) {
       <span class="agent-metric ${score.bv_pct > 0.15 ? 'highlight' : ''}">بريد صوتي: ${score.totals.bv} <span style="opacity:0.55;font-size:9px">(${(score.bv_pct * 100).toFixed(0)}%)</span></span>
       <span class="agent-metric ${score.pe_pct > 0.1 ? 'highlight' : ''}">غير مؤهل: ${score.totals.pe} <span style="opacity:0.55;font-size:9px">(${(score.pe_pct * 100).toFixed(0)}%)</span></span>
       <span class="agent-metric ${score.over_40_pct > 0.1 ? 'highlight' : ''}">فوق 40: ${score.totals.over_40} <span style="opacity:0.55;font-size:9px">(${(score.over_40_pct * 100).toFixed(0)}%)</span></span>
+      <span class="agent-metric ${(score.contra_pct || 0) > 0.1 ? 'highlight' : ''}">كونترا: ${score.totals.contra || 0} <span style="opacity:0.55;font-size:9px">(${((score.contra_pct || 0) * 100).toFixed(0)}%)</span></span>
     </div>
 
     <div class="modal-goal-section">

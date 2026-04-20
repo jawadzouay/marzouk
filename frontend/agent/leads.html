@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <title>الليدات — مرزوق أكاديمي</title>
+  <title>الرسائل — مرزوق أكاديمي</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -130,6 +130,20 @@
     select.status-select.rdv { background: #d1fae5; color: #065f46; border-color: #10b981; }
     select.status-select.registered { background: #fee2e2; color: #991b1b; border-color: #e63329; }
     select.status-select.visits { background: #dbeafe; color: #1e40af; border-color: #3b82f6; }
+    select.status-select.contra { background: #fce7f3; color: #9d174d; border-color: #ec4899; }
+
+    .lead-name {
+      cursor: text;
+    }
+    .lead-name.editing {
+      outline: 2px solid #e63329; border-radius: 6px; padding: 2px 4px;
+      background: #fff7f7;
+    }
+    .lead-name-edit {
+      width: 100%; font-family: 'Cairo', sans-serif; font-size: 14px; font-weight: 700;
+      color: #1a1a1a; border: 1.5px solid #e63329; border-radius: 6px;
+      padding: 4px 6px; background: white;
+    }
 
     .phone-icon-btn {
       width: 100%; height: 36px; border-radius: 10px; border: none;
@@ -226,10 +240,11 @@
 </head>
 <body>
   <header>
-    <h1>📋 الليدات</h1>
+    <h1>📋 الرسائل</h1>
     <div style="display: flex; gap: 6px;">
       <button class="action-btn" onclick="openAvailabilityModal()">🗓️ الإجازة</button>
-      <a href="dashboard.html" class="back-btn">رجوع</a>
+      <a href="submit.html" class="action-btn">📤 التقرير</a>
+      <a href="dashboard.html" class="back-btn">📊 لوحتي</a>
     </div>
   </header>
 
@@ -252,7 +267,7 @@
         <button class="btn-primary" style="flex:0; padding: 6px 12px;" onclick="applyCustomRange()">تطبيق</button>
       </div>
       <div class="actions-row">
-        <button class="btn-primary" onclick="openTransferModal()">🔄 تحويل الليدات</button>
+        <button class="btn-primary" onclick="openTransferModal()">🔄 تحويل الرسائل</button>
         <button class="btn-secondary" id="selectModeBtn" onclick="toggleSelectMode()">☰ اختيار</button>
       </div>
     </div>
@@ -277,25 +292,25 @@
   <!-- Transfer modal -->
   <div class="modal-overlay" id="transferModal" onclick="if(event.target===this)closeModal('transferModal')">
     <div class="modal">
-      <h3>🔄 تحويل الليدات<button class="close-x" onclick="closeModal('transferModal')">×</button></h3>
+      <h3>🔄 تحويل الرسائل<button class="close-x" onclick="closeModal('transferModal')">×</button></h3>
       <div class="segmented">
         <button id="tabByCount" class="active" onclick="setTransferTab('count')">بالعدد</button>
         <button id="tabBySelection" onclick="setTransferTab('selection')">المحددة</button>
       </div>
       <div id="transferCountPane">
         <div class="form-group">
-          <label>كم عدد الليدات التي تريد تحويلها؟</label>
+          <label>كم عدد الرسائل التي تريد تحويلها؟</label>
           <input type="number" id="xferCount" min="1" value="5" />
-          <div class="form-hint">يتم تحويل الليدات الجديدة (غير المُتواصل معها) فقط، من الأقدم إلى الأحدث. لديك <b id="availNewCount">0</b> ليد جديد.</div>
+          <div class="form-hint">يتم تحويل الرسائل الجديدة (غير المُتواصل معها) فقط، من الأقدم إلى الأحدث. لديك <b id="availNewCount">0</b> رسالة جديدة.</div>
         </div>
       </div>
       <div id="transferSelectionPane" style="display:none;">
-        <div class="form-hint" style="margin-bottom:8px;">سيتم تحويل الليدات المحددة في القائمة (<b id="selectedCount">0</b> ليد).</div>
+        <div class="form-hint" style="margin-bottom:8px;">سيتم تحويل الرسائل المحددة في القائمة (<b id="selectedCount">0</b> رسالة).</div>
       </div>
       <div class="form-group">
         <label>الوكيل المُستلم</label>
         <select id="xferRecipient"><option value="">— اختر وكيل —</option></select>
-        <div class="form-hint">يمكن تحويل الليدات فقط لوكلاء من نفس الفرع.</div>
+        <div class="form-hint">يمكن تحويل الرسائل فقط لوكلاء من نفس الفرع.</div>
       </div>
       <button class="btn-primary" style="width:100%;" onclick="submitTransfer()">تحويل</button>
     </div>
@@ -306,7 +321,7 @@
     <div class="modal">
       <h3>🗓️ أيام الإجازة<button class="close-x" onclick="closeModal('availModal')">×</button></h3>
       <p style="font-size: 12px; color: #6b7280; margin-bottom: 10px;">
-        اختر الأيام المستقبلية التي لن تستقبل فيها ليدات. ستظل تستقبل الليدات حتى يحل اليوم المحدد.
+        اختر الأيام المستقبلية التي لن تستقبل فيها رسائل. ستظل تستقبل الرسائل حتى يحل اليوم المحدد.
       </p>
       <div class="form-group">
         <label>إضافة يوم إجازة</label>
@@ -401,7 +416,7 @@ async function loadLeads() {
     render();
   } catch (e) {
     console.error(e);
-    toast('تعذر تحميل الليدات', 'error');
+    toast('تعذر تحميل الرسائل', 'error');
   }
 }
 
@@ -410,6 +425,7 @@ function statusLabel(s) {
     new: 'جديد', contacted: 'تم التواصل', rdv: 'موعد',
     bv: 'بريد صوتي', pi: 'غير مهتم', pe: 'غير مؤهل',
     autre_ville: 'مدينة أخرى', over_40: 'فوق 40',
+    contra: 'كونترا',
     visits: 'زيارة', registered: 'مسجل'
   }[s] || s;
 }
@@ -421,7 +437,7 @@ function render() {
 
   const list = document.getElementById('leadsList');
   if (!allLeads.length) {
-    list.innerHTML = '<div class="empty">لا توجد ليدات في هذه الفترة</div>';
+    list.innerHTML = '<div class="empty">لا توجد رسائل في هذه الفترة</div>';
     return;
   }
 
@@ -441,7 +457,7 @@ function render() {
     if (l.platform) badges.push(`<span class="badge platform">${escapeHtml(l.platform.toUpperCase())}</span>`);
     if (l.ad_name) badges.push(`<span class="badge ad" title="${escapeHtml(l.ad_name)}">${escapeHtml(l.ad_name)}</span>`);
 
-    const statusOpts = ['new','contacted','rdv','bv','pi','pe','autre_ville','over_40','visits','registered']
+    const statusOpts = ['new','contacted','rdv','bv','pi','pe','autre_ville','over_40','contra','visits','registered']
       .map(s => `<option value="${s}" ${s===status?'selected':''}>${statusLabel(s)}</option>`).join('');
 
     const checkHtml = selectMode && status === 'new'
@@ -454,7 +470,7 @@ function render() {
       <div class="lead-card ${status}">
         ${checkHtml}
         <div class="lead-main">
-          <div class="lead-name">${escapeHtml(name)}</div>
+          <div class="lead-name" data-id="${l.id}" onclick="editName(this, '${l.id}')" title="اضغط للتعديل">${escapeHtml(name)}</div>
           ${fieldsHtml ? `<div class="lead-fields">${fieldsHtml}</div>` : ''}
           ${badges.length ? `<div class="lead-meta">${badges.join('')}</div>` : ''}
           ${time ? `<div class="lead-time">${time}</div>` : ''}
@@ -477,6 +493,47 @@ async function updateStatus(id, status) {
   } catch (e) {
     toast('فشل التحديث', 'error');
   }
+}
+
+function editName(el, id) {
+  if (el.querySelector('input')) return;
+  const lead = allLeads.find(l => l.id === id);
+  const current = lead ? (lead.full_name || '') : el.textContent.trim();
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = current;
+  input.className = 'lead-name-edit';
+  input.dir = 'auto';
+  el.classList.add('editing');
+  el.innerHTML = '';
+  el.appendChild(input);
+  input.focus();
+  input.select();
+  let saving = false;
+  const commit = async () => {
+    if (saving) return;
+    saving = true;
+    const newName = input.value.trim();
+    if (newName === current || !newName) {
+      render();
+      return;
+    }
+    try {
+      await api(`/ad-leads/${id}/name`, { method: 'PATCH', body: { full_name: newName } });
+      if (lead) lead.full_name = newName;
+      render();
+      toast('تم تحديث الاسم', 'success');
+    } catch (e) {
+      toast('فشل تحديث الاسم', 'error');
+      render();
+    }
+  };
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { render(); }
+  });
+  input.addEventListener('click', e => e.stopPropagation());
 }
 
 function showPhones(id) {
@@ -569,13 +626,13 @@ async function submitTransfer() {
         body: { to_agent_id: to, count: n }
       });
     } else {
-      if (!selected.size) { toast('لم تختر أي ليد', 'error'); return; }
+      if (!selected.size) { toast('لم تختر أي رسالة', 'error'); return; }
       res = await api('/ad-leads/transfer/by-selection', {
         method: 'POST',
         body: { to_agent_id: to, lead_ids: [...selected] }
       });
     }
-    toast(`تم تحويل ${res.transferred} ليد`, 'success');
+    toast(`تم تحويل ${res.transferred} رسالة`, 'success');
     closeModal('transferModal');
     selected.clear();
     if (selectMode) toggleSelectMode();
@@ -649,7 +706,7 @@ function updateAvailBanner(dates) {
   if (!dates.length) { banner.classList.remove('show'); return; }
   const next = dates[0];
   const dt = new Date(next).toLocaleDateString('ar-MA', { day: 'numeric', month: 'short' });
-  banner.textContent = `📅 أنت في إجازة يوم ${dt}. لن تستقبل ليدات جديدة في ذلك اليوم.`;
+  banner.textContent = `📅 أنت في إجازة يوم ${dt}. لن تستقبل رسائل جديدة في ذلك اليوم.`;
   banner.classList.add('show');
 }
 

@@ -171,7 +171,7 @@
     <a href="dashboard.html">لوحة التحكم</a>
     <a href="agents.html">الوكلاء</a>
     <a href="ads.html" class="active">جودة الإعلانات</a>
-    <a href="lead-sources.html">مصادر الليدات</a>
+    <a href="lead-sources.html">مصادر الرسائل</a>
     <a href="spend.html">الإنفاق</a>
     <a href="settings.html">الإعدادات</a>
   </nav>
@@ -196,7 +196,7 @@
     </div>
 
     <div class="summary-grid">
-      <div class="sum-tile"><div class="sum-num" id="sumLeads">0</div><div class="sum-lbl">إجمالي الليدات</div></div>
+      <div class="sum-tile"><div class="sum-num" id="sumLeads">0</div><div class="sum-lbl">إجمالي الرسائل</div></div>
       <div class="sum-tile primary"><div class="sum-num" id="sumRdv">0</div><div class="sum-lbl">مواعيد</div></div>
       <div class="sum-tile info"><div class="sum-num" id="sumVisits">0</div><div class="sum-lbl">زيارات</div></div>
       <div class="sum-tile good"><div class="sum-num" id="sumReg">0</div><div class="sum-lbl">مُسجلين</div></div>
@@ -309,7 +309,7 @@ async function manualSync() {
 async function redistribute() {
   try {
     const r = await api('/ad-leads/redistribute', { method: 'POST' });
-    toast(`تم توزيع ${r.assigned || 0} ليد`, 'success');
+    toast(`تم توزيع ${r.assigned || 0} رسالة`, 'success');
     loadAds();
   } catch (e) { toast('فشل التوزيع', 'error'); }
 }
@@ -370,7 +370,7 @@ function render() {
           <div class="maturity-pill ${a.maturity}">${matLbl} · ${a.age_days}ي</div>
         </div>
         <div class="funnel">
-          <div class="funnel-tile"><div class="funnel-num">${a.leads}</div><div class="funnel-lbl">ليدات</div></div>
+          <div class="funnel-tile"><div class="funnel-num">${a.leads}</div><div class="funnel-lbl">رسائل</div></div>
           <div class="funnel-tile primary"><div class="funnel-num">${a.rdv}</div><div class="funnel-lbl">مواعيد</div></div>
           <div class="funnel-tile"><div class="funnel-num">${a.visits}</div><div class="funnel-lbl">زيارات</div></div>
           <div class="funnel-tile good"><div class="funnel-num">${a.registered}</div><div class="funnel-lbl">مسجلين</div></div>

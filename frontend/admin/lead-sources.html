@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>مصادر الليدات — مرزوق أكاديمي</title>
+  <title>مصادر الرسائل — مرزوق أكاديمي</title>
   <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -190,7 +190,7 @@
 </head>
 <body>
   <header>
-    <h1>مصادر الليدات</h1>
+    <h1>مصادر الرسائل</h1>
     <button class="logout-btn" onclick="logout()">خروج</button>
   </header>
 
@@ -198,7 +198,7 @@
     <a href="dashboard.html">لوحة التحكم</a>
     <a href="agents.html">الوكلاء</a>
     <a href="ads.html">جودة الإعلانات</a>
-    <a href="lead-sources.html" class="active">مصادر الليدات</a>
+    <a href="lead-sources.html" class="active">مصادر الرسائل</a>
     <a href="spend.html">الإنفاق</a>
     <a href="settings.html">الإعدادات</a>
   </nav>
@@ -560,7 +560,7 @@ async function syncNow(id) {
 }
 
 async function deleteConfig(id) {
-  if (!confirm('حذف هذا المصدر سيحذف كل الليدات المرتبطة به. هل أنت متأكد؟')) return;
+  if (!confirm('حذف هذا المصدر سيحذف كل الرسائل المرتبطة به. هل أنت متأكد؟')) return;
   try {
     await api(`/ad-leads/admin/configs/${id}`, { method: 'DELETE' });
     toast('تم الحذف', 'success');

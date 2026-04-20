@@ -231,7 +231,7 @@ class StatusUpdate(BaseModel):
 
 VALID_STATUSES = {
     "new", "contacted", "rdv", "bv", "pi", "pe",
-    "autre_ville", "over_40", "visits", "registered",
+    "autre_ville", "over_40", "contra", "visits", "registered",
 }
 
 
@@ -256,6 +256,32 @@ def update_lead_status(lead_id: str, body: StatusUpdate, agent=Depends(require_a
 
     sb.table("ad_leads").update(updates).eq("id", lead_id).execute()
     return {"ok": True}
+
+
+class NameUpdate(BaseModel):
+    full_name: str
+
+
+@router.patch("/{lead_id}/name")
+def update_lead_name(lead_id: str, body: NameUpdate, agent=Depends(require_agent)):
+    sb = get_client()
+    name = (body.full_name or "").strip()
+    if not name:
+        raise HTTPException(400, "الاسم لا يمكن أن يكون فارغاً")
+    if len(name) > 200:
+        raise HTTPException(400, "الاسم طويل جداً")
+
+    lead = sb.table("ad_leads").select("id, assigned_agent_id").eq("id", lead_id).execute()
+    if not lead.data:
+        raise HTTPException(404, "Lead not found")
+    if lead.data[0]["assigned_agent_id"] != agent["sub"]:
+        raise HTTPException(403, "This lead is not assigned to you")
+
+    sb.table("ad_leads").update({
+        "full_name": name,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", lead_id).execute()
+    return {"ok": True, "full_name": name}
 
 
 # ---------------------------------------------------------------------------
@@ -670,7 +696,7 @@ def admin_ad_quality(
             "platform": r.get("platform"),
             "leads": 0, "new": 0, "contacted": 0, "rdv": 0,
             "visits": 0, "registered": 0, "bv": 0, "pi": 0, "pe": 0,
-            "autre_ville": 0, "over_40": 0,
+            "autre_ville": 0, "over_40": 0, "contra": 0,
             "first_lead_at": None, "last_lead_at": None,
         })
         b["leads"] += 1
