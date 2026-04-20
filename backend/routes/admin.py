@@ -285,6 +285,27 @@ def set_sheets_config(body: dict, admin=Depends(require_admin)):
     return {"sheet_id": raw, "sheet_url": f"https://docs.google.com/spreadsheets/d/{raw}"}
 
 
+def _service_account_email() -> str:
+    import os as _os, json as _json
+    raw = _os.getenv("GOOGLE_CREDENTIALS_JSON", "").strip()
+    if not raw:
+        return ""
+    if not raw.startswith("{"):
+        brace = raw.find("{")
+        if brace != -1:
+            raw = raw[brace:]
+    try:
+        return _json.loads(raw).get("client_email", "") if raw.startswith("{") else ""
+    except Exception:
+        return ""
+
+
+@router.get("/service-account")
+def service_account_info(admin=Depends(require_admin)):
+    """Returns the service account email that admins must share each sheet with."""
+    return {"client_email": _service_account_email()}
+
+
 @router.get("/sheets-test")
 def test_sheets_connection(admin=Depends(require_admin)):
     """Test Google Sheets connectivity and return a clear diagnosis."""
@@ -296,6 +317,7 @@ def test_sheets_connection(admin=Depends(require_admin)):
         "has_credentials": bool(creds_raw),
         "credentials_looks_like_json": creds_raw.startswith("{") if creds_raw else False,
         "credentials_preview": creds_raw[:60] + "..." if len(creds_raw) > 60 else creds_raw,
+        "client_email": _service_account_email(),
         "sheet_id": sheet_id,
     }
     try:

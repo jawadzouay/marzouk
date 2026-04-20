@@ -205,8 +205,10 @@
 
   <div class="container">
     <div class="intro">
-      شارك كل جدول Google Sheet مع حساب الخدمة بصلاحية <b>قراءة</b>:<br>
-      <code>marzouk-sheets@silent-rune-487820-b1.iam.gserviceaccount.com</code><br>
+      شارك كل جدول Google Sheet مع حساب الخدمة التالي بصلاحية <b>قراءة (Viewer)</b>:<br>
+      <code id="svcEmail" style="user-select:all;cursor:copy" onclick="copySvcEmail()">جاري التحميل...</code>
+      <button id="svcCopy" onclick="copySvcEmail()" style="margin-inline-start:8px;padding:3px 10px;border:1px solid #d1d5db;border-radius:6px;background:white;font-family:inherit;font-size:11px;cursor:pointer">نسخ</button>
+      <br>
       ثم أنشئ مصدرًا هنا، اختر المدينة أو الفرع، ألصق رابط الجدول، ثم اسحب الأعمدة وحدد نوع كل عمود (رقم هاتف / اسم / إعلان ...). المزامنة تلقائية كل 5 دقائق.
     </div>
 
@@ -562,7 +564,25 @@ async function deleteConfig(id) {
 
 // ============= Init =============
 
+async function loadServiceAccount() {
+  const el = document.getElementById('svcEmail');
+  try {
+    const r = await fetch(API + '/admin/service-account', { headers: hdr() });
+    const d = await r.json();
+    el.textContent = d.client_email || '—';
+  } catch (e) {
+    el.textContent = 'تعذر قراءة حساب الخدمة من Railway';
+  }
+}
+
+function copySvcEmail() {
+  const txt = document.getElementById('svcEmail').textContent.trim();
+  if (!txt || txt === '—') return;
+  navigator.clipboard.writeText(txt).then(() => toast('تم النسخ', 'success'));
+}
+
 (async function init() {
+  loadServiceAccount();
   await loadEntities();
   loadConfigs();
 })();
