@@ -74,6 +74,33 @@
     .btn-eye  { background: white; color: #86198f; border: 1px solid #f5d0fe; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 14px; }
     .creds-reset-row { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #f5d0fe; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .creds-reset-row input { flex: 1; min-width: 140px; padding: 7px 10px; font-size: 13px; border: 2px solid #f5d0fe; border-radius: 8px; font-family: 'Cairo', sans-serif; }
+
+    .btn-xfer { background: #ecfeff; color: #0e7490; border: 1px solid #a5f3fc; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; font-size: 13px; }
+
+    .xfer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 12px; }
+    .xfer-overlay.open { display: flex; }
+    .xfer-modal { background: white; border-radius: 14px; width: 100%; max-width: 640px; max-height: 90vh; overflow: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+    .xfer-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; background: white; }
+    .xfer-head h3 { font-size: 15px; font-weight: 700; }
+    .xfer-head .close { background: transparent; border: none; font-size: 22px; cursor: pointer; color: #6b7280; }
+    .xfer-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+    .xfer-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .xfer-label { font-size: 13px; font-weight: 700; color: #374151; min-width: 70px; }
+    .xfer-body select, .xfer-body input { flex: 1; min-width: 150px; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; font-family: 'Cairo', sans-serif; }
+    .mode-tabs { display: flex; background: #f3f4f6; border-radius: 10px; padding: 3px; }
+    .mode-tabs button { flex: 1; padding: 8px; background: transparent; border: none; border-radius: 7px; font-family: 'Cairo', sans-serif; font-weight: 700; color: #6b7280; cursor: pointer; font-size: 13px; }
+    .mode-tabs button.active { background: white; color: #0e7490; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .leads-table { border: 1px solid #e5e7eb; border-radius: 8px; max-height: 300px; overflow: auto; font-size: 12px; }
+    .leads-table table { width: 100%; border-collapse: collapse; }
+    .leads-table th, .leads-table td { padding: 7px 9px; text-align: right; border-bottom: 1px solid #f3f4f6; }
+    .leads-table th { background: #f9fafb; font-weight: 700; color: #6b7280; position: sticky; top: 0; }
+    .leads-table .status-chip { display: inline-block; padding: 1px 6px; border-radius: 6px; font-size: 10px; font-weight: 700; }
+    .xfer-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 14px 18px; border-top: 1px solid #e5e7eb; position: sticky; bottom: 0; background: white; }
+    .btn-confirm { background: #0e7490; color: white; border: none; border-radius: 8px; padding: 10px 22px; font-family: 'Cairo', sans-serif; font-weight: 700; cursor: pointer; font-size: 14px; }
+    .btn-confirm:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-close-modal { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 18px; font-family: 'Cairo', sans-serif; font-weight: 700; cursor: pointer; font-size: 14px; }
+    .xfer-summary { font-size: 13px; color: #6b7280; }
+    .xfer-summary strong { color: #0e7490; }
     .dayoff-tag { display: inline-block; background: #fef9c3; color: #854d0e; border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600; margin-top: 4px; }
     .btn-dayoff { background: #fef9c3; color: #854d0e; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; font-size: 13px; }
     .dayoff-panel { margin-top: 10px; padding: 10px 12px; background: #fefce8; border-radius: 8px; border: 1px solid #fde68a; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -148,6 +175,66 @@
     <!-- ⑤ Agents List -->
     <div class="section-title">الوكلاء النشطون</div>
     <div id="agents-list"></div>
+  </div>
+
+  <!-- Transfer modal -->
+  <div class="xfer-overlay" id="xfer-overlay" onclick="if(event.target===this)closeTransferModal()">
+    <div class="xfer-modal">
+      <div class="xfer-head">
+        <h3>🔄 نقل الرسائل من <span id="xfer-from-name"></span></h3>
+        <button class="close" onclick="closeTransferModal()">×</button>
+      </div>
+      <div class="xfer-body">
+        <div class="xfer-row">
+          <span class="xfer-label">إلى الوكيل:</span>
+          <select id="xfer-target"></select>
+        </div>
+        <div class="xfer-row">
+          <span class="xfer-label">الحالة:</span>
+          <select id="xfer-status" onchange="reloadTransferLeads()">
+            <option value="">— كل الحالات —</option>
+            <option value="new">جديدة</option>
+            <option value="contacted">تم التواصل</option>
+            <option value="rdv">موعد (RDV)</option>
+            <option value="bv">بريد صوتي</option>
+            <option value="pi">غير مهتم</option>
+            <option value="pe">غير مؤهل</option>
+            <option value="autre_ville">مدينة أخرى</option>
+            <option value="over_40">فوق 40</option>
+            <option value="contra">كونترا</option>
+            <option value="visits">زيارة</option>
+            <option value="registered">مسجل</option>
+          </select>
+        </div>
+
+        <div class="mode-tabs">
+          <button id="mode-count"  class="active" onclick="setTransferMode('count')">عدد</button>
+          <button id="mode-select" onclick="setTransferMode('select')">اختيار يدوي</button>
+        </div>
+
+        <div id="mode-count-panel">
+          <div class="xfer-row">
+            <span class="xfer-label">العدد:</span>
+            <input type="number" id="xfer-count" min="1" placeholder="كم رسالة تريد نقلها؟" />
+          </div>
+          <div class="xfer-summary">ينقل أقدم <strong id="xfer-count-preview">—</strong> رسالة متطابقة مع الفلتر أعلاه.</div>
+        </div>
+
+        <div id="mode-select-panel" style="display:none">
+          <div class="xfer-row">
+            <label style="font-size:12px"><input type="checkbox" id="xfer-select-all" onchange="toggleSelectAll(this.checked)" /> تحديد الكل</label>
+            <span class="xfer-summary">محدد: <strong id="xfer-selected-count">0</strong> / <span id="xfer-loaded-count">0</span></span>
+          </div>
+          <div class="leads-table" id="xfer-leads-table">
+            <div style="padding:20px;text-align:center;color:#9ca3af">جارِ التحميل...</div>
+          </div>
+        </div>
+      </div>
+      <div class="xfer-footer">
+        <button class="btn-close-modal" onclick="closeTransferModal()">إلغاء</button>
+        <button class="btn-confirm" id="xfer-confirm" onclick="confirmTransferLeads()">تأكيد النقل</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -345,6 +432,7 @@
         list.innerHTML = `<div class="alert alert-error">تعذر تحميل الوكلاء (${status || 'خطأ شبكة'}): ${agents?.detail || 'حاول إعادة التحميل'}</div>`;
         return;
       }
+      allActiveAgents = (agents || []).filter(a => a.is_active).map(a => ({ id: a.id, name: a.name }));
       const active = agents.filter(a => a.is_active);
       if (!active.length) {
         list.innerHTML = '<div class="empty-state">لا يوجد وكلاء نشطون</div>';
@@ -374,6 +462,7 @@
             <div class="agent-actions">
               <button class="btn-dayoff" onclick="toggleDayOff('${a.id}',${a.day_off ?? 'null'})">🏖️ يوم إجازة</button>
               <button class="btn-creds"  onclick="toggleCreds('${a.id}')">🔑 بيانات الدخول</button>
+              <button class="btn-xfer"   onclick="openTransferModal('${a.id}','${escQ(a.name)}')">🔄 نقل الرسائل</button>
               <button class="btn-rename" onclick="toggleRename('${a.id}','${escQ(a.name)}')">✏️ تعديل الاسم</button>
               <button class="btn-transfer" onclick="toggleTransfer('${a.id}')">📦 نقل الفرع</button>
               <button class="btn-fire" onclick="fireAgent('${a.id}','${escQ(a.name)}')">🔴 إيقاف</button>
@@ -640,6 +729,151 @@
       await callAPI(`${API}/agents/requests/${id}`, { method: 'DELETE' });
       loadRequests();
     }
+
+    // ─── LEAD TRANSFER ─────────────────────────────────────
+    const STATUS_LABEL = {
+      new: 'جديدة', contacted: 'تم التواصل', rdv: 'موعد', bv: 'بريد صوتي',
+      pi: 'غير مهتم', pe: 'غير مؤهل', autre_ville: 'مدينة أخرى',
+      over_40: 'فوق 40', contra: 'كونترا', visits: 'زيارة', registered: 'مسجل'
+    };
+    let xferState = { fromId: null, mode: 'count', leads: [], selected: new Set() };
+    let allActiveAgents = [];
+
+    function openTransferModal(agentId, agentName) {
+      xferState = { fromId: agentId, mode: 'count', leads: [], selected: new Set() };
+      document.getElementById('xfer-from-name').textContent = agentName;
+      document.getElementById('xfer-count').value = '';
+      document.getElementById('xfer-status').value = '';
+      document.getElementById('xfer-count-preview').textContent = '—';
+      document.getElementById('xfer-select-all').checked = false;
+      setTransferMode('count');
+
+      // Target dropdown excludes the source agent
+      const sel = document.getElementById('xfer-target');
+      sel.innerHTML = '<option value="">— اختر الوكيل المستهدف —</option>' +
+        allActiveAgents
+          .filter(a => a.id !== agentId)
+          .map(a => `<option value="${a.id}">${a.name}</option>`).join('');
+
+      document.getElementById('xfer-overlay').classList.add('open');
+    }
+
+    function closeTransferModal() {
+      document.getElementById('xfer-overlay').classList.remove('open');
+    }
+
+    function setTransferMode(mode) {
+      xferState.mode = mode;
+      document.getElementById('mode-count').classList.toggle('active', mode === 'count');
+      document.getElementById('mode-select').classList.toggle('active', mode === 'select');
+      document.getElementById('mode-count-panel').style.display  = mode === 'count'  ? 'block' : 'none';
+      document.getElementById('mode-select-panel').style.display = mode === 'select' ? 'block' : 'none';
+      if (mode === 'select' && xferState.leads.length === 0) reloadTransferLeads();
+    }
+
+    async function reloadTransferLeads() {
+      if (xferState.mode !== 'select' || !xferState.fromId) return;
+      const status = document.getElementById('xfer-status').value;
+      const url = `${API}/ad-leads/admin/agent-leads/${xferState.fromId}` +
+                  (status ? `?status=${encodeURIComponent(status)}` : '');
+      const box = document.getElementById('xfer-leads-table');
+      box.innerHTML = '<div style="padding:20px;text-align:center;color:#9ca3af">جارِ التحميل...</div>';
+      const { ok, data } = await callAPI(url);
+      if (!ok) {
+        box.innerHTML = `<div style="padding:16px;color:#dc2626">${data?.detail || 'تعذر تحميل الرسائل'}</div>`;
+        return;
+      }
+      xferState.leads = data.leads || [];
+      xferState.selected = new Set();
+      renderTransferLeads();
+    }
+
+    function renderTransferLeads() {
+      const box = document.getElementById('xfer-leads-table');
+      if (!xferState.leads.length) {
+        box.innerHTML = '<div style="padding:20px;text-align:center;color:#9ca3af">لا توجد رسائل بهذا الفلتر</div>';
+        document.getElementById('xfer-loaded-count').textContent = '0';
+        document.getElementById('xfer-selected-count').textContent = '0';
+        return;
+      }
+      box.innerHTML = `
+        <table>
+          <thead><tr>
+            <th style="width:30px"></th>
+            <th>التاريخ</th><th>الاسم</th><th>الهاتف</th><th>الحالة</th><th>الإعلان</th>
+          </tr></thead>
+          <tbody>
+            ${xferState.leads.map(l => `
+              <tr>
+                <td><input type="checkbox" data-lead="${l.id}" onchange="toggleLeadSelect('${l.id}', this.checked)" /></td>
+                <td>${formatDate(l.assigned_at || l.created_time)}</td>
+                <td>${escHTML(l.full_name || '—')}</td>
+                <td style="direction:ltr;text-align:left">${escHTML(l.phone_primary || '—')}</td>
+                <td><span class="status-chip">${STATUS_LABEL[l.status] || l.status || '—'}</span></td>
+                <td>${escHTML(l.ad_name || '—')}</td>
+              </tr>`).join('')}
+          </tbody>
+        </table>`;
+      document.getElementById('xfer-loaded-count').textContent = xferState.leads.length;
+      document.getElementById('xfer-selected-count').textContent = '0';
+    }
+
+    function toggleLeadSelect(id, checked) {
+      if (checked) xferState.selected.add(id);
+      else xferState.selected.delete(id);
+      document.getElementById('xfer-selected-count').textContent = xferState.selected.size;
+    }
+
+    function toggleSelectAll(checked) {
+      xferState.selected = new Set(checked ? xferState.leads.map(l => l.id) : []);
+      document.querySelectorAll('#xfer-leads-table input[type=checkbox]').forEach(c => c.checked = checked);
+      document.getElementById('xfer-selected-count').textContent = xferState.selected.size;
+    }
+
+    async function confirmTransferLeads() {
+      const toId = document.getElementById('xfer-target').value;
+      if (!toId) return showAlert('alert', 'اختر الوكيل المستهدف', false);
+
+      let body = { from_agent_id: xferState.fromId, to_agent_id: toId };
+      let summaryCount;
+
+      if (xferState.mode === 'count') {
+        const n = parseInt(document.getElementById('xfer-count').value);
+        if (!n || n <= 0) return showAlert('alert', 'أدخل عدداً صحيحاً', false);
+        body.count = n;
+        const status = document.getElementById('xfer-status').value;
+        if (status) body.status = status;
+        summaryCount = n;
+      } else {
+        if (!xferState.selected.size) return showAlert('alert', 'اختر رسالة واحدة على الأقل', false);
+        body.lead_ids = Array.from(xferState.selected);
+        summaryCount = body.lead_ids.length;
+      }
+
+      if (!confirm(`تأكيد نقل حتى ${summaryCount} رسالة؟`)) return;
+
+      const btn = document.getElementById('xfer-confirm');
+      btn.disabled = true; btn.textContent = 'جارٍ النقل...';
+
+      const { ok, data } = await callAPI(`${API}/ad-leads/admin/transfer`, {
+        method: 'POST', body: JSON.stringify(body)
+      });
+
+      btn.disabled = false; btn.textContent = 'تأكيد النقل';
+
+      if (ok) {
+        showAlert('alert', `تم نقل ${data.transferred} من ${data.requested} رسالة`, true);
+        closeTransferModal();
+      } else {
+        showAlert('alert', data.detail || 'فشل النقل', false);
+      }
+    }
+
+    function formatDate(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleDateString('ar-MA'); } catch(e) { return iso; }
+    }
+    function escHTML(s) { return (s || '').toString().replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
     // ─── UTILS ─────────────────────────────────────────────
     function showAlert(id, msg, success) {

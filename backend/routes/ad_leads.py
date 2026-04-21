@@ -406,6 +406,100 @@ def transfer_by_selection(body: TransferBySelection, agent=Depends(require_agent
     return {"transferred": n, "requested": len(body.lead_ids)}
 
 
+# ---------------------------------------------------------------------------
+# Admin transfer — cross-branch, any status, any agent
+# ---------------------------------------------------------------------------
+
+class AdminTransferBody(BaseModel):
+    from_agent_id: str
+    to_agent_id: str
+    lead_ids: Optional[List[str]] = None
+    count: Optional[int] = None
+    status: Optional[str] = None  # optional filter when using count mode
+
+
+@router.get("/admin/agent-leads/{agent_id}")
+def admin_list_agent_leads(
+    agent_id: str,
+    status: Optional[str] = Query(None),
+    limit: int = Query(300),
+    admin=Depends(require_admin),
+):
+    """Latest leads assigned to an agent, for admin to preview before transfer."""
+    sb = get_client()
+    q = sb.table("ad_leads").select(
+        "id, created_time, assigned_at, full_name, phone_primary, "
+        "ad_name, platform, status, last_note"
+    ).eq("assigned_agent_id", agent_id)
+    if status:
+        q = q.eq("status", status)
+    res = q.order("assigned_at", desc=True).limit(max(1, min(1000, limit))).execute()
+    return {"leads": res.data or []}
+
+
+@router.post("/admin/transfer")
+def admin_transfer(body: AdminTransferBody, admin=Depends(require_admin)):
+    sb = get_client()
+    if body.from_agent_id == body.to_agent_id:
+        raise HTTPException(400, "لا يمكن النقل إلى نفس الوكيل")
+
+    # Verify both agents exist (target should also be active; source can be
+    # inactive so admin can drain a fired agent's pool).
+    ids = [body.from_agent_id, body.to_agent_id]
+    agents = sb.table("agents").select("id, is_active").in_("id", ids).execute()
+    by_id = {a["id"]: a for a in (agents.data or [])}
+    if body.from_agent_id not in by_id:
+        raise HTTPException(404, "الوكيل المصدر غير موجود")
+    target = by_id.get(body.to_agent_id)
+    if not target:
+        raise HTTPException(404, "الوكيل المستهدف غير موجود")
+    if not target.get("is_active"):
+        raise HTTPException(400, "الوكيل المستهدف موقوف")
+
+    if body.lead_ids:
+        # Selection mode — only move leads actually owned by from_agent.
+        eligible = sb.table("ad_leads").select("id") \
+            .in_("id", body.lead_ids) \
+            .eq("assigned_agent_id", body.from_agent_id).execute()
+        eligible_ids = [r["id"] for r in (eligible.data or [])]
+    elif body.count and body.count > 0:
+        q = sb.table("ad_leads").select("id") \
+            .eq("assigned_agent_id", body.from_agent_id)
+        if body.status:
+            q = q.eq("status", body.status)
+        # Oldest first so the admin drains the backlog rather than the fresh
+        # leads the agent is actively working on.
+        res = q.order("assigned_at").limit(body.count).execute()
+        eligible_ids = [r["id"] for r in (res.data or [])]
+    else:
+        raise HTTPException(400, "يرجى تحديد الرسائل أو العدد")
+
+    if not eligible_ids:
+        return {"transferred": 0, "requested": len(body.lead_ids or []) or (body.count or 0)}
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    sb.table("ad_leads").update({
+        "assigned_agent_id": body.to_agent_id,
+        "assigned_at": now_iso,
+        "updated_at": now_iso,
+    }).in_("id", eligible_ids).execute()
+
+    try:
+        sb.table("lead_transfers").insert([{
+            "lead_id": lid,
+            "from_agent_id": body.from_agent_id,
+            "to_agent_id": body.to_agent_id,
+        } for lid in eligible_ids]).execute()
+    except Exception as e:
+        # Transfer log is best-effort — the lead move has already succeeded.
+        log.warning(f"lead_transfers insert failed: {e}")
+
+    return {
+        "transferred": len(eligible_ids),
+        "requested": len(body.lead_ids or []) or (body.count or 0),
+    }
+
+
 @router.get("/new-count")
 def my_new_count(agent=Depends(require_agent)):
     sb = get_client()
