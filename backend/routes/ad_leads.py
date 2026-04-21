@@ -422,10 +422,15 @@ class AdminTransferBody(BaseModel):
 def admin_list_agent_leads(
     agent_id: str,
     status: Optional[str] = Query(None),
-    limit: int = Query(300),
+    range: Optional[str] = Query(None),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    limit: int = Query(500),
     admin=Depends(require_admin),
 ):
-    """Latest leads assigned to an agent, for admin to preview before transfer."""
+    """Leads assigned to an agent — used by the admin leads page and the
+    transfer modal. Date filter is applied on assigned_at so it matches the
+    admin's "leads this agent got today" mental model."""
     sb = get_client()
     q = sb.table("ad_leads").select(
         "id, created_time, assigned_at, full_name, phone_primary, "
@@ -433,8 +438,99 @@ def admin_list_agent_leads(
     ).eq("assigned_agent_id", agent_id)
     if status:
         q = q.eq("status", status)
-    res = q.order("assigned_at", desc=True).limit(max(1, min(1000, limit))).execute()
+    if range:
+        df, dt = resolve_range(range, date_from, date_to)
+        q = apply_date_filter(q, df, dt, field="assigned_at")
+    res = q.order("assigned_at", desc=True).limit(max(1, min(2000, limit))).execute()
     return {"leads": res.data or []}
+
+
+@router.get("/admin/agent-leaderboard")
+def admin_agent_leaderboard(
+    range: str = Query("today"),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    branch_id: Optional[str] = Query(None),
+    city_id: Optional[str] = Query(None),
+    admin=Depends(require_admin),
+):
+    """Per-agent lead counts + status breakdown, ranked by registered →
+    RDV → total. Powers the admin leads page."""
+    sb = get_client()
+    df, dt = resolve_range(range, date_from, date_to)
+
+    # Resolve agents in scope (all active agents, optionally narrowed by
+    # branch or city).
+    a_q = sb.table("agents").select(
+        "id, name, branch_id, is_active, branches(name, city)"
+    ).eq("is_active", True)
+    if branch_id:
+        a_q = a_q.eq("branch_id", branch_id)
+    elif city_id:
+        city = sb.table("cities").select("name").eq("id", city_id).execute()
+        if city.data:
+            brs = sb.table("branches").select("id").eq("city", city.data[0]["name"]).execute()
+            ids = [b["id"] for b in (brs.data or [])]
+            if not ids:
+                return {"agents": [], "date_from": df, "date_to": dt}
+            a_q = a_q.in_("branch_id", ids)
+    agents_data = a_q.execute().data or []
+
+    agent_ids = [a["id"] for a in agents_data]
+    counts: Dict[str, Dict[str, Any]] = {}
+    if agent_ids:
+        l_q = sb.table("ad_leads").select(
+            "assigned_agent_id, status, assigned_at"
+        ).in_("assigned_agent_id", agent_ids)
+        l_q = apply_date_filter(l_q, df, dt, field="assigned_at")
+        leads = l_q.execute().data or []
+        for l in leads:
+            aid = l["assigned_agent_id"]
+            bucket = counts.setdefault(aid, {"total": 0, "by_status": {}})
+            bucket["total"] += 1
+            s = l.get("status") or "new"
+            bucket["by_status"][s] = bucket["by_status"].get(s, 0) + 1
+
+    rows = []
+    for a in agents_data:
+        cd = counts.get(a["id"], {"total": 0, "by_status": {}})
+        by = cd["by_status"]
+        br = a.get("branches") or {}
+        registered = by.get("registered", 0)
+        rows.append({
+            "id": a["id"],
+            "name": a["name"],
+            "branch_id": a.get("branch_id"),
+            "branch_name": br.get("name"),
+            "branch_city": br.get("city"),
+            "total": cd["total"],
+            "by_status": by,
+            "new_count":        by.get("new", 0),
+            "contacted_count":  sum(v for k, v in by.items() if k != "new"),
+            "rdv_count":        by.get("rdv", 0),
+            "bv_count":         by.get("bv", 0),
+            "pi_count":         by.get("pi", 0),
+            "pe_count":         by.get("pe", 0),
+            "autre_ville_count": by.get("autre_ville", 0),
+            "over_40_count":    by.get("over_40", 0),
+            "contra_count":     by.get("contra", 0),
+            "visits_count":     by.get("visits", 0),
+            "registered_count": registered,
+            "conversion_pct": round(registered / cd["total"], 3) if cd["total"] else 0,
+        })
+
+    rows.sort(key=lambda x: (-x["registered_count"], -x["rdv_count"], -x["total"], x["name"]))
+    for i, r in enumerate(rows):
+        r["rank"] = i + 1
+
+    totals = {
+        "total": sum(r["total"] for r in rows),
+        "rdv": sum(r["rdv_count"] for r in rows),
+        "visits": sum(r["visits_count"] for r in rows),
+        "registered": sum(r["registered_count"] for r in rows),
+        "new": sum(r["new_count"] for r in rows),
+    }
+    return {"agents": rows, "totals": totals, "date_from": df, "date_to": dt}
 
 
 @router.post("/admin/transfer")

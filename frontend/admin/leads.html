@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>الرسائل — مرزوق أكاديمي</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;900&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    body { font-family: 'Cairo', sans-serif; background: #f0f2f5; min-height: 100vh; color: #1a1a1a; }
+
+    header {
+      background: #1a1a1a; color: white;
+      padding: 12px 16px; padding-top: max(12px, env(safe-area-inset-top));
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    header h1 { font-size: 16px; font-weight: 700; }
+    .logout-btn {
+      background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
+      color: white; padding: 7px 14px; border-radius: 8px;
+      font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 13px; font-weight: 600;
+    }
+
+    .subnav {
+      background: white; padding: 0 16px; display: flex; gap: 14px;
+      overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid #e5e7eb;
+      position: sticky; top: 46px; z-index: 50;
+    }
+    .subnav::-webkit-scrollbar { display: none; }
+    .subnav a {
+      padding: 12px 4px; text-decoration: none; font-size: 14px; font-weight: 700;
+      color: #6b7280; border-bottom: 2px solid transparent; white-space: nowrap;
+    }
+    .subnav a.active { color: #1a1a1a; border-bottom-color: #e63329; }
+
+    .container { padding: 14px; max-width: 1200px; margin: 0 auto; }
+
+    /* Filters */
+    .filter-bar { background: white; border-radius: 14px; padding: 12px 14px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.05); }
+    .chips-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+    .chips-row::-webkit-scrollbar { display: none; }
+    .chip { padding: 8px 14px; border-radius: 20px; background: #f3f4f6; font-size: 13px; font-weight: 700; color: #6b7280; cursor: pointer; white-space: nowrap; border: 1.5px solid transparent; }
+    .chip.active { background: #1a1a1a; color: white; }
+    .filter-selects { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .filter-selects select, .filter-selects input { padding: 8px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 13px; background: white; }
+    .custom-dates { display: none; gap: 6px; margin-top: 8px; }
+    .custom-dates.show { display: flex; }
+
+    /* Summary */
+    .summary { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 14px; }
+    .sum-tile { background: white; border-radius: 12px; padding: 12px 10px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .sum-num { font-size: 22px; font-weight: 900; color: #1a1a1a; }
+    .sum-lbl { font-size: 11px; color: #6b7280; margin-top: 2px; font-weight: 600; }
+    .sum-tile.accent .sum-num { color: #e63329; }
+    .sum-tile.info   .sum-num { color: #0369a1; }
+    .sum-tile.good   .sum-num { color: #059669; }
+    .sum-tile.primary .sum-num { color: #7c3aed; }
+    @media (max-width: 640px) {
+      .summary { grid-template-columns: repeat(2, 1fr); }
+      .sum-num { font-size: 18px; }
+    }
+
+    /* Agent cards */
+    .agent-card { background: white; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .agent-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
+    .agent-id { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+    .rank-badge { width: 34px; height: 34px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 15px; color: #374151; flex-shrink: 0; }
+    .rank-badge.gold   { background: #fef3c7; color: #92400e; }
+    .rank-badge.silver { background: #e5e7eb; color: #374151; }
+    .rank-badge.bronze { background: #fed7aa; color: #9a3412; }
+    .agent-name { font-weight: 800; font-size: 15px; }
+    .agent-sub { font-size: 11px; color: #9ca3af; margin-top: 2px; }
+    .agent-total { text-align: center; padding: 2px 10px; }
+    .total-num { font-size: 26px; font-weight: 900; color: #1a1a1a; line-height: 1; }
+    .total-lbl { font-size: 10px; color: #6b7280; font-weight: 700; margin-top: 2px; }
+    .agent-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .btn { padding: 7px 12px; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; border: none; }
+    .btn-view  { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .btn-xfer  { background: #ecfeff; color: #0e7490; border: 1px solid #a5f3fc; }
+
+    /* Status breakdown pills */
+    .status-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+    .pill { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; background: #f3f4f6; color: #374151; }
+    .pill.accent { background: #fff1f2; color: #be123c; }
+    .pill.info   { background: #eff6ff; color: #1d4ed8; }
+    .pill.good   { background: #ecfdf5; color: #065f46; }
+    .pill.warn   { background: #fffbeb; color: #92400e; }
+    .pill.muted  { background: #f9fafb; color: #6b7280; }
+    .pill b { font-weight: 900; margin-left: 2px; }
+
+    /* Expanded leads panel */
+    .leads-panel { margin-top: 12px; border-top: 1px dashed #e5e7eb; padding-top: 12px; display: none; }
+    .leads-panel.open { display: block; }
+    .leads-panel-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+    .leads-panel-head select { padding: 6px 10px; border: 1.5px solid #e5e7eb; border-radius: 8px; font-size: 12px; font-family: 'Cairo', sans-serif; }
+    .leads-panel-head .hint { font-size: 11px; color: #9ca3af; }
+    .day-group { margin-bottom: 10px; }
+    .day-hdr { background: #f9fafb; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 4px; display: flex; justify-content: space-between; }
+    .day-hdr .day-count { color: #6b7280; font-weight: 600; }
+    table.leads { width: 100%; border-collapse: collapse; font-size: 12px; }
+    table.leads th { background: #f9fafb; padding: 7px 9px; text-align: right; font-weight: 700; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
+    table.leads td { padding: 7px 9px; border-bottom: 1px solid #f3f4f6; }
+    table.leads tr:last-child td { border-bottom: none; }
+    .status-chip { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 700; }
+    .s-new         { background: #f3f4f6; color: #374151; }
+    .s-contacted   { background: #e0f2fe; color: #075985; }
+    .s-rdv         { background: #fef3c7; color: #92400e; }
+    .s-bv          { background: #fde68a; color: #78350f; }
+    .s-pi          { background: #fce7f3; color: #9d174d; }
+    .s-pe          { background: #f1f5f9; color: #334155; }
+    .s-autre_ville { background: #e0e7ff; color: #3730a3; }
+    .s-over_40     { background: #ede9fe; color: #5b21b6; }
+    .s-contra      { background: #fce7f3; color: #9d174d; }
+    .s-visits      { background: #dbeafe; color: #1e40af; }
+    .s-registered  { background: #d1fae5; color: #065f46; }
+
+    /* Transfer modal — reuse from agents.html patterns */
+    .xfer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 12px; }
+    .xfer-overlay.open { display: flex; }
+    .xfer-modal { background: white; border-radius: 14px; width: 100%; max-width: 640px; max-height: 90vh; overflow: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+    .xfer-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid #e5e7eb; position: sticky; top: 0; background: white; }
+    .xfer-head h3 { font-size: 15px; font-weight: 700; }
+    .xfer-head .close { background: transparent; border: none; font-size: 22px; cursor: pointer; color: #6b7280; }
+    .xfer-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 12px; }
+    .xfer-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .xfer-label { font-size: 13px; font-weight: 700; color: #374151; min-width: 70px; }
+    .xfer-body select, .xfer-body input { flex: 1; min-width: 150px; padding: 8px 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 14px; font-family: 'Cairo', sans-serif; }
+    .mode-tabs { display: flex; background: #f3f4f6; border-radius: 10px; padding: 3px; }
+    .mode-tabs button { flex: 1; padding: 8px; background: transparent; border: none; border-radius: 7px; font-family: 'Cairo', sans-serif; font-weight: 700; color: #6b7280; cursor: pointer; font-size: 13px; }
+    .mode-tabs button.active { background: white; color: #0e7490; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .leads-table-box { border: 1px solid #e5e7eb; border-radius: 8px; max-height: 300px; overflow: auto; font-size: 12px; }
+    .xfer-footer { display: flex; gap: 8px; justify-content: flex-end; padding: 14px 18px; border-top: 1px solid #e5e7eb; position: sticky; bottom: 0; background: white; }
+    .btn-confirm { background: #0e7490; color: white; border: none; border-radius: 8px; padding: 10px 22px; font-family: 'Cairo', sans-serif; font-weight: 700; cursor: pointer; font-size: 14px; }
+    .btn-close-modal { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 18px; font-family: 'Cairo', sans-serif; font-weight: 700; cursor: pointer; font-size: 14px; }
+
+    /* Toast */
+    .toast { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: #1a1a1a; color: white; padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 700; z-index: 2000; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+    .toast.show { opacity: 1; }
+    .toast.error { background: #dc2626; }
+    .toast.success { background: #059669; }
+
+    .empty { text-align: center; color: #9ca3af; padding: 30px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>الرسائل والوكلاء</h1>
+    <button class="logout-btn" onclick="logout()">خروج</button>
+  </header>
+
+  <nav class="subnav">
+    <a href="dashboard.html">لوحة التحكم</a>
+    <a href="agents.html">الوكلاء</a>
+    <a href="leads.html" class="active">الرسائل</a>
+    <a href="ads.html">جودة الإعلانات</a>
+    <a href="lead-sources.html">مصادر الرسائل</a>
+    <a href="spend.html">الإنفاق</a>
+    <a href="settings.html">الإعدادات</a>
+  </nav>
+
+  <div class="container">
+
+    <div class="filter-bar">
+      <div class="chips-row" id="rangeChips">
+        <div class="chip" data-range="today">اليوم</div>
+        <div class="chip" data-range="yesterday">أمس</div>
+        <div class="chip active" data-range="last3">آخر 3 أيام</div>
+        <div class="chip" data-range="week">هذا الأسبوع</div>
+        <div class="chip" data-range="month">هذا الشهر</div>
+        <div class="chip" data-range="custom">مخصص</div>
+      </div>
+      <div class="custom-dates" id="customDates">
+        <input type="date" id="dateFrom" />
+        <input type="date" id="dateTo" />
+        <button class="btn btn-view" onclick="applyCustom()">تطبيق</button>
+      </div>
+      <div class="filter-selects">
+        <select id="branchFilter" onchange="load()">
+          <option value="">كل الفروع</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="summary">
+      <div class="sum-tile"><div class="sum-num" id="sumTotal">0</div><div class="sum-lbl">إجمالي الرسائل</div></div>
+      <div class="sum-tile muted"><div class="sum-num" id="sumNew">0</div><div class="sum-lbl">جديدة</div></div>
+      <div class="sum-tile accent"><div class="sum-num" id="sumRdv">0</div><div class="sum-lbl">مواعيد</div></div>
+      <div class="sum-tile info"><div class="sum-num" id="sumVisits">0</div><div class="sum-lbl">زيارات</div></div>
+      <div class="sum-tile good"><div class="sum-num" id="sumReg">0</div><div class="sum-lbl">مُسجلين</div></div>
+    </div>
+
+    <div id="agents"></div>
+  </div>
+
+  <!-- Transfer modal -->
+  <div class="xfer-overlay" id="xfer-overlay" onclick="if(event.target===this)closeTransferModal()">
+    <div class="xfer-modal">
+      <div class="xfer-head">
+        <h3>🔄 نقل الرسائل من <span id="xfer-from-name"></span></h3>
+        <button class="close" onclick="closeTransferModal()">×</button>
+      </div>
+      <div class="xfer-body">
+        <div class="xfer-row">
+          <span class="xfer-label">إلى الوكيل:</span>
+          <select id="xfer-target"></select>
+        </div>
+        <div class="xfer-row">
+          <span class="xfer-label">الحالة:</span>
+          <select id="xfer-status" onchange="reloadTransferLeads()">
+            <option value="">— كل الحالات —</option>
+            <option value="new">جديدة</option>
+            <option value="contacted">تم التواصل</option>
+            <option value="rdv">موعد (RDV)</option>
+            <option value="bv">بريد صوتي</option>
+            <option value="pi">غير مهتم</option>
+            <option value="pe">غير مؤهل</option>
+            <option value="autre_ville">مدينة أخرى</option>
+            <option value="over_40">فوق 40</option>
+            <option value="contra">كونترا</option>
+            <option value="visits">زيارة</option>
+            <option value="registered">مسجل</option>
+          </select>
+        </div>
+        <div class="mode-tabs">
+          <button id="mode-count"  class="active" onclick="setTransferMode('count')">عدد</button>
+          <button id="mode-select" onclick="setTransferMode('select')">اختيار يدوي</button>
+        </div>
+        <div id="mode-count-panel">
+          <div class="xfer-row">
+            <span class="xfer-label">العدد:</span>
+            <input type="number" id="xfer-count" min="1" placeholder="كم رسالة تريد نقلها؟" />
+          </div>
+          <div style="font-size:13px;color:#6b7280">ينقل أقدم الرسائل المطابقة للفلتر أعلاه.</div>
+        </div>
+        <div id="mode-select-panel" style="display:none">
+          <div class="xfer-row">
+            <label style="font-size:12px"><input type="checkbox" id="xfer-select-all" onchange="toggleSelectAll(this.checked)" /> تحديد الكل</label>
+            <span style="font-size:12px;color:#6b7280">محدد: <strong id="xfer-selected-count">0</strong> / <span id="xfer-loaded-count">0</span></span>
+          </div>
+          <div class="leads-table-box" id="xfer-leads-table">
+            <div class="empty">جارِ التحميل...</div>
+          </div>
+        </div>
+      </div>
+      <div class="xfer-footer">
+        <button class="btn-close-modal" onclick="closeTransferModal()">إلغاء</button>
+        <button class="btn-confirm" id="xfer-confirm" onclick="confirmTransferLeads()">تأكيد النقل</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const API = window.location.origin;
+    const token = localStorage.getItem('token');
+    if (!token || localStorage.getItem('role') !== 'admin') window.location.href = '/index.html';
+
+    const hdr = () => ({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' });
+
+    async function callAPI(url, opts = {}) {
+      try {
+        const res = await fetch(url, { ...opts, headers: { ...hdr(), ...(opts.headers || {}) } });
+        let data = {}; try { data = await res.json(); } catch(e) {}
+        return { ok: res.ok, status: res.status, data };
+      } catch (e) {
+        return { ok: false, status: 0, data: { detail: 'تعذر الاتصال' } };
+      }
+    }
+
+    function logout() { localStorage.clear(); window.location.href = '/index.html'; }
+
+    function toast(msg, type = '') {
+      const el = document.getElementById('toast');
+      el.className = 'toast show ' + type;
+      el.textContent = msg;
+      setTimeout(() => el.className = 'toast', 2200);
+    }
+
+    // ─── STATE ─────────────────────────────────────────────
+    const STATUS_LABEL = {
+      new: 'جديدة', contacted: 'تم التواصل', rdv: 'موعد', bv: 'بريد صوتي',
+      pi: 'غير مهتم', pe: 'غير مؤهل', autre_ville: 'مدينة أخرى',
+      over_40: 'فوق 40', contra: 'كونترا', visits: 'زيارة', registered: 'مسجل'
+    };
+    const STATUS_ORDER = ['new','contacted','rdv','visits','registered','bv','pi','pe','autre_ville','over_40','contra'];
+    let currentRange = 'last3';
+    let customFrom = '', customTo = '';
+    let allAgents = [];  // from the leaderboard response, used as transfer targets
+    let expanded = new Set();  // agent IDs whose lead panel is open
+    let agentLeadsCache = {};  // agent_id -> last loaded leads
+
+    // ─── INIT ──────────────────────────────────────────────
+    document.querySelectorAll('#rangeChips .chip').forEach(c => {
+      c.addEventListener('click', () => {
+        document.querySelectorAll('#rangeChips .chip').forEach(x => x.classList.remove('active'));
+        c.classList.add('active');
+        currentRange = c.dataset.range;
+        document.getElementById('customDates').classList.toggle('show', currentRange === 'custom');
+        if (currentRange !== 'custom') load();
+      });
+    });
+
+    function applyCustom() {
+      customFrom = document.getElementById('dateFrom').value;
+      customTo   = document.getElementById('dateTo').value;
+      if (!customFrom || !customTo) return toast('اختر الفترة', 'error');
+      load();
+    }
+
+    async function loadBranches() {
+      const res = await fetch(API + '/branches/', { headers: hdr() });
+      const data = await res.json();
+      const sel = document.getElementById('branchFilter');
+      sel.innerHTML = '<option value="">كل الفروع</option>' +
+        (data || []).map(b => `<option value="${b.id}">${b.city ? b.city + ' — ' : ''}${b.name}</option>`).join('');
+    }
+
+    // ─── LOAD LEADERBOARD ──────────────────────────────────
+    async function load() {
+      const params = new URLSearchParams({ range: currentRange });
+      if (currentRange === 'custom') { params.set('date_from', customFrom); params.set('date_to', customTo); }
+      const bid = document.getElementById('branchFilter').value;
+      if (bid) params.set('branch_id', bid);
+
+      const { ok, data } = await callAPI(`${API}/ad-leads/admin/agent-leaderboard?${params}`);
+      if (!ok) return toast(data?.detail || 'تعذر التحميل', 'error');
+
+      const t = data.totals || {};
+      document.getElementById('sumTotal').textContent  = t.total || 0;
+      document.getElementById('sumNew').textContent    = t.new || 0;
+      document.getElementById('sumRdv').textContent    = t.rdv || 0;
+      document.getElementById('sumVisits').textContent = t.visits || 0;
+      document.getElementById('sumReg').textContent    = t.registered || 0;
+
+      allAgents = data.agents || [];
+      renderAgents();
+      // Re-open any panels the user had open
+      expanded.forEach(id => loadAgentLeads(id, true));
+    }
+
+    function renderAgents() {
+      const list = document.getElementById('agents');
+      if (!allAgents.length) {
+        list.innerHTML = '<div class="empty">لا يوجد وكلاء في هذا النطاق</div>';
+        return;
+      }
+      list.innerHTML = allAgents.map(a => renderAgent(a)).join('');
+    }
+
+    function rankClass(rank) {
+      if (rank === 1) return 'gold';
+      if (rank === 2) return 'silver';
+      if (rank === 3) return 'bronze';
+      return '';
+    }
+
+    function pillClass(status) {
+      if (status === 'registered' || status === 'visits') return 'good';
+      if (status === 'rdv') return 'accent';
+      if (status === 'contacted') return 'info';
+      if (['pi','pe','autre_ville','over_40','contra','bv'].includes(status)) return 'warn';
+      return 'muted';
+    }
+
+    function renderAgent(a) {
+      const pills = STATUS_ORDER
+        .filter(s => (a.by_status[s] || 0) > 0)
+        .map(s => `<span class="pill ${pillClass(s)}">${STATUS_LABEL[s]}<b>${a.by_status[s]}</b></span>`)
+        .join('');
+      const branchLbl = a.branch_name ? `${a.branch_city ? a.branch_city + ' — ' : ''}${a.branch_name}` : '—';
+      const convPct = (a.conversion_pct * 100).toFixed(1);
+      const isOpen = expanded.has(a.id);
+
+      return `
+        <div class="agent-card" id="card-${a.id}">
+          <div class="agent-head">
+            <div class="agent-id">
+              <div class="rank-badge ${rankClass(a.rank)}">${a.rank <= 3 ? ['🥇','🥈','🥉'][a.rank-1] : '#' + a.rank}</div>
+              <div style="flex:1;min-width:0">
+                <div class="agent-name">${escHTML(a.name)}</div>
+                <div class="agent-sub">${escHTML(branchLbl)} · نسبة التسجيل ${convPct}%</div>
+              </div>
+            </div>
+            <div class="agent-total">
+              <div class="total-num">${a.total}</div>
+              <div class="total-lbl">رسائل</div>
+            </div>
+            <div class="agent-actions">
+              <button class="btn btn-view" onclick="toggleAgentLeads('${a.id}')">${isOpen ? 'إخفاء' : '👁️ عرض'}</button>
+              <button class="btn btn-xfer" onclick="openTransferModal('${a.id}','${escAttr(a.name)}')">🔄 نقل</button>
+            </div>
+          </div>
+          <div class="status-pills">${pills || '<span class="pill muted">لا توجد رسائل</span>'}</div>
+          <div class="leads-panel ${isOpen ? 'open' : ''}" id="panel-${a.id}"></div>
+        </div>`;
+    }
+
+    // ─── EXPAND PANEL ──────────────────────────────────────
+    async function toggleAgentLeads(agentId) {
+      if (expanded.has(agentId)) {
+        expanded.delete(agentId);
+        document.getElementById(`panel-${agentId}`).classList.remove('open');
+        document.getElementById(`card-${agentId}`).querySelector('.btn-view').textContent = '👁️ عرض';
+        return;
+      }
+      expanded.add(agentId);
+      await loadAgentLeads(agentId, false);
+    }
+
+    async function loadAgentLeads(agentId, silent) {
+      const panel = document.getElementById(`panel-${agentId}`);
+      if (!panel) return;
+      panel.classList.add('open');
+      const card = document.getElementById(`card-${agentId}`);
+      if (card) card.querySelector('.btn-view').textContent = 'إخفاء';
+
+      panel.innerHTML = `
+        <div class="leads-panel-head">
+          <select id="panel-status-${agentId}" onchange="loadAgentLeads('${agentId}', true)">
+            <option value="">كل الحالات</option>
+            ${STATUS_ORDER.map(s => `<option value="${s}">${STATUS_LABEL[s]}</option>`).join('')}
+          </select>
+          <span class="hint">ضمن نفس الفترة المختارة · مرتبة حسب اليوم</span>
+        </div>
+        <div id="panel-body-${agentId}"><div class="empty">جارِ التحميل...</div></div>`;
+
+      const statusEl = document.getElementById(`panel-status-${agentId}`);
+      const savedStatus = agentLeadsCache[agentId]?.status || '';
+      if (statusEl) statusEl.value = savedStatus;
+
+      const params = new URLSearchParams({ range: currentRange });
+      if (currentRange === 'custom') { params.set('date_from', customFrom); params.set('date_to', customTo); }
+      if (savedStatus) params.set('status', savedStatus);
+
+      const { ok, data } = await callAPI(`${API}/ad-leads/admin/agent-leads/${agentId}?${params}`);
+      const body = document.getElementById(`panel-body-${agentId}`);
+      if (!body) return;
+      if (!ok) { body.innerHTML = `<div class="empty">${data?.detail || 'تعذر التحميل'}</div>`; return; }
+      const leads = data.leads || [];
+      agentLeadsCache[agentId] = { status: savedStatus, leads };
+      body.innerHTML = renderLeadsByDay(leads);
+    }
+
+    function renderLeadsByDay(leads) {
+      if (!leads.length) return '<div class="empty">لا توجد رسائل</div>';
+      const groups = {};
+      leads.forEach(l => {
+        const d = (l.assigned_at || l.created_time || '').slice(0, 10) || 'غير معروف';
+        (groups[d] = groups[d] || []).push(l);
+      });
+      const days = Object.keys(groups).sort().reverse();
+      return days.map(day => {
+        const rows = groups[day].map(l => `
+          <tr>
+            <td style="white-space:nowrap">${formatTime(l.assigned_at || l.created_time)}</td>
+            <td>${escHTML(l.full_name || '—')}</td>
+            <td style="direction:ltr;text-align:left">${escHTML(l.phone_primary || '—')}</td>
+            <td>${escHTML(l.ad_name || '—')}</td>
+            <td><span class="status-chip s-${l.status || 'new'}">${STATUS_LABEL[l.status] || l.status || '—'}</span></td>
+            <td style="color:#6b7280;font-size:11px">${escHTML(l.last_note || '')}</td>
+          </tr>`).join('');
+        return `
+          <div class="day-group">
+            <div class="day-hdr"><span>📅 ${formatDay(day)}</span><span class="day-count">${groups[day].length} رسالة</span></div>
+            <table class="leads">
+              <thead><tr><th>الوقت</th><th>الاسم</th><th>الهاتف</th><th>الإعلان</th><th>الحالة</th><th>ملاحظة</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      }).join('');
+    }
+
+    function formatDay(iso) {
+      if (iso === 'غير معروف' || !iso) return iso;
+      try { return new Date(iso + 'T12:00:00').toLocaleDateString('ar-MA', { weekday: 'long', day: 'numeric', month: 'long' }); }
+      catch(e) { return iso; }
+    }
+    function formatTime(iso) {
+      if (!iso) return '—';
+      try { return new Date(iso).toLocaleTimeString('ar-MA', { hour: '2-digit', minute: '2-digit' }); }
+      catch(e) { return '—'; }
+    }
+
+    // ─── TRANSFER MODAL ────────────────────────────────────
+    let xferState = { fromId: null, mode: 'count', leads: [], selected: new Set() };
+
+    function openTransferModal(agentId, agentName) {
+      xferState = { fromId: agentId, mode: 'count', leads: [], selected: new Set() };
+      document.getElementById('xfer-from-name').textContent = agentName;
+      document.getElementById('xfer-count').value = '';
+      document.getElementById('xfer-status').value = '';
+      document.getElementById('xfer-select-all').checked = false;
+      setTransferMode('count');
+
+      const sel = document.getElementById('xfer-target');
+      sel.innerHTML = '<option value="">— اختر الوكيل المستهدف —</option>' +
+        allAgents.filter(a => a.id !== agentId).map(a =>
+          `<option value="${a.id}">${escHTML(a.name)} ${a.branch_name ? '— ' + escHTML(a.branch_name) : ''}</option>`
+        ).join('');
+      document.getElementById('xfer-overlay').classList.add('open');
+    }
+    function closeTransferModal() { document.getElementById('xfer-overlay').classList.remove('open'); }
+
+    function setTransferMode(mode) {
+      xferState.mode = mode;
+      document.getElementById('mode-count').classList.toggle('active', mode === 'count');
+      document.getElementById('mode-select').classList.toggle('active', mode === 'select');
+      document.getElementById('mode-count-panel').style.display  = mode === 'count'  ? 'block' : 'none';
+      document.getElementById('mode-select-panel').style.display = mode === 'select' ? 'block' : 'none';
+      if (mode === 'select' && xferState.leads.length === 0) reloadTransferLeads();
+    }
+
+    async function reloadTransferLeads() {
+      if (xferState.mode !== 'select' || !xferState.fromId) return;
+      const status = document.getElementById('xfer-status').value;
+      const url = `${API}/ad-leads/admin/agent-leads/${xferState.fromId}` + (status ? `?status=${encodeURIComponent(status)}` : '');
+      const box = document.getElementById('xfer-leads-table');
+      box.innerHTML = '<div class="empty">جارِ التحميل...</div>';
+      const { ok, data } = await callAPI(url);
+      if (!ok) { box.innerHTML = `<div class="empty">${data?.detail || 'تعذر التحميل'}</div>`; return; }
+      xferState.leads = data.leads || [];
+      xferState.selected = new Set();
+      renderTransferLeads();
+    }
+
+    function renderTransferLeads() {
+      const box = document.getElementById('xfer-leads-table');
+      if (!xferState.leads.length) {
+        box.innerHTML = '<div class="empty">لا توجد رسائل</div>';
+        document.getElementById('xfer-loaded-count').textContent = '0';
+        document.getElementById('xfer-selected-count').textContent = '0';
+        return;
+      }
+      box.innerHTML = `
+        <table class="leads">
+          <thead><tr><th style="width:30px"></th><th>التاريخ</th><th>الاسم</th><th>الهاتف</th><th>الحالة</th></tr></thead>
+          <tbody>${xferState.leads.map(l => `
+            <tr>
+              <td><input type="checkbox" data-lead="${l.id}" onchange="toggleLeadSelect('${l.id}', this.checked)" /></td>
+              <td>${formatTime(l.assigned_at || l.created_time)}</td>
+              <td>${escHTML(l.full_name || '—')}</td>
+              <td style="direction:ltr;text-align:left">${escHTML(l.phone_primary || '—')}</td>
+              <td><span class="status-chip s-${l.status || 'new'}">${STATUS_LABEL[l.status] || l.status || '—'}</span></td>
+            </tr>`).join('')}
+          </tbody>
+        </table>`;
+      document.getElementById('xfer-loaded-count').textContent = xferState.leads.length;
+      document.getElementById('xfer-selected-count').textContent = '0';
+    }
+
+    function toggleLeadSelect(id, checked) {
+      if (checked) xferState.selected.add(id); else xferState.selected.delete(id);
+      document.getElementById('xfer-selected-count').textContent = xferState.selected.size;
+    }
+    function toggleSelectAll(checked) {
+      xferState.selected = new Set(checked ? xferState.leads.map(l => l.id) : []);
+      document.querySelectorAll('#xfer-leads-table input[type=checkbox]').forEach(c => c.checked = checked);
+      document.getElementById('xfer-selected-count').textContent = xferState.selected.size;
+    }
+
+    async function confirmTransferLeads() {
+      const toId = document.getElementById('xfer-target').value;
+      if (!toId) return toast('اختر الوكيل المستهدف', 'error');
+
+      const body = { from_agent_id: xferState.fromId, to_agent_id: toId };
+      let summaryCount;
+      if (xferState.mode === 'count') {
+        const n = parseInt(document.getElementById('xfer-count').value);
+        if (!n || n <= 0) return toast('أدخل عدداً صحيحاً', 'error');
+        body.count = n;
+        const status = document.getElementById('xfer-status').value;
+        if (status) body.status = status;
+        summaryCount = n;
+      } else {
+        if (!xferState.selected.size) return toast('اختر رسالة واحدة على الأقل', 'error');
+        body.lead_ids = Array.from(xferState.selected);
+        summaryCount = body.lead_ids.length;
+      }
+
+      if (!confirm(`تأكيد نقل حتى ${summaryCount} رسالة؟`)) return;
+
+      const btn = document.getElementById('xfer-confirm');
+      btn.disabled = true; btn.textContent = 'جارٍ النقل...';
+      const { ok, data } = await callAPI(`${API}/ad-leads/admin/transfer`, { method: 'POST', body: JSON.stringify(body) });
+      btn.disabled = false; btn.textContent = 'تأكيد النقل';
+
+      if (ok) {
+        toast(`تم نقل ${data.transferred} من ${data.requested} رسالة`, 'success');
+        closeTransferModal();
+        load();
+      } else {
+        toast(data.detail || 'فشل النقل', 'error');
+      }
+    }
+
+    function escHTML(s) { return (s || '').toString().replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+    function escAttr(s) { return (s || '').toString().replace(/'/g, "\\'"); }
+
+    // ─── INIT ──────────────────────────────────────────────
+    (async () => {
+      await loadBranches();
+      await load();
+    })();
+  </script>
+</body>
+</html>
