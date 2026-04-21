@@ -133,7 +133,8 @@ from fastapi import Request
 from fastapi.responses import Response
 import mimetypes
 
-FRONTEND_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend")
+import pathlib
+FRONTEND_DIR = str((pathlib.Path(__file__).resolve().parent.parent / "frontend"))
 
 @app.middleware("http")
 async def no_cache_html(request: Request, call_next):
