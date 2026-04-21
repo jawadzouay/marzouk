@@ -18,6 +18,17 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.3);
     }
     header h1 { font-size: 16px; font-weight: 700; }
+    .header-user {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.85);
+      margin-top: 2px;
+    }
+    .header-user .avatar {
+      width: 22px; height: 22px; border-radius: 50%;
+      background: #e63329; color: white;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 900;
+    }
     .back-btn, .action-btn {
       background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2);
       color: white; padding: 7px 14px; border-radius: 8px;
@@ -240,7 +251,13 @@
 </head>
 <body>
   <header>
-    <h1>📋 الرسائل</h1>
+    <div>
+      <h1>📋 الرسائل</h1>
+      <div class="header-user">
+        <span class="avatar" id="hdrAvatar">?</span>
+        <span id="hdrAgentName">—</span>
+      </div>
+    </div>
     <div style="display: flex; gap: 6px;">
       <button class="action-btn" onclick="openAvailabilityModal()">🗓️ الإجازة</button>
       <a href="submit.html" class="action-btn">📤 التقرير</a>
@@ -341,6 +358,11 @@
 const API = window.location.origin;
 const token = localStorage.getItem('token');
 if (!token) { window.location.href = '/index.html'; }
+
+// ── Header user identity ──
+const agentName = localStorage.getItem('agentName') || '';
+document.getElementById('hdrAgentName').textContent = agentName || 'وكيل';
+document.getElementById('hdrAvatar').textContent = (agentName.charAt(0) || '?').toUpperCase();
 
 let currentRange = 'today';
 let customDates = null;
