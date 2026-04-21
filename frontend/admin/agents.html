@@ -63,6 +63,17 @@
     .rename-panel { margin-top: 10px; padding: 10px 12px; background: #eff6ff; border-radius: 8px; border: 1px solid #bfdbfe; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .rename-panel input { flex: 1; min-width: 160px; padding: 7px 10px; font-size: 13px; border: 2px solid #bfdbfe; border-radius: 8px; font-family: 'Cairo', sans-serif; }
     .btn-rename { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; font-size: 13px; }
+    .btn-creds { background: #fdf4ff; color: #86198f; border: 1px solid #f5d0fe; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; font-size: 13px; }
+    .creds-panel { margin-top: 10px; padding: 12px 14px; background: #fdf4ff; border-radius: 8px; border: 1px solid #f5d0fe; }
+    .creds-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; }
+    .creds-row + .creds-row { margin-top: 8px; }
+    .creds-label { font-weight: 700; color: #6b21a8; min-width: 90px; }
+    .creds-value { font-family: monospace; background: white; padding: 5px 10px; border-radius: 6px; border: 1px solid #e9d5ff; color: #1a1a1a; direction: ltr; min-width: 80px; text-align: center; letter-spacing: 1px; }
+    .creds-value.muted { color: #9ca3af; font-style: italic; letter-spacing: 0; font-family: 'Cairo', sans-serif; }
+    .btn-copy { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; border-radius: 6px; padding: 5px 10px; font-family: 'Cairo', sans-serif; cursor: pointer; font-size: 12px; font-weight: 600; }
+    .btn-eye  { background: white; color: #86198f; border: 1px solid #f5d0fe; border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 14px; }
+    .creds-reset-row { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #f5d0fe; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .creds-reset-row input { flex: 1; min-width: 140px; padding: 7px 10px; font-size: 13px; border: 2px solid #f5d0fe; border-radius: 8px; font-family: 'Cairo', sans-serif; }
     .dayoff-tag { display: inline-block; background: #fef9c3; color: #854d0e; border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600; margin-top: 4px; }
     .btn-dayoff { background: #fef9c3; color: #854d0e; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; font-size: 13px; }
     .dayoff-panel { margin-top: 10px; padding: 10px 12px; background: #fefce8; border-radius: 8px; border: 1px solid #fde68a; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -359,10 +370,32 @@
             </div>
             <div class="agent-actions">
               <button class="btn-dayoff" onclick="toggleDayOff('${a.id}',${a.day_off ?? 'null'})">🏖️ يوم إجازة</button>
+              <button class="btn-creds"  onclick="toggleCreds('${a.id}')">🔑 بيانات الدخول</button>
               <button class="btn-rename" onclick="toggleRename('${a.id}','${escQ(a.name)}')">✏️ تعديل الاسم</button>
               <button class="btn-transfer" onclick="toggleTransfer('${a.id}')">📦 نقل الفرع</button>
               <button class="btn-fire" onclick="fireAgent('${a.id}','${escQ(a.name)}')">🔴 إيقاف</button>
               <button class="btn-wipe" onclick="fireAndWipe('${a.id}','${escQ(a.name)}')">🗑️ إيقاف ومسح</button>
+            </div>
+          </div>
+          <div class="creds-panel" id="creds-${a.id}" style="display:none" data-pin="${escQ(a.pin_plain || '')}" data-name="${escQ(a.name)}">
+            <div class="creds-row">
+              <span class="creds-label">👤 اسم المستخدم:</span>
+              <span class="creds-value">${a.name}</span>
+              <button class="btn-copy" onclick="copyText('${escQ(a.name)}', this)">📋 نسخ</button>
+            </div>
+            <div class="creds-row">
+              <span class="creds-label">🔑 كلمة المرور:</span>
+              <span class="creds-value ${a.pin_plain ? '' : 'muted'}" id="pin-val-${a.id}">${a.pin_plain ? '••••••' : 'غير متوفرة — أعد تعيينها'}</span>
+              ${a.pin_plain ? `
+                <button class="btn-eye"  onclick="togglePinVisible('${a.id}')" id="pin-eye-${a.id}">👁️ إظهار</button>
+                <button class="btn-copy" onclick="copyPin('${a.id}', this)">📋 نسخ</button>
+              ` : ''}
+            </div>
+            <div class="creds-reset-row">
+              <span style="font-size:12px;font-weight:700;color:#6b21a8">إعادة تعيين:</span>
+              <input type="text" id="reset-pin-${a.id}" placeholder="كلمة مرور جديدة" maxlength="50" />
+              <button class="btn-sm btn-save" onclick="confirmResetPin('${a.id}')">✅ حفظ</button>
+              <button class="btn-sm btn-cancel" onclick="toggleCreds('${a.id}')">إغلاق</button>
             </div>
           </div>
           <div class="dayoff-panel" id="dayoff-${a.id}" style="display:none">
@@ -419,6 +452,67 @@
         const DAY_NAMES = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
         const msg = day_off != null ? `تم تعيين إجازة ${DAY_NAMES[day_off]}` : 'تم إلغاء الإجازة الثابتة';
         showAlert('alert', msg, true);
+        loadAgents();
+      } else {
+        showAlert('alert', data.detail || 'خطأ', false);
+      }
+    }
+
+    function toggleCreds(agentId) {
+      const panel = document.getElementById(`creds-${agentId}`);
+      const isHidden = panel.style.display === 'none';
+      panel.style.display = isHidden ? 'block' : 'none';
+      if (!isHidden) {
+        // Re-mask the PIN when the panel is closed, so re-opening
+        // doesn't leave it visible from a previous session.
+        const eye = document.getElementById(`pin-eye-${agentId}`);
+        const val = document.getElementById(`pin-val-${agentId}`);
+        if (eye && val && panel.dataset.pin) {
+          val.textContent = '••••••';
+          eye.textContent = '👁️ إظهار';
+        }
+      }
+    }
+
+    function togglePinVisible(agentId) {
+      const panel = document.getElementById(`creds-${agentId}`);
+      const val   = document.getElementById(`pin-val-${agentId}`);
+      const eye   = document.getElementById(`pin-eye-${agentId}`);
+      const pin   = panel.dataset.pin || '';
+      if (val.textContent.includes('•')) {
+        val.textContent = pin;
+        eye.textContent = '🙈 إخفاء';
+      } else {
+        val.textContent = '••••••';
+        eye.textContent = '👁️ إظهار';
+      }
+    }
+
+    async function copyPin(agentId, btn) {
+      const panel = document.getElementById(`creds-${agentId}`);
+      await copyText(panel.dataset.pin || '', btn);
+    }
+
+    async function copyText(text, btn) {
+      try {
+        await navigator.clipboard.writeText(text);
+        const orig = btn.textContent;
+        btn.textContent = '✅ تم';
+        setTimeout(() => { btn.textContent = orig; }, 1200);
+      } catch (e) {
+        showAlert('alert', 'تعذر النسخ — انسخ يدوياً', false);
+      }
+    }
+
+    async function confirmResetPin(agentId) {
+      const inp = document.getElementById(`reset-pin-${agentId}`);
+      const newPin = (inp.value || '').trim();
+      if (!newPin) return showAlert('alert', 'اكتب كلمة المرور الجديدة', false);
+      if (!confirm('تأكيد إعادة تعيين كلمة المرور؟ لن تعمل كلمة المرور القديمة بعد الآن.')) return;
+      const { ok, data } = await callAPI(`${API}/agents/${agentId}/reset-pin`, { method: 'PATCH', body: JSON.stringify({ pin: newPin }) });
+      if (ok) {
+        showAlert('alert', 'تم تحديث كلمة المرور ✅', true);
+        inp.value = '';
         loadAgents();
       } else {
         showAlert('alert', data.detail || 'خطأ', false);

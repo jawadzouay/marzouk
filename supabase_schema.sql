@@ -8,10 +8,14 @@ CREATE TABLE agents (
   id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   name        TEXT NOT NULL UNIQUE,
   pin         TEXT NOT NULL,
+  pin_plain   TEXT,  -- readable copy of the PIN shown to admin in agents list
   is_active   BOOLEAN DEFAULT true,
   created_at  TIMESTAMP DEFAULT now(),
   fired_at    TIMESTAMP NULL
 );
+
+-- Migration (run once if table already exists):
+-- ALTER TABLE agents ADD COLUMN IF NOT EXISTS pin_plain TEXT;
 
 -- LEADS
 CREATE TABLE leads (

@@ -49,7 +49,11 @@ class BonusCreate(BaseModel):
 @router.get("/")
 def list_agents(branch_id: str = None, admin=Depends(require_admin)):
     sb = get_client()
-    q = sb.table("agents").select("id, name, is_active, created_at, fired_at, branch_id, drive_folder_id").eq("is_active", True).order("created_at")
+    # pin_plain is stored alongside the bcrypt hash so the admin can view the
+    # actual PIN in the agents list. Intentional tradeoff — the DB role is only
+    # held by admin endpoints and the column is never exposed to agent-scoped
+    # auth.
+    q = sb.table("agents").select("id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off, pin_plain").eq("is_active", True).order("created_at")
     if branch_id:
         q = q.eq("branch_id", branch_id)
     result = q.execute()
@@ -66,7 +70,7 @@ def create_agent(agent: AgentCreate, admin=Depends(require_admin)):
         raise HTTPException(status_code=400, detail="اسم المستخدم موجود مسبقاً")
 
     hashed_pin = pwd_context.hash(agent.pin)
-    data = {"name": agent.name, "pin": hashed_pin, "is_active": True}
+    data = {"name": agent.name, "pin": hashed_pin, "pin_plain": agent.pin, "is_active": True}
     if agent.branch_id:
         data["branch_id"] = agent.branch_id
     result = sb.table("agents").insert(data).execute()
@@ -205,6 +209,7 @@ def update_my_credentials(body: dict, user=Depends(get_current_user)):
         updates["name"] = new_name
     if new_pin:
         updates["pin"] = pwd_context.hash(new_pin)
+        updates["pin_plain"] = new_pin
     if not updates:
         return {"message": "لا يوجد تغيير"}
     sb.table("agents").update(updates).eq("id", agent_id).execute()
@@ -264,7 +269,7 @@ def approve_request(request_id: str, body: ApproveRequest, admin=Depends(require
     if existing.data:
         raise HTTPException(400, "هذا الاسم مستخدم مسبقاً")
     hashed = pwd_context.hash(req["password_plain"])
-    data = {"name": name, "pin": hashed, "is_active": True}
+    data = {"name": name, "pin": hashed, "pin_plain": req["password_plain"], "is_active": True}
     final_branch = body.branch_id or req.get("requested_branch_id")
     if final_branch:
         data["branch_id"] = final_branch
@@ -326,6 +331,25 @@ def set_day_off(agent_id: str, body: dict, admin=Depends(require_admin)):
     if not result.data:
         raise HTTPException(404, "الوكيل غير موجود")
     return result.data[0]
+
+
+@router.patch("/{agent_id}/reset-pin")
+def reset_agent_pin(agent_id: str, body: dict, admin=Depends(require_admin)):
+    """Admin sets a new PIN for an agent. Stores both the bcrypt hash and
+    the plaintext so the admin can see it in the agents list afterwards."""
+    sb = get_client()
+    new_pin = (body.get("pin") or "").strip()
+    if not new_pin:
+        raise HTTPException(400, "كلمة المرور فارغة")
+    if len(new_pin) > 50:
+        raise HTTPException(400, "كلمة المرور طويلة جداً")
+    result = sb.table("agents").update({
+        "pin": pwd_context.hash(new_pin),
+        "pin_plain": new_pin,
+    }).eq("id", agent_id).execute()
+    if not result.data:
+        raise HTTPException(404, "الوكيل غير موجود")
+    return {"message": "تم تحديث كلمة المرور", "pin_plain": new_pin}
 
 
 @router.patch("/{agent_id}/rename")
