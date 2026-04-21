@@ -202,10 +202,24 @@
         <button class="close" onclick="closeTransferModal()">×</button>
       </div>
       <div class="xfer-body">
-        <div class="xfer-row">
+        <div class="mode-tabs" style="background:#fef3c7">
+          <button id="tgt-agent"  class="active" onclick="setTargetMode('agent')">وكيل واحد</button>
+          <button id="tgt-branch" onclick="setTargetMode('branch')">توزيع على فرع</button>
+          <button id="tgt-city"   onclick="setTargetMode('city')">توزيع على مدينة</button>
+        </div>
+        <div class="xfer-row" id="target-agent-row">
           <span class="xfer-label">إلى الوكيل:</span>
           <select id="xfer-target"></select>
         </div>
+        <div class="xfer-row" id="target-branch-row" style="display:none">
+          <span class="xfer-label">الفرع:</span>
+          <select id="xfer-target-branch"></select>
+        </div>
+        <div class="xfer-row" id="target-city-row" style="display:none">
+          <span class="xfer-label">المدينة:</span>
+          <select id="xfer-target-city"></select>
+        </div>
+        <div id="target-preview" style="font-size:12px;color:#6b7280;padding:6px 10px;background:#fef9c3;border-radius:8px;display:none"></div>
         <div class="xfer-row">
           <span class="xfer-label">الحالة:</span>
           <select id="xfer-status" onchange="reloadTransferLeads()">
@@ -485,24 +499,93 @@
     }
 
     // ─── TRANSFER MODAL ────────────────────────────────────
-    let xferState = { fromId: null, mode: 'count', leads: [], selected: new Set() };
+    let xferState = { fromId: null, mode: 'count', targetMode: 'agent', leads: [], selected: new Set() };
+    let allBranches = [];
+    let allCities   = [];
+
+    async function loadScopeData() {
+      // Single shared fetch — branches/cities are small lists.
+      try {
+        const [br, ct] = await Promise.all([
+          fetch(API + '/branches/', { headers: hdr() }).then(r => r.json()),
+          fetch(API + '/cities/',   { headers: hdr() }).then(r => r.json()),
+        ]);
+        allBranches = br || [];
+        allCities   = ct || [];
+      } catch (e) { /* ignore, modal will show empty dropdowns */ }
+    }
 
     function openTransferModal(agentId, agentName) {
-      xferState = { fromId: agentId, mode: 'count', leads: [], selected: new Set() };
+      xferState = { fromId: agentId, mode: 'count', targetMode: 'agent', leads: [], selected: new Set() };
       document.getElementById('xfer-from-name').textContent = agentName;
       document.getElementById('xfer-count').value = '';
       document.getElementById('xfer-status').value = '';
       document.getElementById('xfer-select-all').checked = false;
       setTransferMode('count');
+      setTargetMode('agent');
 
-      const sel = document.getElementById('xfer-target');
-      sel.innerHTML = '<option value="">— اختر الوكيل المستهدف —</option>' +
+      // Agent dropdown (single-target)
+      document.getElementById('xfer-target').innerHTML =
+        '<option value="">— اختر الوكيل المستهدف —</option>' +
         allAgents.filter(a => a.id !== agentId).map(a =>
           `<option value="${a.id}">${escHTML(a.name)} ${a.branch_name ? '— ' + escHTML(a.branch_name) : ''}</option>`
         ).join('');
+
+      // Branch + city dropdowns (distribute modes)
+      document.getElementById('xfer-target-branch').innerHTML =
+        '<option value="">— اختر الفرع —</option>' +
+        allBranches.map(b =>
+          `<option value="${b.id}">${b.city ? escHTML(b.city) + ' — ' : ''}${escHTML(b.name)}</option>`
+        ).join('');
+      document.getElementById('xfer-target-branch').onchange = updateDistributePreview;
+
+      document.getElementById('xfer-target-city').innerHTML =
+        '<option value="">— اختر المدينة —</option>' +
+        allCities.map(c => `<option value="${c.id}">${escHTML(c.name)}</option>`).join('');
+      document.getElementById('xfer-target-city').onchange = updateDistributePreview;
+
       document.getElementById('xfer-overlay').classList.add('open');
     }
     function closeTransferModal() { document.getElementById('xfer-overlay').classList.remove('open'); }
+
+    function setTargetMode(mode) {
+      xferState.targetMode = mode;
+      ['agent','branch','city'].forEach(m => {
+        document.getElementById(`tgt-${m}`).classList.toggle('active', m === mode);
+      });
+      document.getElementById('target-agent-row').style.display  = mode === 'agent'  ? 'flex' : 'none';
+      document.getElementById('target-branch-row').style.display = mode === 'branch' ? 'flex' : 'none';
+      document.getElementById('target-city-row').style.display   = mode === 'city'   ? 'flex' : 'none';
+      updateDistributePreview();
+    }
+
+    function updateDistributePreview() {
+      const box = document.getElementById('target-preview');
+      if (xferState.targetMode === 'agent') { box.style.display = 'none'; return; }
+
+      let targetCount = 0, label = '';
+      if (xferState.targetMode === 'branch') {
+        const bid = document.getElementById('xfer-target-branch').value;
+        if (!bid) { box.style.display = 'none'; return; }
+        targetCount = allAgents.filter(a => a.branch_id === bid && a.id !== xferState.fromId).length;
+        const b = allBranches.find(x => x.id === bid);
+        label = b ? ((b.city ? b.city + ' — ' : '') + b.name) : '';
+      } else if (xferState.targetMode === 'city') {
+        const cid = document.getElementById('xfer-target-city').value;
+        if (!cid) { box.style.display = 'none'; return; }
+        const c = allCities.find(x => x.id === cid);
+        label = c ? c.name : '';
+        if (c) {
+          const branchIds = allBranches.filter(b => b.city === c.name).map(b => b.id);
+          targetCount = allAgents.filter(a => branchIds.includes(a.branch_id) && a.id !== xferState.fromId).length;
+        }
+      }
+
+      box.style.display = 'block';
+      box.textContent = targetCount > 0
+        ? `سيتم التوزيع على ${targetCount} وكيلاً في "${label}" بالتساوي (round-robin).`
+        : `⚠️ لا يوجد وكلاء نشطون في "${label}" (بعد استثناء المصدر).`;
+    }
 
     function setTransferMode(mode) {
       xferState.mode = mode;
@@ -562,10 +645,27 @@
     }
 
     async function confirmTransferLeads() {
-      const toId = document.getElementById('xfer-target').value;
-      if (!toId) return toast('اختر الوكيل المستهدف', 'error');
+      const mode = xferState.targetMode;
+      const body = { from_agent_id: xferState.fromId };
 
-      const body = { from_agent_id: xferState.fromId, to_agent_id: toId };
+      // Target resolution
+      if (mode === 'agent') {
+        const toId = document.getElementById('xfer-target').value;
+        if (!toId) return toast('اختر الوكيل المستهدف', 'error');
+        body.to_agent_id = toId;
+      } else if (mode === 'branch') {
+        const bid = document.getElementById('xfer-target-branch').value;
+        if (!bid) return toast('اختر الفرع المستهدف', 'error');
+        body.to_scope_type = 'branch';
+        body.to_scope_id   = bid;
+      } else if (mode === 'city') {
+        const cid = document.getElementById('xfer-target-city').value;
+        if (!cid) return toast('اختر المدينة المستهدفة', 'error');
+        body.to_scope_type = 'city';
+        body.to_scope_id   = cid;
+      }
+
+      // Lead selection
       let summaryCount;
       if (xferState.mode === 'count') {
         const n = parseInt(document.getElementById('xfer-count').value);
@@ -580,15 +680,23 @@
         summaryCount = body.lead_ids.length;
       }
 
-      if (!confirm(`تأكيد نقل حتى ${summaryCount} رسالة؟`)) return;
+      const confirmMsg = mode === 'agent'
+        ? `تأكيد نقل حتى ${summaryCount} رسالة؟`
+        : `تأكيد توزيع حتى ${summaryCount} رسالة بالتساوي؟`;
+      if (!confirm(confirmMsg)) return;
 
+      const endpoint = mode === 'agent' ? '/ad-leads/admin/transfer' : '/ad-leads/admin/distribute';
       const btn = document.getElementById('xfer-confirm');
-      btn.disabled = true; btn.textContent = 'جارٍ النقل...';
-      const { ok, data } = await callAPI(`${API}/ad-leads/admin/transfer`, { method: 'POST', body: JSON.stringify(body) });
+      btn.disabled = true; btn.textContent = mode === 'agent' ? 'جارٍ النقل...' : 'جارٍ التوزيع...';
+      const { ok, data } = await callAPI(`${API}${endpoint}`, { method: 'POST', body: JSON.stringify(body) });
       btn.disabled = false; btn.textContent = 'تأكيد النقل';
 
       if (ok) {
-        toast(`تم نقل ${data.transferred} من ${data.requested} رسالة`, 'success');
+        if (mode === 'agent') {
+          toast(`تم نقل ${data.transferred} من ${data.requested} رسالة`, 'success');
+        } else {
+          toast(`تم توزيع ${data.transferred} رسالة على ${data.target_count} وكيلاً`, 'success');
+        }
         closeTransferModal();
         load();
       } else {
@@ -602,6 +710,7 @@
     // ─── INIT ──────────────────────────────────────────────
     (async () => {
       await loadBranches();
+      await loadScopeData();
       await load();
     })();
   </script>

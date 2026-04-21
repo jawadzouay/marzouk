@@ -596,6 +596,116 @@ def admin_transfer(body: AdminTransferBody, admin=Depends(require_admin)):
     }
 
 
+class AdminDistributeBody(BaseModel):
+    from_agent_id: str
+    to_scope_type: str  # 'branch' or 'city'
+    to_scope_id: str
+    lead_ids: Optional[List[str]] = None
+    count: Optional[int] = None
+    status: Optional[str] = None
+
+
+@router.post("/admin/distribute")
+def admin_distribute(body: AdminDistributeBody, admin=Depends(require_admin)):
+    """Round-robin split leads from one agent across every active agent in
+    a branch or city. Source agent is excluded from the target pool."""
+    sb = get_client()
+
+    if body.to_scope_type not in ("branch", "city"):
+        raise HTTPException(400, "to_scope_type must be 'branch' or 'city'")
+
+    # Resolve target agents within scope
+    if body.to_scope_type == "branch":
+        ta = sb.table("agents").select("id, name") \
+            .eq("branch_id", body.to_scope_id).eq("is_active", True).execute()
+        target_agents = ta.data or []
+    else:
+        city = sb.table("cities").select("name").eq("id", body.to_scope_id).execute()
+        if not city.data:
+            raise HTTPException(404, "المدينة غير موجودة")
+        brs = sb.table("branches").select("id") \
+            .eq("city", city.data[0]["name"]).execute()
+        branch_ids = [b["id"] for b in (brs.data or [])]
+        if not branch_ids:
+            return {"transferred": 0, "distribution": [], "target_count": 0}
+        ta = sb.table("agents").select("id, name") \
+            .in_("branch_id", branch_ids).eq("is_active", True).execute()
+        target_agents = ta.data or []
+
+    target_agents = [a for a in target_agents if a["id"] != body.from_agent_id]
+    if not target_agents:
+        raise HTTPException(400, "لا يوجد وكلاء مستهدفون في هذا النطاق")
+
+    # Resolve eligible leads
+    if body.lead_ids:
+        eligible = sb.table("ad_leads").select("id") \
+            .in_("id", body.lead_ids) \
+            .eq("assigned_agent_id", body.from_agent_id).execute()
+        eligible_ids = [r["id"] for r in (eligible.data or [])]
+    elif body.count and body.count > 0:
+        q = sb.table("ad_leads").select("id") \
+            .eq("assigned_agent_id", body.from_agent_id)
+        if body.status:
+            q = q.eq("status", body.status)
+        res = q.order("assigned_at").limit(body.count).execute()
+        eligible_ids = [r["id"] for r in (res.data or [])]
+    else:
+        raise HTTPException(400, "يرجى تحديد الرسائل أو العدد")
+
+    if not eligible_ids:
+        return {
+            "transferred": 0,
+            "distribution": [],
+            "target_count": len(target_agents),
+        }
+
+    # Round-robin assignment
+    now_iso = datetime.now(timezone.utc).isoformat()
+    assignments: Dict[str, List[str]] = {a["id"]: [] for a in target_agents}
+    for i, lid in enumerate(eligible_ids):
+        aid = target_agents[i % len(target_agents)]["id"]
+        assignments[aid].append(lid)
+
+    transferred = 0
+    for aid, ids in assignments.items():
+        if not ids:
+            continue
+        sb.table("ad_leads").update({
+            "assigned_agent_id": aid,
+            "assigned_at": now_iso,
+            "updated_at": now_iso,
+        }).in_("id", ids).execute()
+        transferred += len(ids)
+
+    # Best-effort audit log — don't fail the whole call if the log insert breaks
+    try:
+        rows = []
+        for aid, ids in assignments.items():
+            for lid in ids:
+                rows.append({
+                    "lead_id": lid,
+                    "from_agent_id": body.from_agent_id,
+                    "to_agent_id": aid,
+                })
+        if rows:
+            sb.table("lead_transfers").insert(rows).execute()
+    except Exception as e:
+        log.warning(f"lead_transfers insert failed: {e}")
+
+    name_by_id = {a["id"]: a["name"] for a in target_agents}
+    distribution = [
+        {"agent_id": aid, "agent_name": name_by_id.get(aid, "—"), "count": len(ids)}
+        for aid, ids in assignments.items() if ids
+    ]
+    distribution.sort(key=lambda x: -x["count"])
+
+    return {
+        "transferred": transferred,
+        "distribution": distribution,
+        "target_count": len(target_agents),
+    }
+
+
 @router.get("/new-count")
 def my_new_count(agent=Depends(require_agent)):
     sb = get_client()
