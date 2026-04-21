@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 import os
 import logging
+import threading
 
 load_dotenv()
 
@@ -54,11 +55,10 @@ app.state.last_sync_result = None
 app.state.last_sync_at = None
 
 
-@app.on_event("startup")
-def start_sync_scheduler():
-    if not SYNC_ENABLED:
-        logging.info("[ad_leads] scheduler disabled via AD_LEADS_SYNC_ENABLED=false")
-        return
+def _bootstrap_scheduler():
+    """Heavy imports + scheduler start. Runs in a detached daemon thread so
+    uvicorn's startup event returns immediately and Railway's /health probe
+    can succeed before we've finished wiring APScheduler and Supabase."""
     try:
         from apscheduler.schedulers.background import BackgroundScheduler
         from services.ad_leads_sync import sync_leads_from_sheet
@@ -75,11 +75,8 @@ def start_sync_scheduler():
                 app.state.last_sync_at = datetime.now(timezone.utc).isoformat()
                 logging.warning(f"[ad_leads] sync failed: {e}")
 
-        # BackgroundScheduler runs in its own daemon thread — unaffected by
-        # uvicorn's event loop state, and safe for blocking Google/Supabase
-        # HTTP calls that would otherwise stall AsyncIOScheduler.
         scheduler = BackgroundScheduler(timezone="UTC", daemon=True)
-        first = datetime.now(timezone.utc) + timedelta(seconds=15)
+        first = datetime.now(timezone.utc) + timedelta(seconds=30)
         scheduler.add_job(
             run_sync, "interval",
             minutes=SYNC_INTERVAL_MIN,
@@ -94,6 +91,19 @@ def start_sync_scheduler():
         logging.info(f"[ad_leads] BackgroundScheduler started — first run at {first.isoformat()}, then every {SYNC_INTERVAL_MIN} min")
     except Exception as e:
         logging.warning(f"[ad_leads] could not start scheduler: {e}")
+
+
+@app.on_event("startup")
+def start_sync_scheduler():
+    if not SYNC_ENABLED:
+        logging.info("[ad_leads] scheduler disabled via AD_LEADS_SYNC_ENABLED=false")
+        return
+    # Kick bootstrap into a detached thread so this handler returns in <1ms.
+    # Otherwise Railway's healthcheck races the scheduler's cold-import (which
+    # pulls in apscheduler + supabase + googleapiclient) and we time out before
+    # uvicorn can answer /health.
+    threading.Thread(target=_bootstrap_scheduler, daemon=True, name="scheduler-bootstrap").start()
+    logging.info("[ad_leads] scheduler bootstrap dispatched to background thread")
 
 
 @app.on_event("shutdown")
