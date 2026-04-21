@@ -46,18 +46,44 @@ class BonusCreate(BaseModel):
     note: Optional[str] = None
 
 
+_AGENT_FIELDS_FULL    = "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off, pin_plain"
+_AGENT_FIELDS_LEGACY  = "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off"
+
+
+def _safe_write(fn, *, fallback_key="pin_plain"):
+    """Run a DB write that may reference the yet-to-be-migrated pin_plain
+    column. fn gets a bool telling it whether to include pin_plain. If the
+    first attempt fails because the column is missing, we retry without."""
+    try:
+        return fn(True)
+    except Exception as e:
+        if fallback_key in str(e):
+            return fn(False)
+        raise
+
+
+def _select_agents(sb, branch_id=None):
+    """Query agents with pin_plain, falling back if the column hasn't been
+    migrated yet. Keeps the list working for anyone who deployed the new
+    code before running ALTER TABLE agents ADD COLUMN pin_plain."""
+    for fields in (_AGENT_FIELDS_FULL, _AGENT_FIELDS_LEGACY):
+        try:
+            q = sb.table("agents").select(fields).eq("is_active", True).order("created_at")
+            if branch_id:
+                q = q.eq("branch_id", branch_id)
+            return q.execute().data
+        except Exception as e:
+            if fields == _AGENT_FIELDS_FULL and "pin_plain" in str(e):
+                continue
+            raise
+
+
 @router.get("/")
 def list_agents(branch_id: str = None, admin=Depends(require_admin)):
-    sb = get_client()
     # pin_plain is stored alongside the bcrypt hash so the admin can view the
-    # actual PIN in the agents list. Intentional tradeoff — the DB role is only
-    # held by admin endpoints and the column is never exposed to agent-scoped
-    # auth.
-    q = sb.table("agents").select("id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off, pin_plain").eq("is_active", True).order("created_at")
-    if branch_id:
-        q = q.eq("branch_id", branch_id)
-    result = q.execute()
-    return result.data
+    # actual PIN in the agents list. Intentional tradeoff — the column is only
+    # exposed behind require_admin.
+    return _select_agents(get_client(), branch_id)
 
 
 @router.post("/")
@@ -70,10 +96,16 @@ def create_agent(agent: AgentCreate, admin=Depends(require_admin)):
         raise HTTPException(status_code=400, detail="اسم المستخدم موجود مسبقاً")
 
     hashed_pin = pwd_context.hash(agent.pin)
-    data = {"name": agent.name, "pin": hashed_pin, "pin_plain": agent.pin, "is_active": True}
-    if agent.branch_id:
-        data["branch_id"] = agent.branch_id
-    result = sb.table("agents").insert(data).execute()
+
+    def _do_insert(with_plain):
+        data = {"name": agent.name, "pin": hashed_pin, "is_active": True}
+        if with_plain:
+            data["pin_plain"] = agent.pin
+        if agent.branch_id:
+            data["branch_id"] = agent.branch_id
+        return sb.table("agents").insert(data).execute()
+
+    result = _safe_write(_do_insert)
     new_agent = result.data[0]
 
     # Create Google Drive folder for the agent
@@ -209,10 +241,16 @@ def update_my_credentials(body: dict, user=Depends(get_current_user)):
         updates["name"] = new_name
     if new_pin:
         updates["pin"] = pwd_context.hash(new_pin)
-        updates["pin_plain"] = new_pin
-    if not updates:
+    if not updates and not new_pin:
         return {"message": "لا يوجد تغيير"}
-    sb.table("agents").update(updates).eq("id", agent_id).execute()
+
+    def _do_update(with_plain):
+        payload = dict(updates)
+        if new_pin and with_plain:
+            payload["pin_plain"] = new_pin
+        return sb.table("agents").update(payload).eq("id", agent_id).execute()
+
+    _safe_write(_do_update)
     return {"message": "تم تحديث بيانات الدخول بنجاح", "name_changed": "name" in updates}
 
 
@@ -269,11 +307,17 @@ def approve_request(request_id: str, body: ApproveRequest, admin=Depends(require
     if existing.data:
         raise HTTPException(400, "هذا الاسم مستخدم مسبقاً")
     hashed = pwd_context.hash(req["password_plain"])
-    data = {"name": name, "pin": hashed, "pin_plain": req["password_plain"], "is_active": True}
     final_branch = body.branch_id or req.get("requested_branch_id")
-    if final_branch:
-        data["branch_id"] = final_branch
-    sb.table("agents").insert(data).execute()
+
+    def _do_insert(with_plain):
+        data = {"name": name, "pin": hashed, "is_active": True}
+        if with_plain:
+            data["pin_plain"] = req["password_plain"]
+        if final_branch:
+            data["branch_id"] = final_branch
+        return sb.table("agents").insert(data).execute()
+
+    _safe_write(_do_insert)
     sb.table("agent_requests").update({"status": "approved", "final_name": name}).eq("id", request_id).execute()
     return {"message": f"تم قبول الوكيل {name}"}
 
@@ -343,10 +387,15 @@ def reset_agent_pin(agent_id: str, body: dict, admin=Depends(require_admin)):
         raise HTTPException(400, "كلمة المرور فارغة")
     if len(new_pin) > 50:
         raise HTTPException(400, "كلمة المرور طويلة جداً")
-    result = sb.table("agents").update({
-        "pin": pwd_context.hash(new_pin),
-        "pin_plain": new_pin,
-    }).eq("id", agent_id).execute()
+    hashed = pwd_context.hash(new_pin)
+
+    def _do_update(with_plain):
+        payload = {"pin": hashed}
+        if with_plain:
+            payload["pin_plain"] = new_pin
+        return sb.table("agents").update(payload).eq("id", agent_id).execute()
+
+    result = _safe_write(_do_update)
     if not result.data:
         raise HTTPException(404, "الوكيل غير موجود")
     return {"message": "تم تحديث كلمة المرور", "pin_plain": new_pin}

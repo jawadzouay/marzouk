@@ -339,9 +339,12 @@
 
     // ─── AGENTS ────────────────────────────────────────────
     async function loadAgents() {
-      const { ok, data: agents } = await callAPI(`${API}/agents/`);
-      if (!ok) return;
+      const { ok, data: agents, status } = await callAPI(`${API}/agents/`);
       const list = document.getElementById('agents-list');
+      if (!ok) {
+        list.innerHTML = `<div class="alert alert-error">تعذر تحميل الوكلاء (${status || 'خطأ شبكة'}): ${agents?.detail || 'حاول إعادة التحميل'}</div>`;
+        return;
+      }
       const active = agents.filter(a => a.is_active);
       if (!active.length) {
         list.innerHTML = '<div class="empty-state">لا يوجد وكلاء نشطون</div>';
