@@ -195,24 +195,80 @@
     }
     .status-chip.active { background: #1a1a1a; border-color: #1a1a1a; color: white; }
     .status-chip.active .count { background: rgba(255,255,255,0.2); color: white; }
+    .status-chip.secondary { opacity: 0.65; font-weight: 600; }
+    .status-chip.secondary.active { opacity: 1; }
+    .chip-divider {
+      flex-shrink: 0; width: 1px; align-self: stretch;
+      background: #e5e7eb; margin: 4px 4px;
+    }
+
+    /* Clickable summary tiles act as primary status filters */
+    .summary-tile { cursor: pointer; transition: transform 0.1s, box-shadow 0.15s; user-select: none; }
+    .summary-tile:active { transform: scale(0.97); }
+    .summary-tile.tile-active {
+      box-shadow: 0 0 0 2.5px #1a1a1a, 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .summary-tile.primary.tile-active { box-shadow: 0 0 0 2.5px #e63329, 0 2px 8px rgba(230,51,41,0.2); }
+    .summary-tile.good.tile-active    { box-shadow: 0 0 0 2.5px #10b981, 0 2px 8px rgba(16,185,129,0.2); }
 
     /* RDV summary section */
     .rdv-section {
       background: linear-gradient(135deg, #10b981, #059669); color: white;
-      border-radius: 14px; padding: 12px 14px; margin-bottom: 10px;
-      box-shadow: 0 2px 10px rgba(16,185,129,0.25);
+      border-radius: 16px; padding: 14px; margin-bottom: 12px;
+      box-shadow: 0 4px 16px rgba(16,185,129,0.3);
+      position: relative; overflow: hidden;
+    }
+    .rdv-section::before {
+      content: ''; position: absolute; top: -30px; right: -30px;
+      width: 120px; height: 120px; border-radius: 50%;
+      background: rgba(255,255,255,0.08);
     }
     .rdv-section.empty {
       background: white; color: #6b7280;
       border: 1.5px dashed #d1d5db; box-shadow: none;
     }
-    .rdv-section-title {
-      font-size: 13px; font-weight: 700; margin-bottom: 8px;
-      display: flex; align-items: center; gap: 6px;
+    .rdv-section.empty::before { display: none; }
+    .rdv-section-head {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 10px; position: relative;
     }
-    .rdv-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .rdv-section-title { font-size: 14px; font-weight: 800; }
+    .rdv-section-sub {
+      font-size: 11px; font-weight: 700; opacity: 0.85;
+    }
+    .rdv-today-list {
+      display: flex; flex-direction: column; gap: 6px;
+      margin-bottom: 10px; position: relative;
+    }
+    .rdv-today-list:empty { display: none; }
+    .rdv-row {
+      background: rgba(255,255,255,0.18); border-radius: 10px;
+      padding: 8px 10px; display: flex; justify-content: space-between;
+      align-items: center; gap: 8px;
+    }
+    .rdv-row .rdv-row-name {
+      font-size: 13px; font-weight: 700; min-width: 0; flex: 1;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .rdv-row .rdv-row-when {
+      font-size: 10px; font-weight: 700; opacity: 0.85; margin-right: 6px;
+    }
+    .rdv-row a.rdv-call {
+      color: white; text-decoration: none; flex-shrink: 0;
+      background: rgba(255,255,255,0.22); padding: 5px 10px; border-radius: 8px;
+      font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .rdv-empty-msg {
+      background: rgba(255,255,255,0.16); border-radius: 10px;
+      padding: 10px; text-align: center; font-size: 12px; font-weight: 600;
+      margin-bottom: 10px; position: relative;
+    }
+    .rdv-section.empty .rdv-empty-msg {
+      background: #f9fafb; color: #6b7280;
+    }
+    .rdv-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; position: relative; }
     .rdv-tile {
-      background: rgba(255,255,255,0.15); border-radius: 10px;
+      background: rgba(255,255,255,0.18); border-radius: 10px;
       padding: 8px 6px; text-align: center; cursor: pointer;
       border: 1.5px solid transparent; transition: all 0.15s;
     }
@@ -427,14 +483,24 @@
     </div>
 
     <div class="summary-row">
-      <div class="summary-tile"><div class="summary-num" id="sumTotal">0</div><div class="summary-lbl">المجموع</div></div>
-      <div class="summary-tile primary"><div class="summary-num" id="sumNew">0</div><div class="summary-lbl">جدد</div></div>
-      <div class="summary-tile good"><div class="summary-num" id="sumRdv">0</div><div class="summary-lbl">مواعيد</div></div>
+      <div class="summary-tile"          id="tileAll" onclick="setStatusFilter('')">
+        <div class="summary-num" id="sumTotal">0</div><div class="summary-lbl">المجموع</div>
+      </div>
+      <div class="summary-tile primary"  id="tileNew" onclick="setStatusFilter('new')">
+        <div class="summary-num" id="sumNew">0</div><div class="summary-lbl">جدد</div>
+      </div>
+      <div class="summary-tile good"     id="tileRdv" onclick="setStatusFilter('rdv')">
+        <div class="summary-num" id="sumRdv">0</div><div class="summary-lbl">مواعيد</div>
+      </div>
     </div>
 
-    <!-- RDV scheduled summary: today / tomorrow / this week -->
-    <div class="rdv-section empty" id="rdvSection" style="display:none;">
-      <div class="rdv-section-title">📅 مواعيدي المجدولة</div>
+    <!-- RDV scheduled summary: prominent card with today's list + week filters -->
+    <div class="rdv-section" id="rdvSection" style="display:none;">
+      <div class="rdv-section-head">
+        <div class="rdv-section-title">📅 مواعيدي المجدولة</div>
+        <div class="rdv-section-sub" id="rdvSectionSub"></div>
+      </div>
+      <div class="rdv-today-list" id="rdvTodayList"></div>
       <div class="rdv-tiles" id="rdvTiles">
         <div class="rdv-tile" data-rdv-bucket="today">
           <div class="rdv-num" id="rdvCountToday">0</div>
@@ -583,11 +649,14 @@ let rdvBucketFilter = '';        // '' = none, or 'today'/'tomorrow'/'week'
 let rdvBuckets = { today: [], tomorrow: [], week: [], later: [] };
 let pendingStatusChange = null;  // { leadId, oldStatus, newStatus } awaiting modal confirmation
 
-// Order used in filter chips — hot statuses first, long-tail after.
-const FILTER_ORDER = [
-  'new', 'rdv', 'waiting', 'no_answer', 'contacted', 'visits', 'registered',
-  'custom', 'bv', 'pi', 'pe', 'autre_ville', 'over_40', 'contra',
-];
+// PRIMARY chips are always shown (even with count 0) so the agent can
+// quickly jump back to common buckets — especially "في الانتظار" and
+// "لا يجيب" which represent leads that need re-attempting.
+const PRIMARY_FILTERS = ['new', 'rdv', 'waiting', 'no_answer', 'contacted', 'visits', 'registered', 'custom'];
+const ALWAYS_SHOW = new Set(['new', 'rdv', 'waiting', 'no_answer']);
+// SECONDARY chips (terminal/disqualified buckets) push to the end and
+// only render when the agent has at least one lead in that bucket.
+const SECONDARY_FILTERS = ['bv', 'pi', 'pe', 'autre_ville', 'over_40', 'contra'];
 const ALL_STATUSES = [
   'new','contacted','rdv','bv','pi','pe','autre_ville','over_40',
   'contra','visits','registered','waiting','no_answer','custom',
@@ -700,20 +769,54 @@ async function loadRdvBuckets() {
 
 function renderRdvSection() {
   const sec = document.getElementById('rdvSection');
-  const total = rdvBuckets.today.length + rdvBuckets.tomorrow.length + rdvBuckets.week.length;
-  // Hide entirely if no upcoming RDVs in the week
-  if (total === 0) {
+  const todayList = rdvBuckets.today || [];
+  const tmrList   = rdvBuckets.tomorrow || [];
+  const weekList  = rdvBuckets.week || [];   // today + tomorrow + rest of next 7 days
+  const laterList = rdvBuckets.later || [];
+
+  // The "week" bucket from /my/rdvs already represents today + tomorrow +
+  // rest of next 7 days; show that as the headline count so the agent
+  // sees their full upcoming load. Hide if zero.
+  const weekTotal = weekList.length;
+  if (weekTotal === 0 && laterList.length === 0) {
     sec.style.display = 'none';
     return;
   }
+
   sec.style.display = 'block';
   sec.classList.remove('empty');
-  document.getElementById('rdvCountToday').textContent    = rdvBuckets.today.length;
-  document.getElementById('rdvCountTomorrow').textContent = rdvBuckets.tomorrow.length;
-  // "week" tile counts today + tomorrow + rest-of-week so the tile stays a
-  // superset even when today/tomorrow have items.
-  const weekTotal = rdvBuckets.today.length + rdvBuckets.tomorrow.length + rdvBuckets.week.length;
-  document.getElementById('rdvCountWeek').textContent = weekTotal;
+
+  document.getElementById('rdvCountToday').textContent    = todayList.length;
+  document.getElementById('rdvCountTomorrow').textContent = tmrList.length;
+  document.getElementById('rdvCountWeek').textContent     = weekTotal;
+  document.getElementById('rdvSectionSub').textContent =
+    laterList.length ? `+${laterList.length} موعد لاحق` : '';
+
+  // Inline list — show today's RDVs first (max 3), then a peek of tomorrow.
+  const listEl = document.getElementById('rdvTodayList');
+  let inline = [];
+  todayList.slice(0, 3).forEach(l => inline.push({ l, when: 'اليوم' }));
+  if (inline.length < 3) {
+    tmrList.slice(0, 3 - inline.length).forEach(l => inline.push({ l, when: 'غداً' }));
+  }
+  if (todayList.length === 0 && tmrList.length === 0 && weekList.length > 0) {
+    listEl.innerHTML = `<div class="rdv-empty-msg">لا توجد مواعيد اليوم — ${weekList.length} هذا الأسبوع</div>`;
+  } else if (inline.length === 0) {
+    listEl.innerHTML = '';
+  } else {
+    listEl.innerHTML = inline.map(({ l, when }) => {
+      const name = l.full_name || '(بدون اسم)';
+      const phone = l.phone_primary || '';
+      const callHref = phone ? `tel:${phone.replace(/\s/g, '')}` : '';
+      return `
+        <div class="rdv-row">
+          <div class="rdv-row-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+          <span class="rdv-row-when">${when}</span>
+          ${phone ? `<a class="rdv-call" href="${callHref}">📞</a>` : ''}
+        </div>`;
+    }).join('');
+  }
+
   // Paint active tile
   document.querySelectorAll('#rdvTiles .rdv-tile').forEach(t => {
     t.classList.toggle('active', t.dataset.rdvBucket === rdvBucketFilter);
@@ -742,6 +845,16 @@ function statusLabel(s) {
   }[s] || s;
 }
 
+// Public hook for the summary-tile clicks. Toggles the filter (clicking
+// the active tile clears it back to "all").
+function setStatusFilter(s) {
+  statusFilter = (statusFilter === s) ? '' : s;
+  // Clear RDV bucket filter when switching status filter — they conflict.
+  if (statusFilter && statusFilter !== 'rdv') rdvBucketFilter = '';
+  render();
+  if (typeof renderRdvSection === 'function') renderRdvSection();
+}
+
 function renderStatusFilters(countsByStatus) {
   const container = document.getElementById('statusFilters');
   const total = allLeads.length;
@@ -750,14 +863,32 @@ function renderStatusFilters(countsByStatus) {
     <div class="status-chip ${statusFilter === '' ? 'active' : ''}" data-status="">
       الكل <span class="count">${total}</span>
     </div>`];
-  FILTER_ORDER.forEach(s => {
+  // Primary chips: always show the ALWAYS_SHOW set even with count 0 so the
+  // agent can jump back to "في الانتظار" / "لا يجيب" lists. Other primary
+  // chips (visits, registered, contacted, custom) only when populated or
+  // currently active.
+  PRIMARY_FILTERS.forEach(s => {
     const n = countsByStatus[s] || 0;
-    if (n === 0 && statusFilter !== s) return;  // hide empty buckets unless user has it active
+    if (n === 0 && statusFilter !== s && !ALWAYS_SHOW.has(s)) return;
     chips.push(`
       <div class="status-chip ${statusFilter === s ? 'active' : ''}" data-status="${s}">
         ${statusLabel(s)} <span class="count">${n}</span>
       </div>`);
   });
+  // Visual separator between primary and secondary chips
+  let secondaryHtml = '';
+  SECONDARY_FILTERS.forEach(s => {
+    const n = countsByStatus[s] || 0;
+    if (n === 0 && statusFilter !== s) return;
+    secondaryHtml += `
+      <div class="status-chip secondary ${statusFilter === s ? 'active' : ''}" data-status="${s}">
+        ${statusLabel(s)} <span class="count">${n}</span>
+      </div>`;
+  });
+  if (secondaryHtml) {
+    chips.push('<div class="chip-divider"></div>');
+    chips.push(secondaryHtml);
+  }
   container.innerHTML = chips.join('');
   container.querySelectorAll('.status-chip').forEach(el => {
     el.onclick = () => {
@@ -830,6 +961,10 @@ function render() {
   document.getElementById('sumTotal').textContent = allLeads.length;
   document.getElementById('sumNew').textContent = allLeads.filter(l => l.status === 'new').length;
   document.getElementById('sumRdv').textContent = allLeads.filter(l => l.status === 'rdv').length;
+  // Sync the active-tile highlight with the current status filter
+  document.getElementById('tileAll').classList.toggle('tile-active', statusFilter === '');
+  document.getElementById('tileNew').classList.toggle('tile-active', statusFilter === 'new');
+  document.getElementById('tileRdv').classList.toggle('tile-active', statusFilter === 'rdv');
 
   // Counts for the filter chips (based on the loaded range)
   const counts = {};
