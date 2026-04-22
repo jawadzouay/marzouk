@@ -176,6 +176,46 @@
 
     /* Loading spinner */
     .loading { text-align: center; padding: 40px; color: #9ca3af; font-size: 14px; }
+
+    /* ===== Today's RDVs section ===== */
+    .rdv-today-card {
+      background: linear-gradient(135deg, #10b981, #059669); color: white;
+      border-radius: 16px; padding: 14px 16px; margin-bottom: 14px;
+      box-shadow: 0 4px 16px rgba(16,185,129,0.25);
+    }
+    .rdv-today-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px;
+    }
+    .rdv-today-title { font-size: 15px; font-weight: 800; }
+    .rdv-today-pill {
+      background: rgba(255,255,255,0.22); padding: 3px 10px; border-radius: 12px;
+      font-size: 12px; font-weight: 800;
+    }
+    .rdv-today-list { display: flex; flex-direction: column; gap: 6px; }
+    .rdv-today-item {
+      background: rgba(255,255,255,0.16); border-radius: 10px;
+      padding: 8px 10px; display: flex; justify-content: space-between; align-items: center;
+      gap: 8px;
+    }
+    .rdv-today-item .rname { font-size: 13px; font-weight: 700; min-width: 0; flex: 1;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rdv-today-item .rphone {
+      font-size: 12px; font-weight: 700; direction: ltr; opacity: 0.9;
+    }
+    .rdv-today-item a {
+      color: white; text-decoration: none;
+      background: rgba(255,255,255,0.18); padding: 4px 10px; border-radius: 8px;
+      font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .rdv-today-link {
+      display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 700;
+      color: white; text-decoration: none; opacity: 0.9;
+    }
+    .rdv-today-empty {
+      background: rgba(255,255,255,0.16); border-radius: 10px;
+      padding: 10px; text-align: center; font-size: 12px; font-weight: 600;
+    }
   </style>
 </head>
 <body>
@@ -199,6 +239,16 @@
   <a href="leads.html" class="cta-btn" id="leadsInboxBtn" style="display:none; background: linear-gradient(135deg, #1a1a1a, #404040); box-shadow: 0 4px 14px rgba(0,0,0,0.3);">
     📋 صندوق الرسائل <span id="leadsInboxBadge" style="background:#e63329; padding:2px 10px; border-radius:12px; font-size:13px; margin-right:6px;"></span>
   </a>
+
+  <!-- Today's RDVs -->
+  <div class="rdv-today-card" id="rdvTodayCard" style="display:none;">
+    <div class="rdv-today-head">
+      <div class="rdv-today-title">📅 مواعيد اليوم</div>
+      <div class="rdv-today-pill" id="rdvTodayPill">0</div>
+    </div>
+    <div class="rdv-today-list" id="rdvTodayList"></div>
+    <a href="leads.html" class="rdv-today-link" id="rdvTodayMoreLink" style="display:none;">عرض كل المواعيد ←</a>
+  </div>
 
   <!-- Stats Cards -->
   <div class="stats-grid">
@@ -668,11 +718,53 @@ async function loadLeadsInbox() {
   } catch (e) {}
 }
 
+// ── Today's scheduled RDVs ──
+async function loadTodayRdvs() {
+  try {
+    const r = await fetch(API + '/ad-leads/my/rdvs?bucket=today', { headers: hdr() });
+    if (!r.ok) return;  // Soft-fail: card stays hidden
+    const d = await r.json();
+    const card = document.getElementById('rdvTodayCard');
+    if (!d.enabled) return;  // Migration not yet run
+    const leads = d.leads || [];
+    if (!leads.length) return;  // Hide entirely when nothing today
+
+    card.style.display = 'block';
+    document.getElementById('rdvTodayPill').textContent = leads.length;
+
+    const SHOW_MAX = 4;
+    const visible = leads.slice(0, SHOW_MAX);
+    const list = document.getElementById('rdvTodayList');
+    list.innerHTML = visible.map(l => {
+      const name = l.full_name || '(بدون اسم)';
+      const phone = l.phone_primary || '';
+      const callHref = phone ? `tel:${phone.replace(/\s/g, '')}` : '';
+      return `
+        <div class="rdv-today-item">
+          <div class="rname" title="${escAttr(name)}">${escHtml(name)}</div>
+          ${phone ? `<a href="${callHref}">📞 ${escHtml(phone)}</a>` : '<span class="rphone">—</span>'}
+        </div>`;
+    }).join('');
+
+    if (leads.length > SHOW_MAX) {
+      const more = document.getElementById('rdvTodayMoreLink');
+      more.textContent = `+${leads.length - SHOW_MAX} أخرى — عرض الكل ←`;
+      more.style.display = 'inline-block';
+    }
+  } catch (e) {
+    // Silent — keep dashboard usable even if RDV endpoint hiccups.
+  }
+}
+
+function escHtml(s) { return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escAttr(s) { return (s||'').toString().replace(/"/g, '&quot;'); }
+
 // ── Init ──
 loadStats();
 loadGoal();
 loadRecentReports();
 loadLeadsInbox();
+loadTodayRdvs();
 </script>
 </body>
 </html>

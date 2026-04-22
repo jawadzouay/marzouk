@@ -196,6 +196,9 @@
             <option value="new">جديدة</option>
             <option value="contacted">تم التواصل</option>
             <option value="rdv">موعد (RDV)</option>
+            <option value="waiting">في الانتظار</option>
+            <option value="no_answer">لا يجيب</option>
+            <option value="custom">مخصص</option>
             <option value="bv">بريد صوتي</option>
             <option value="pi">غير مهتم</option>
             <option value="pe">غير مؤهل</option>
@@ -734,7 +737,8 @@
     const STATUS_LABEL = {
       new: 'جديدة', contacted: 'تم التواصل', rdv: 'موعد', bv: 'بريد صوتي',
       pi: 'غير مهتم', pe: 'غير مؤهل', autre_ville: 'مدينة أخرى',
-      over_40: 'فوق 40', contra: 'كونترا', visits: 'زيارة', registered: 'مسجل'
+      over_40: 'فوق 40', contra: 'كونترا', visits: 'زيارة', registered: 'مسجل',
+      waiting: 'في الانتظار', no_answer: 'لا يجيب', custom: 'مخصص'
     };
     let xferState = { fromId: null, mode: 'count', leads: [], selected: new Set() };
     let allActiveAgents = [];

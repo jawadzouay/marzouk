@@ -2,11 +2,11 @@
 Generic Google Sheet -> Supabase lead sync.
 
 Admin defines a `lead_sheet_configs` row per city or branch, maps which sheet
-columns to surface (with type: key/name/date/phone/ad_name/platform/number/text),
-and toggles it on. This service iterates every enabled config on each tick,
-pulls the sheet, normalises Moroccan phones, dedups by the row key, inserts new
-leads, and round-robin assigns them to active agents in that scope (skipping
-agents whose off_dates contains today).
+columns to surface (with type: key/name/date/phone/ad_name/adset_name/
+platform/number/text), and toggles it on. This service iterates every enabled
+config on each tick, pulls the sheet, normalises Moroccan phones, dedups by the
+row key, inserts new leads, and round-robin assigns them to active agents in
+that scope (skipping agents whose off_dates contains today).
 
 Transfers between agents don't update `agents.last_distributed_at`, so
 transferred leads stay additive on top of the receiving agent's normal share.
@@ -35,6 +35,29 @@ log.setLevel(logging.INFO)
 # ---------------------------------------------------------------------------
 
 _PHONE_STRIP = re.compile(r"[^\d]")
+
+# Tri-state probe: None=unknown, True/False=confirmed. Strips adset_name from
+# insert/update payloads when the Supabase migration hasn't been run yet, so
+# deploying the backend ahead of the SQL doesn't break the sync loop.
+_HAS_ADSET_COL: Optional[bool] = None
+
+
+def has_adset_col() -> bool:
+    global _HAS_ADSET_COL
+    if _HAS_ADSET_COL is None:
+        try:
+            get_client().table("ad_leads").select("adset_name").limit(1).execute()
+            _HAS_ADSET_COL = True
+        except Exception:
+            _HAS_ADSET_COL = False
+            log.warning("[ad_leads] adset_name column missing — run the migration to enable adset analytics")
+    return _HAS_ADSET_COL
+
+
+def _strip_adset(payload: dict) -> dict:
+    if has_adset_col():
+        return payload
+    return {k: v for k, v in payload.items() if k != "adset_name"}
 
 
 def normalize_morocco_phone(raw: Optional[str]) -> Optional[str]:
@@ -157,6 +180,7 @@ def _build_lead_from_row(
     phone_primary: Optional[str] = None
     full_name: Optional[str] = None
     ad_name: Optional[str] = None
+    adset_name: Optional[str] = None
     platform: Optional[str] = None
     created_time: Optional[str] = None
 
@@ -200,6 +224,9 @@ def _build_lead_from_row(
         elif ctype == "ad_name":
             ad_name = raw or ad_name
             data[display] = raw
+        elif ctype == "adset_name":
+            adset_name = raw or adset_name
+            data[display] = raw
         elif ctype == "platform":
             platform = (raw or "").lower() or platform
             data[display] = raw
@@ -230,6 +257,7 @@ def _build_lead_from_row(
         "phones": unique_phones,
         "full_name": full_name,
         "ad_name": ad_name,
+        "adset_name": adset_name,
         "platform": platform,
         "created_time": created_time,
     }
@@ -361,18 +389,19 @@ def sync_config(config_id: str) -> dict:
             # (e.g. marking a column as `phone`) fixes leads that were
             # synced before the mapping existed. Never touch assignment,
             # status, or timestamps that belong to the agent workflow.
-            to_update.append((known[k], {
+            to_update.append((known[k], _strip_adset({
                 "data": lead["data"],
                 "phone_primary": lead["phone_primary"],
                 "phones": lead["phones"],
                 "full_name": lead["full_name"],
                 "ad_name": lead["ad_name"],
+                "adset_name": lead["adset_name"],
                 "platform": lead["platform"],
                 "created_time": lead["created_time"],
                 "updated_at": datetime.now(timezone.utc).isoformat(),
-            }))
+            })))
         else:
-            to_insert.append(lead)
+            to_insert.append(_strip_adset(lead))
 
     inserted = 0
     if to_insert:

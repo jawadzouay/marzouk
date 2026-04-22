@@ -160,39 +160,144 @@ def my_columns(agent=Depends(require_agent)):
     return {"columns": _merge_visible_columns(columns)}
 
 
+_LEAD_FIELDS_BASE = (
+    "id, created_time, full_name, phone_primary, phones, ad_name, "
+    "platform, status, assigned_at, contacted_at, last_note, data"
+)
+
+
+def _lead_select_fields() -> str:
+    """Compose the SELECT field list based on which optional columns exist.
+    Keeps older deployments working before their migration runs."""
+    extras = []
+    if _has_custom_status_col():
+        extras.append("custom_status")
+    if _has_rdv_date_col():
+        extras.append("rdv_date")
+    return _LEAD_FIELDS_BASE + ("".join(f", {e}" for e in extras) if extras else "")
+
+
 @router.get("/my")
 def my_leads(
     range: str = Query("today"),
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
+    include_all_new: bool = Query(False),
     agent=Depends(require_agent),
 ):
-    """Leads assigned to me in a date range."""
+    """Leads assigned to me in a date range.
+
+    When `include_all_new=true` the response also includes every still-`new`
+    lead assigned to the agent, regardless of when it was assigned. This lets
+    the inbox surface untouched leads from previous days even when the agent
+    is filtered to "today" — the focus stays on the work that hasn't been
+    done yet.
+    """
     sb = get_client()
     df, dt = resolve_range(range, date_from, date_to)
 
-    q = sb.table("ad_leads").select(
-        "id, created_time, full_name, phone_primary, phones, ad_name, "
-        "platform, status, assigned_at, contacted_at, last_note, data"
-    ).eq("assigned_agent_id", agent["sub"])
+    fields = _lead_select_fields()
+    q = sb.table("ad_leads").select(fields).eq("assigned_agent_id", agent["sub"])
     # Filter on assigned_at so leads with no source-side date still show up;
     # this also matches the agent's mental model of "leads I got today".
     q = apply_date_filter(q, df, dt, field="assigned_at")
     if status:
         q = q.eq("status", status)
     res = q.order("assigned_at", desc=True).execute()
+    rows = res.data or []
+
+    # Backlog merge: pull every still-new lead that fell outside the window.
+    # We skip this when the caller is already filtering by status — that
+    # means they explicitly want a single bucket, not the inbox view.
+    if include_all_new and not status:
+        seen = {r["id"] for r in rows}
+        backlog = sb.table("ad_leads").select(fields) \
+            .eq("assigned_agent_id", agent["sub"]).eq("status", "new") \
+            .order("assigned_at", desc=True).execute()
+        for b in (backlog.data or []):
+            if b["id"] not in seen:
+                rows.append(b)
+                seen.add(b["id"])
 
     # Include visible column defs so the UI can render the dynamic table
     configs = _configs_for_agent(sb, agent["sub"])
     columns = _columns_for_configs(sb, [c["id"] for c in configs])
 
     return {
-        "leads": res.data or [],
+        "leads": rows,
         "columns": _merge_visible_columns(columns),
         "date_from": df,
         "date_to": dt,
+        "features": {
+            "custom_status": _has_custom_status_col(),
+            "rdv_date": _has_rdv_date_col(),
+        },
     }
+
+
+# ---------------------------------------------------------------------------
+# My scheduled RDVs — grouped today / tomorrow / this-week / later.
+# Powers the RDV section on the agent leads page and the "today's RDVs"
+# block on the agent dashboard.
+# ---------------------------------------------------------------------------
+
+@router.get("/my/rdvs")
+def my_rdvs(bucket: Optional[str] = Query(None), agent=Depends(require_agent)):
+    """bucket ∈ {today, tomorrow, week, later, all}. Default all -> grouped dict."""
+    sb = get_client()
+    if not _has_rdv_date_col():
+        # Feature gated on the migration. Return empty buckets so the UI
+        # can render its empty state without a noisy error.
+        return {
+            "enabled": False,
+            "today": [], "tomorrow": [], "week": [], "later": [],
+        }
+
+    today = date.today()
+    tomorrow = today + timedelta(days=1)
+    week_end = today + timedelta(days=6)  # inclusive → "next 7 days"
+
+    q = sb.table("ad_leads").select(_lead_select_fields()) \
+        .eq("assigned_agent_id", agent["sub"]) \
+        .eq("status", "rdv") \
+        .order("rdv_date")
+
+    if bucket == "today":
+        q = q.eq("rdv_date", today.isoformat())
+    elif bucket == "tomorrow":
+        q = q.eq("rdv_date", tomorrow.isoformat())
+    elif bucket == "week":
+        q = q.gte("rdv_date", today.isoformat()).lte("rdv_date", week_end.isoformat())
+    elif bucket == "later":
+        q = q.gt("rdv_date", week_end.isoformat())
+
+    res = q.execute()
+    # Drop leads with no rdv_date set — simpler than chaining a nullable filter
+    # through postgrest-py, and the volume is tiny (per-agent scheduled RDVs).
+    rows = [r for r in (res.data or []) if r.get("rdv_date")]
+
+    if bucket:
+        return {"enabled": True, "leads": rows, "bucket": bucket}
+
+    # Group mode — split into buckets client-side to avoid four round trips.
+    today_s = today.isoformat()
+    tomorrow_s = tomorrow.isoformat()
+    week_end_s = week_end.isoformat()
+    buckets = {"today": [], "tomorrow": [], "week": [], "later": []}
+    for r in rows:
+        d = r.get("rdv_date")
+        if not d:
+            continue
+        if d == today_s:
+            buckets["today"].append(r)
+        elif d == tomorrow_s:
+            buckets["tomorrow"].append(r)
+        elif today_s < d <= week_end_s:
+            buckets["week"].append(r)
+        elif d > week_end_s:
+            buckets["later"].append(r)
+    return {"enabled": True, **buckets}
 
 
 @router.get("/my/count")
@@ -227,12 +332,56 @@ def my_inbox_status(agent=Depends(require_agent)):
 class StatusUpdate(BaseModel):
     status: str
     note: Optional[str] = None
+    # New optional fields — both require a one-time ALTER TABLE to enable.
+    # Without the migration the app stays functional, just without these
+    # features (see _has_custom_status_col / _has_rdv_date_col probes).
+    custom_status: Optional[str] = None
+    rdv_date: Optional[str] = None  # YYYY-MM-DD
 
 
 VALID_STATUSES = {
     "new", "contacted", "rdv", "bv", "pi", "pe",
     "autre_ville", "over_40", "contra", "visits", "registered",
+    "waiting", "no_answer", "custom",
 }
+
+
+# ---------------------------------------------------------------------------
+# Column existence probes — same pattern as agents._safe_write(pin_plain)
+# and ad_leads_sync.has_adset_col(). Lets us ship backend ahead of the
+# Supabase migration without breaking the app; the affected feature simply
+# returns a clear error instead of exploding.
+# ---------------------------------------------------------------------------
+
+_HAS_CUSTOM_STATUS_COL: Optional[bool] = None
+_HAS_RDV_DATE_COL: Optional[bool] = None
+
+
+def _has_custom_status_col() -> bool:
+    global _HAS_CUSTOM_STATUS_COL
+    if _HAS_CUSTOM_STATUS_COL is None:
+        try:
+            get_client().table("ad_leads").select("custom_status").limit(1).execute()
+            _HAS_CUSTOM_STATUS_COL = True
+        except Exception:
+            _HAS_CUSTOM_STATUS_COL = False
+            log.warning("[ad_leads] custom_status column missing — run migration to enable custom labels")
+    return _HAS_CUSTOM_STATUS_COL
+
+
+def _has_rdv_date_col() -> bool:
+    global _HAS_RDV_DATE_COL
+    if _HAS_RDV_DATE_COL is None:
+        try:
+            get_client().table("ad_leads").select("rdv_date").limit(1).execute()
+            _HAS_RDV_DATE_COL = True
+        except Exception:
+            _HAS_RDV_DATE_COL = False
+            log.warning("[ad_leads] rdv_date column missing — run migration to enable scheduled RDV dates")
+    return _HAS_RDV_DATE_COL
+
+
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
 @router.patch("/{lead_id}/status")
@@ -254,8 +403,65 @@ def update_lead_status(lead_id: str, body: StatusUpdate, agent=Depends(require_a
     if body.status != "new":
         updates["contacted_at"] = now_iso
 
+    # Custom status — requires the free-text label.
+    if body.status == "custom":
+        label = (body.custom_status or "").strip()
+        if not label:
+            raise HTTPException(400, "يرجى كتابة الحالة المخصصة")
+        if len(label) > 100:
+            raise HTTPException(400, "الحالة المخصصة طويلة جداً (الحد الأقصى 100 حرف)")
+        if not _has_custom_status_col():
+            raise HTTPException(400, "يرجى تنفيذ تحديث قاعدة البيانات لتفعيل الحالة المخصصة")
+        updates["custom_status"] = label
+    elif _has_custom_status_col():
+        # Clear stale custom label when moving off custom status.
+        updates["custom_status"] = None
+
+    # RDV scheduled date — optional; only meaningful when status == rdv.
+    if body.status == "rdv":
+        if body.rdv_date:
+            if not _DATE_RE.match(body.rdv_date):
+                raise HTTPException(400, "صيغة التاريخ غير صحيحة (YYYY-MM-DD)")
+            if not _has_rdv_date_col():
+                raise HTTPException(400, "يرجى تنفيذ تحديث قاعدة البيانات لحفظ تاريخ الموعد")
+            updates["rdv_date"] = body.rdv_date
+        # If agent didn't provide rdv_date, leave whatever was there alone.
+    elif _has_rdv_date_col():
+        # Clear RDV date when moving off rdv — avoids stale dates haunting lists.
+        updates["rdv_date"] = None
+
     sb.table("ad_leads").update(updates).eq("id", lead_id).execute()
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Comment on a lead — writes last_note without touching status. Separate
+# endpoint so the agent can annotate a lead (e.g. "called mom — no answer")
+# without needing to flip status at the same time.
+# ---------------------------------------------------------------------------
+
+class NoteUpdate(BaseModel):
+    note: str
+
+
+@router.patch("/{lead_id}/note")
+def update_lead_note(lead_id: str, body: NoteUpdate, agent=Depends(require_agent)):
+    sb = get_client()
+    note = (body.note or "").strip()
+    if len(note) > 2000:
+        raise HTTPException(400, "التعليق طويل جداً (الحد الأقصى 2000 حرف)")
+
+    lead = sb.table("ad_leads").select("id, assigned_agent_id").eq("id", lead_id).execute()
+    if not lead.data:
+        raise HTTPException(404, "Lead not found")
+    if lead.data[0]["assigned_agent_id"] != agent["sub"]:
+        raise HTTPException(403, "This lead is not assigned to you")
+
+    sb.table("ad_leads").update({
+        "last_note": note or None,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }).eq("id", lead_id).execute()
+    return {"ok": True, "note": note}
 
 
 class NameUpdate(BaseModel):
@@ -432,10 +638,13 @@ def admin_list_agent_leads(
     transfer modal. Date filter is applied on assigned_at so it matches the
     admin's "leads this agent got today" mental model."""
     sb = get_client()
-    q = sb.table("ad_leads").select(
-        "id, created_time, assigned_at, full_name, phone_primary, "
-        "ad_name, platform, status, last_note"
-    ).eq("assigned_agent_id", agent_id)
+    base = ("id, created_time, assigned_at, full_name, phone_primary, "
+            "ad_name, platform, status, last_note")
+    if _has_custom_status_col():
+        base += ", custom_status"
+    if _has_rdv_date_col():
+        base += ", rdv_date"
+    q = sb.table("ad_leads").select(base).eq("assigned_agent_id", agent_id)
     if status:
         q = q.eq("status", status)
     if range:

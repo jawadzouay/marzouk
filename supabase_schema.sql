@@ -271,6 +271,21 @@ CREATE INDEX IF NOT EXISTS idx_ad_leads_config    ON ad_leads(config_id);
 CREATE INDEX IF NOT EXISTS idx_ad_leads_ad_name   ON ad_leads(ad_name);
 
 -- ============================================================================
+-- AD LEADS — additional optional columns (run once if upgrading)
+--   custom_status: free-text label when status='custom' (set by agent)
+--   rdv_date     : scheduled date when status='rdv'
+--   adset_name   : ad-set name from the source sheet (live ads analytics)
+-- The backend probes for each column at runtime and degrades gracefully if
+-- the migration hasn't been applied yet, so deploying the new code without
+-- running these is safe — the affected feature is just disabled.
+-- ============================================================================
+ALTER TABLE ad_leads ADD COLUMN IF NOT EXISTS custom_status TEXT;
+ALTER TABLE ad_leads ADD COLUMN IF NOT EXISTS rdv_date      DATE;
+ALTER TABLE ad_leads ADD COLUMN IF NOT EXISTS adset_name    TEXT;
+CREATE INDEX IF NOT EXISTS idx_ad_leads_rdv_date   ON ad_leads(rdv_date) WHERE rdv_date IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_ad_leads_adset_name ON ad_leads(adset_name);
+
+-- ============================================================================
 -- AGENT OFF-DATES — per-agent list of future off days (unchanged)
 -- ============================================================================
 

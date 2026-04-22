@@ -142,6 +142,143 @@
     select.status-select.registered { background: #fee2e2; color: #991b1b; border-color: #e63329; }
     select.status-select.visits { background: #dbeafe; color: #1e40af; border-color: #3b82f6; }
     select.status-select.contra { background: #fce7f3; color: #9d174d; border-color: #ec4899; }
+    select.status-select.waiting { background: #fef3c7; color: #78350f; border-color: #f59e0b; }
+    select.status-select.no_answer { background: #e0e7ff; color: #3730a3; border-color: #6366f1; }
+    select.status-select.custom { background: #f3e8ff; color: #6b21a8; border-color: #a855f7; }
+
+    .lead-card.waiting { border-right: 4px solid #f59e0b; }
+    .lead-card.no_answer { border-right: 4px solid #6366f1; }
+    .lead-card.custom { border-right: 4px solid #a855f7; }
+    .lead-card.backlog {
+      background: linear-gradient(180deg, #fffbeb, #ffffff);
+      box-shadow: 0 2px 10px rgba(245,158,11,0.15);
+    }
+    .backlog-pill {
+      display: inline-block; background: #fef3c7; color: #78350f;
+      font-size: 10px; font-weight: 800; padding: 2px 7px;
+      border-radius: 8px; margin-right: 4px; vertical-align: middle;
+    }
+
+    /* Search + filter chips */
+    .search-box {
+      display: flex; align-items: center; gap: 8px;
+      background: white; border-radius: 12px; padding: 8px 12px;
+      margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .search-box .ico { color: #9ca3af; font-size: 16px; }
+    .search-box input {
+      flex: 1; border: none; outline: none;
+      font-family: 'Cairo', sans-serif; font-size: 14px;
+      background: transparent; color: #1a1a1a; min-width: 0;
+    }
+    .search-box .clear-btn {
+      background: transparent; border: none; color: #9ca3af;
+      cursor: pointer; font-size: 18px; font-weight: 900;
+      padding: 0 4px; line-height: 1;
+    }
+
+    .status-filters {
+      display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none;
+      padding-bottom: 4px; margin-bottom: 10px;
+    }
+    .status-filters::-webkit-scrollbar { display: none; }
+    .status-chip {
+      flex-shrink: 0; padding: 6px 11px; border-radius: 16px;
+      background: white; border: 1.5px solid #e5e7eb;
+      font-size: 12px; font-weight: 700; color: #374151;
+      cursor: pointer; user-select: none; display: flex; align-items: center; gap: 5px;
+      font-family: 'Cairo', sans-serif;
+    }
+    .status-chip .count {
+      background: #f3f4f6; color: #6b7280; border-radius: 10px;
+      padding: 1px 7px; font-size: 11px; font-weight: 800;
+    }
+    .status-chip.active { background: #1a1a1a; border-color: #1a1a1a; color: white; }
+    .status-chip.active .count { background: rgba(255,255,255,0.2); color: white; }
+
+    /* RDV summary section */
+    .rdv-section {
+      background: linear-gradient(135deg, #10b981, #059669); color: white;
+      border-radius: 14px; padding: 12px 14px; margin-bottom: 10px;
+      box-shadow: 0 2px 10px rgba(16,185,129,0.25);
+    }
+    .rdv-section.empty {
+      background: white; color: #6b7280;
+      border: 1.5px dashed #d1d5db; box-shadow: none;
+    }
+    .rdv-section-title {
+      font-size: 13px; font-weight: 700; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .rdv-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .rdv-tile {
+      background: rgba(255,255,255,0.15); border-radius: 10px;
+      padding: 8px 6px; text-align: center; cursor: pointer;
+      border: 1.5px solid transparent; transition: all 0.15s;
+    }
+    .rdv-section.empty .rdv-tile {
+      background: #f9fafb; border-color: #e5e7eb;
+    }
+    .rdv-tile.active {
+      background: white; color: #059669;
+      border-color: white;
+    }
+    .rdv-section.empty .rdv-tile.active {
+      background: #10b981; color: white; border-color: #10b981;
+    }
+    .rdv-tile .rdv-num { font-size: 20px; font-weight: 900; line-height: 1; }
+    .rdv-tile .rdv-lbl { font-size: 10px; font-weight: 700; margin-top: 3px; opacity: 0.9; }
+
+    /* RDV date badge on lead cards */
+    .rdv-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      background: #d1fae5; color: #065f46; font-size: 11px; font-weight: 800;
+      padding: 3px 8px; border-radius: 10px; margin-top: 5px;
+    }
+    .rdv-badge.today { background: #fef3c7; color: #78350f; }
+    .rdv-badge.past { background: #fee2e2; color: #991b1b; }
+
+    /* Custom status label */
+    .custom-label-badge {
+      display: inline-block; background: #f3e8ff; color: #6b21a8;
+      font-size: 11px; font-weight: 800; padding: 3px 8px;
+      border-radius: 10px; margin-top: 5px; max-width: 220px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* Comment input on card */
+    .comment-wrap {
+      margin-top: 8px; display: flex; gap: 6px; align-items: center;
+      padding-top: 8px; border-top: 1px dashed #e5e7eb;
+    }
+    .comment-wrap input {
+      flex: 1; border: 1.5px solid #e5e7eb; border-radius: 8px;
+      padding: 6px 10px; font-family: 'Cairo', sans-serif; font-size: 12px;
+      background: #f9fafb; min-width: 0;
+    }
+    .comment-wrap input:focus {
+      outline: none; border-color: #e63329; background: white;
+    }
+    .comment-wrap .save-note-btn {
+      background: #10b981; color: white; border: none; border-radius: 8px;
+      padding: 6px 10px; font-family: 'Cairo', sans-serif; font-size: 12px;
+      font-weight: 700; cursor: pointer; flex-shrink: 0; display: none;
+    }
+    .comment-wrap.dirty .save-note-btn { display: block; }
+
+    /* RDV date-picker modal */
+    .rdv-quick-dates {
+      display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px;
+    }
+    .rdv-quick-dates .quick-chip {
+      flex: 1; min-width: 70px; padding: 8px 6px;
+      background: #f3f4f6; border: 1.5px solid transparent; border-radius: 10px;
+      font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700;
+      cursor: pointer; text-align: center; color: #374151;
+    }
+    .rdv-quick-dates .quick-chip.active {
+      background: #10b981; color: white; border-color: #10b981;
+    }
 
     .lead-name {
       cursor: text;
@@ -295,6 +432,35 @@
       <div class="summary-tile good"><div class="summary-num" id="sumRdv">0</div><div class="summary-lbl">مواعيد</div></div>
     </div>
 
+    <!-- RDV scheduled summary: today / tomorrow / this week -->
+    <div class="rdv-section empty" id="rdvSection" style="display:none;">
+      <div class="rdv-section-title">📅 مواعيدي المجدولة</div>
+      <div class="rdv-tiles" id="rdvTiles">
+        <div class="rdv-tile" data-rdv-bucket="today">
+          <div class="rdv-num" id="rdvCountToday">0</div>
+          <div class="rdv-lbl">اليوم</div>
+        </div>
+        <div class="rdv-tile" data-rdv-bucket="tomorrow">
+          <div class="rdv-num" id="rdvCountTomorrow">0</div>
+          <div class="rdv-lbl">غداً</div>
+        </div>
+        <div class="rdv-tile" data-rdv-bucket="week">
+          <div class="rdv-num" id="rdvCountWeek">0</div>
+          <div class="rdv-lbl">هذا الأسبوع</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="search-box">
+      <span class="ico">🔍</span>
+      <input type="text" id="searchInput" placeholder="ابحث بالاسم أو رقم الهاتف..." />
+      <button class="clear-btn" id="searchClearBtn" onclick="clearSearch()" style="display:none;">×</button>
+    </div>
+
+    <!-- Status filter chips -->
+    <div class="status-filters" id="statusFilters"></div>
+
     <div id="leadsList"></div>
   </div>
 
@@ -352,6 +518,43 @@
     </div>
   </div>
 
+  <!-- RDV date picker modal -->
+  <div class="modal-overlay" id="rdvModal" onclick="if(event.target===this)closeModal('rdvModal')">
+    <div class="modal">
+      <h3>📅 تاريخ الموعد<button class="close-x" onclick="closeModal('rdvModal')">×</button></h3>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:10px;">متى تم تحديد الموعد مع العميل؟</p>
+      <div class="rdv-quick-dates" id="rdvQuickDates">
+        <div class="quick-chip" data-offset="0">اليوم</div>
+        <div class="quick-chip" data-offset="1">غداً</div>
+        <div class="quick-chip" data-offset="2">بعد غد</div>
+      </div>
+      <div class="form-group">
+        <label>أو اختر تاريخاً مخصصاً</label>
+        <input type="date" id="rdvDateInput" />
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-secondary" style="flex:1;" onclick="closeModal('rdvModal')">إلغاء</button>
+        <button class="btn-primary" style="flex:2;" onclick="confirmRdvDate()">حفظ الموعد</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom status label modal -->
+  <div class="modal-overlay" id="customModal" onclick="if(event.target===this)closeModal('customModal')">
+    <div class="modal">
+      <h3>✏️ حالة مخصصة<button class="close-x" onclick="closeModal('customModal')">×</button></h3>
+      <div class="form-group">
+        <label>اكتب الحالة كما تريدها</label>
+        <input type="text" id="customLabelInput" placeholder="مثال: إعادة اتصال غداً" maxlength="100" />
+        <div class="form-hint">الحد الأقصى 100 حرف.</div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-secondary" style="flex:1;" onclick="closeModal('customModal')">إلغاء</button>
+        <button class="btn-primary" style="flex:2;" onclick="confirmCustomLabel()">حفظ</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toast" id="toast"></div>
 
 <script>
@@ -371,6 +574,24 @@ let columns = [];                // visible columns from backend: [{display_name
 let selectMode = false;
 let selected = new Set();
 let currentOffDates = [];
+
+// New UI state for search / filter / RDV
+let features = { custom_status: false, rdv_date: false };
+let searchQuery = '';
+let statusFilter = '';           // '' = all, otherwise one of VALID_STATUSES
+let rdvBucketFilter = '';        // '' = none, or 'today'/'tomorrow'/'week'
+let rdvBuckets = { today: [], tomorrow: [], week: [], later: [] };
+let pendingStatusChange = null;  // { leadId, oldStatus, newStatus } awaiting modal confirmation
+
+// Order used in filter chips — hot statuses first, long-tail after.
+const FILTER_ORDER = [
+  'new', 'rdv', 'waiting', 'no_answer', 'contacted', 'visits', 'registered',
+  'custom', 'bv', 'pi', 'pe', 'autre_ville', 'over_40', 'contra',
+];
+const ALL_STATUSES = [
+  'new','contacted','rdv','bv','pi','pe','autre_ville','over_40',
+  'contra','visits','registered','waiting','no_answer','custom',
+];
 
 // Column types that get rendered as structured lead fields under the name
 const INLINE_TYPES = new Set(['text', 'number', 'date']);
@@ -427,20 +648,88 @@ function applyCustomRange() {
 
 async function loadLeads() {
   try {
-    const params = { range: currentRange };
+    // include_all_new=true so untouched leads stay visible even when the
+    // agent has narrowed to "today" — the new/backlog work is the focus.
+    const params = { range: currentRange, include_all_new: 'true' };
     if (currentRange === 'custom' && customDates) {
       params.date_from = customDates.from;
       params.date_to = customDates.to;
     }
     const data = await api(`/ad-leads/my?${qs(params)}`);
     allLeads = data.leads || [];
+    // Tag which leads fell outside the requested window — the render uses
+    // this to mark them with an "old backlog" pill so the agent isn't
+    // confused about why a yesterday lead appears under "today".
+    const dfStr = data.date_from || '';
+    const dtStr = data.date_to || '';
+    allLeads.forEach(l => {
+      if (!l.assigned_at) { l._outOfWindow = false; return; }
+      const day = l.assigned_at.slice(0, 10);
+      l._outOfWindow = !!(dfStr && (day < dfStr || day > dtStr));
+    });
     columns = (data.columns || []).filter(c => INLINE_TYPES.has(c.column_type) && !HANDLED_TYPES.has(c.column_type));
+    features = data.features || features;
     render();
+    // RDV buckets are decoupled from the date range filter — they're future-looking.
+    loadRdvBuckets();
   } catch (e) {
     console.error(e);
     toast('تعذر تحميل الرسائل', 'error');
   }
 }
+
+async function loadRdvBuckets() {
+  if (!features.rdv_date) {
+    document.getElementById('rdvSection').style.display = 'none';
+    return;
+  }
+  try {
+    const data = await api('/ad-leads/my/rdvs');
+    rdvBuckets = {
+      today: data.today || [],
+      tomorrow: data.tomorrow || [],
+      week: data.week || [],
+      later: data.later || [],
+    };
+    renderRdvSection();
+  } catch (e) {
+    // Soft-fail: RDV section just stays hidden.
+    document.getElementById('rdvSection').style.display = 'none';
+  }
+}
+
+function renderRdvSection() {
+  const sec = document.getElementById('rdvSection');
+  const total = rdvBuckets.today.length + rdvBuckets.tomorrow.length + rdvBuckets.week.length;
+  // Hide entirely if no upcoming RDVs in the week
+  if (total === 0) {
+    sec.style.display = 'none';
+    return;
+  }
+  sec.style.display = 'block';
+  sec.classList.remove('empty');
+  document.getElementById('rdvCountToday').textContent    = rdvBuckets.today.length;
+  document.getElementById('rdvCountTomorrow').textContent = rdvBuckets.tomorrow.length;
+  // "week" tile counts today + tomorrow + rest-of-week so the tile stays a
+  // superset even when today/tomorrow have items.
+  const weekTotal = rdvBuckets.today.length + rdvBuckets.tomorrow.length + rdvBuckets.week.length;
+  document.getElementById('rdvCountWeek').textContent = weekTotal;
+  // Paint active tile
+  document.querySelectorAll('#rdvTiles .rdv-tile').forEach(t => {
+    t.classList.toggle('active', t.dataset.rdvBucket === rdvBucketFilter);
+  });
+}
+
+// Hook RDV tile clicks — filters the leads list to leads with the matching
+// rdv_date, on top of the existing date-range filter.
+document.querySelectorAll('#rdvTiles .rdv-tile').forEach(t => {
+  t.addEventListener('click', () => {
+    const b = t.dataset.rdvBucket;
+    rdvBucketFilter = (rdvBucketFilter === b) ? '' : b;
+    renderRdvSection();
+    render();
+  });
+});
 
 function statusLabel(s) {
   return {
@@ -448,22 +737,149 @@ function statusLabel(s) {
     bv: 'بريد صوتي', pi: 'غير مهتم', pe: 'غير مؤهل',
     autre_ville: 'مدينة أخرى', over_40: 'فوق 40',
     contra: 'كونترا',
-    visits: 'زيارة', registered: 'مسجل'
+    visits: 'زيارة', registered: 'مسجل',
+    waiting: 'في الانتظار', no_answer: 'لا يجيب', custom: 'مخصص',
   }[s] || s;
 }
 
+function renderStatusFilters(countsByStatus) {
+  const container = document.getElementById('statusFilters');
+  const total = allLeads.length;
+  // "All" chip first
+  const chips = [`
+    <div class="status-chip ${statusFilter === '' ? 'active' : ''}" data-status="">
+      الكل <span class="count">${total}</span>
+    </div>`];
+  FILTER_ORDER.forEach(s => {
+    const n = countsByStatus[s] || 0;
+    if (n === 0 && statusFilter !== s) return;  // hide empty buckets unless user has it active
+    chips.push(`
+      <div class="status-chip ${statusFilter === s ? 'active' : ''}" data-status="${s}">
+        ${statusLabel(s)} <span class="count">${n}</span>
+      </div>`);
+  });
+  container.innerHTML = chips.join('');
+  container.querySelectorAll('.status-chip').forEach(el => {
+    el.onclick = () => {
+      const s = el.dataset.status || '';
+      statusFilter = (statusFilter === s) ? '' : s;
+      render();
+    };
+  });
+}
+
+function matchesSearch(lead, q) {
+  if (!q) return true;
+  const ql = q.toLowerCase();
+  const name = (lead.full_name || '').toLowerCase();
+  if (name.includes(ql)) return true;
+  if ((lead.phone_primary || '').includes(q)) return true;
+  if (Array.isArray(lead.phones)) {
+    for (const p of lead.phones) {
+      if ((p.number || '').includes(q)) return true;
+    }
+  }
+  return false;
+}
+
+function todayISO() {
+  const t = new Date();
+  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+}
+
+function formatRdvDate(iso) {
+  if (!iso) return '';
+  const today = todayISO();
+  if (iso === today) return 'اليوم';
+  const t = new Date(today + 'T00:00:00');
+  const d = new Date(iso + 'T00:00:00');
+  const diff = Math.round((d - t) / 86400000);
+  if (diff === 1) return 'غداً';
+  if (diff === -1) return 'أمس';
+  if (diff > 1 && diff <= 7) return `خلال ${diff} أيام`;
+  return d.toLocaleDateString('ar-MA', { day: 'numeric', month: 'short' });
+}
+
+function rdvBadgeClass(iso) {
+  if (!iso) return '';
+  const today = todayISO();
+  if (iso === today) return 'today';
+  if (iso < today) return 'past';
+  return '';
+}
+
+function formatBacklogTitle(assignedAtIso) {
+  if (!assignedAtIso) return 'رسالة لم يتم العمل عليها بعد';
+  try {
+    const day = assignedAtIso.slice(0, 10);
+    const today = todayISO();
+    const t = new Date(today + 'T00:00:00');
+    const d = new Date(day + 'T00:00:00');
+    const diff = Math.round((t - d) / 86400000);
+    if (diff <= 0) return 'لم يتم التواصل بعد';
+    if (diff === 1) return 'منذ يوم — لم يتم التواصل بعد';
+    return `منذ ${diff} أيام — لم يتم التواصل بعد`;
+  } catch {
+    return 'لم يتم التواصل بعد';
+  }
+}
+
 function render() {
+  // Top summary tiles always reflect the full range (not the active filter),
+  // so the agent sees totals at a glance.
   document.getElementById('sumTotal').textContent = allLeads.length;
   document.getElementById('sumNew').textContent = allLeads.filter(l => l.status === 'new').length;
   document.getElementById('sumRdv').textContent = allLeads.filter(l => l.status === 'rdv').length;
+
+  // Counts for the filter chips (based on the loaded range)
+  const counts = {};
+  allLeads.forEach(l => { const s = l.status || 'new'; counts[s] = (counts[s]||0) + 1; });
+  renderStatusFilters(counts);
+
+  // Apply active filters: search + status chip + RDV bucket
+  const todayS = todayISO();
+  const tomorrowS = (() => { const d = new Date(todayS + 'T00:00:00'); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); })();
+  const weekEndS = (() => { const d = new Date(todayS + 'T00:00:00'); d.setDate(d.getDate()+6); return d.toISOString().slice(0,10); })();
+
+  let filtered = allLeads;
+  if (statusFilter) filtered = filtered.filter(l => (l.status || 'new') === statusFilter);
+  if (searchQuery) filtered = filtered.filter(l => matchesSearch(l, searchQuery));
+  if (rdvBucketFilter) {
+    filtered = filtered.filter(l => {
+      if (l.status !== 'rdv' || !l.rdv_date) return false;
+      if (rdvBucketFilter === 'today') return l.rdv_date === todayS;
+      if (rdvBucketFilter === 'tomorrow') return l.rdv_date === tomorrowS;
+      if (rdvBucketFilter === 'week') return l.rdv_date >= todayS && l.rdv_date <= weekEndS;
+      return true;
+    });
+  }
+
+  // Sort: untouched "new" leads first (oldest first so the backlog gets
+  // attention), then everything else by assigned_at desc. Keeps the agent's
+  // focus on what hasn't been worked yet.
+  filtered.sort((a, b) => {
+    const aNew = (a.status || 'new') === 'new' ? 0 : 1;
+    const bNew = (b.status || 'new') === 'new' ? 0 : 1;
+    if (aNew !== bNew) return aNew - bNew;
+    if (aNew === 0) {
+      // Both new: oldest first (most overdue at the top)
+      return (a.assigned_at || '').localeCompare(b.assigned_at || '');
+    }
+    // Non-new: newest first
+    return (b.assigned_at || '').localeCompare(a.assigned_at || '');
+  });
 
   const list = document.getElementById('leadsList');
   if (!allLeads.length) {
     list.innerHTML = '<div class="empty">لا توجد رسائل في هذه الفترة</div>';
     return;
   }
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty">لا توجد رسائل تطابق الفلاتر الحالية</div>';
+    return;
+  }
 
-  list.innerHTML = allLeads.map(l => {
+  list.innerHTML = filtered.map(l => {
     const status = l.status || 'new';
     const data = l.data || {};
     const name = l.full_name || '—';
@@ -479,7 +895,7 @@ function render() {
     if (l.platform) badges.push(`<span class="badge platform">${escapeHtml(l.platform.toUpperCase())}</span>`);
     if (l.ad_name) badges.push(`<span class="badge ad" title="${escapeHtml(l.ad_name)}">${escapeHtml(l.ad_name)}</span>`);
 
-    const statusOpts = ['new','contacted','rdv','bv','pi','pe','autre_ville','over_40','contra','visits','registered']
+    const statusOpts = ALL_STATUSES
       .map(s => `<option value="${s}" ${s===status?'selected':''}>${statusLabel(s)}</option>`).join('');
 
     const checkHtml = selectMode && status === 'new'
@@ -488,14 +904,42 @@ function render() {
 
     const hasPhones = (l.phones && l.phones.length) || l.phone_primary;
 
+    const rdvBadge = (status === 'rdv' && l.rdv_date)
+      ? `<div class="rdv-badge ${rdvBadgeClass(l.rdv_date)}">📅 ${escapeHtml(formatRdvDate(l.rdv_date))}</div>`
+      : '';
+    const customBadge = (status === 'custom' && l.custom_status)
+      ? `<div class="custom-label-badge" title="${escapeHtml(l.custom_status)}">✏️ ${escapeHtml(l.custom_status)}</div>`
+      : '';
+    // Backlog pill: this lead is from outside the selected date window,
+    // surfaced because it's still "new". Helps the agent understand why it
+    // appeared under "today".
+    const backlogPill = (l._outOfWindow && status === 'new')
+      ? `<span class="backlog-pill" title="${escapeHtml(formatBacklogTitle(l.assigned_at))}">⏳ متأخر</span>`
+      : '';
+
+    const existingNote = l.last_note || '';
+    const commentInput = `
+      <div class="comment-wrap" data-lead="${l.id}">
+        <input type="text" placeholder="تعليق..." value="${escapeHtml(existingNote)}"
+               oninput="markCommentDirty('${l.id}', this)"
+               onkeydown="if(event.key==='Enter'){event.preventDefault(); saveLeadNote('${l.id}')}"
+               data-original="${escapeHtml(existingNote)}" />
+        <button class="save-note-btn" onclick="saveLeadNote('${l.id}')">حفظ</button>
+      </div>`;
+
     return `
-      <div class="lead-card ${status}">
+      <div class="lead-card ${status}${l._outOfWindow && status === 'new' ? ' backlog' : ''}">
         ${checkHtml}
         <div class="lead-main">
-          <div class="lead-name" data-id="${l.id}" onclick="editName(this, '${l.id}')" title="اضغط للتعديل">${escapeHtml(name)}</div>
+          <div class="lead-name" data-id="${l.id}" onclick="editName(this, '${l.id}')" title="اضغط للتعديل">
+            ${escapeHtml(name)} ${backlogPill}
+          </div>
           ${fieldsHtml ? `<div class="lead-fields">${fieldsHtml}</div>` : ''}
           ${badges.length ? `<div class="lead-meta">${badges.join('')}</div>` : ''}
+          ${rdvBadge}
+          ${customBadge}
           ${time ? `<div class="lead-time">${time}</div>` : ''}
+          ${commentInput}
         </div>
         <div class="lead-right">
           <select class="status-select ${status}" onchange="updateStatus('${l.id}', this.value)">${statusOpts}</select>
@@ -505,16 +949,175 @@ function render() {
   }).join('');
 }
 
+// ── Status change flow ─────────────────────────────────────
+// Some statuses need extra info before submitting:
+//   rdv    -> date picker modal
+//   custom -> free-text label modal
+// We stash the intent in pendingStatusChange and the modal's confirm handler
+// sends the final PATCH.
+
 async function updateStatus(id, status) {
+  const lead = allLeads.find(l => l.id === id);
+  const oldStatus = lead ? lead.status : null;
+
+  if (status === 'rdv') {
+    if (!features.rdv_date) {
+      // Migration not yet run — still let agent set rdv but skip the date capture.
+      return sendStatusPatch(id, { status });
+    }
+    pendingStatusChange = { leadId: id, oldStatus, newStatus: status };
+    openRdvModal(lead && lead.rdv_date);
+    return;
+  }
+
+  if (status === 'custom') {
+    if (!features.custom_status) {
+      // Roll back the select and warn — migration not yet run.
+      if (lead) render();
+      toast('الحالة المخصصة تتطلب تحديث قاعدة البيانات', 'error');
+      return;
+    }
+    pendingStatusChange = { leadId: id, oldStatus, newStatus: status };
+    openCustomModal(lead && lead.custom_status);
+    return;
+  }
+
+  await sendStatusPatch(id, { status });
+}
+
+async function sendStatusPatch(id, payload) {
   try {
-    await api(`/ad-leads/${id}/status`, { method: 'PATCH', body: { status } });
+    await api(`/ad-leads/${id}/status`, { method: 'PATCH', body: payload });
     const lead = allLeads.find(l => l.id === id);
-    if (lead) lead.status = status;
+    if (lead) {
+      lead.status = payload.status;
+      if (payload.status === 'rdv') {
+        lead.rdv_date = payload.rdv_date || lead.rdv_date || null;
+        lead.custom_status = null;
+      } else if (payload.status === 'custom') {
+        lead.custom_status = payload.custom_status;
+        lead.rdv_date = null;
+      } else {
+        lead.rdv_date = null;
+        lead.custom_status = null;
+      }
+    }
     render();
+    loadRdvBuckets();  // refresh the RDV section (status change may add/remove a scheduled RDV)
     toast('تم التحديث', 'success');
   } catch (e) {
-    toast('فشل التحديث', 'error');
+    // Try to surface the backend's Arabic message so the agent knows what happened.
+    let msg = 'فشل التحديث';
+    try {
+      const raw = (e && e.message) ? e.message : '';
+      const parsed = JSON.parse(raw);
+      if (parsed && parsed.detail) msg = parsed.detail;
+    } catch {}
+    toast(msg, 'error');
+    // Reload to resync the UI select with the actual state.
+    loadLeads();
   }
+}
+
+// ── RDV date picker modal ──────────────────────────────────
+function openRdvModal(preselected) {
+  const today = todayISO();
+  const input = document.getElementById('rdvDateInput');
+  input.min = today;
+  input.value = preselected || today;
+  // Mark the matching quick-chip (if any)
+  const picked = preselected || today;
+  document.querySelectorAll('#rdvQuickDates .quick-chip').forEach(c => {
+    const d = new Date(today + 'T00:00:00');
+    d.setDate(d.getDate() + parseInt(c.dataset.offset, 10));
+    const iso = d.toISOString().slice(0,10);
+    c.classList.toggle('active', iso === picked);
+    c.onclick = () => {
+      document.querySelectorAll('#rdvQuickDates .quick-chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      input.value = iso;
+    };
+  });
+  input.onchange = () => {
+    document.querySelectorAll('#rdvQuickDates .quick-chip').forEach(x => x.classList.remove('active'));
+  };
+  document.getElementById('rdvModal').classList.add('show');
+}
+
+async function confirmRdvDate() {
+  if (!pendingStatusChange) return;
+  const rdvDate = document.getElementById('rdvDateInput').value;
+  if (!rdvDate) { toast('اختر تاريخ الموعد', 'error'); return; }
+  const { leadId } = pendingStatusChange;
+  closeModal('rdvModal');
+  await sendStatusPatch(leadId, { status: 'rdv', rdv_date: rdvDate });
+  pendingStatusChange = null;
+}
+
+// ── Custom status modal ────────────────────────────────────
+function openCustomModal(preselected) {
+  const input = document.getElementById('customLabelInput');
+  input.value = preselected || '';
+  setTimeout(() => input.focus(), 50);
+  document.getElementById('customModal').classList.add('show');
+}
+
+async function confirmCustomLabel() {
+  if (!pendingStatusChange) return;
+  const label = document.getElementById('customLabelInput').value.trim();
+  if (!label) { toast('اكتب الحالة المخصصة', 'error'); return; }
+  const { leadId } = pendingStatusChange;
+  closeModal('customModal');
+  await sendStatusPatch(leadId, { status: 'custom', custom_status: label });
+  pendingStatusChange = null;
+}
+
+// If the modal is dismissed without confirming, revert the select.
+function cancelPendingStatus() {
+  if (!pendingStatusChange) return;
+  pendingStatusChange = null;
+  render();
+}
+
+// ── Comment editing ────────────────────────────────────────
+function markCommentDirty(leadId, inputEl) {
+  const wrap = inputEl.closest('.comment-wrap');
+  if (!wrap) return;
+  const original = inputEl.dataset.original || '';
+  if (inputEl.value !== original) wrap.classList.add('dirty');
+  else wrap.classList.remove('dirty');
+}
+
+async function saveLeadNote(leadId) {
+  const wrap = document.querySelector(`.comment-wrap[data-lead="${leadId}"]`);
+  if (!wrap) return;
+  const input = wrap.querySelector('input');
+  const note = input.value;
+  try {
+    await api(`/ad-leads/${leadId}/note`, { method: 'PATCH', body: { note } });
+    const lead = allLeads.find(l => l.id === leadId);
+    if (lead) lead.last_note = note;
+    input.dataset.original = note;
+    wrap.classList.remove('dirty');
+    toast('تم حفظ التعليق', 'success');
+  } catch (e) {
+    toast('فشل حفظ التعليق', 'error');
+  }
+}
+
+// ── Search ────────────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('input', (e) => {
+  searchQuery = e.target.value.trim();
+  document.getElementById('searchClearBtn').style.display = searchQuery ? 'block' : 'none';
+  render();
+});
+
+function clearSearch() {
+  searchQuery = '';
+  const inp = document.getElementById('searchInput');
+  inp.value = '';
+  document.getElementById('searchClearBtn').style.display = 'none';
+  render();
 }
 
 function editName(el, id) {
@@ -590,7 +1193,11 @@ function showPhones(id) {
   document.getElementById('phoneModal').classList.add('show');
 }
 
-function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+function closeModal(id) {
+  document.getElementById(id).classList.remove('show');
+  // Closing the RDV/custom modals without confirming → revert the select.
+  if (id === 'rdvModal' || id === 'customModal') cancelPendingStatus();
+}
 
 function toggleSelectMode() {
   selectMode = !selectMode;
