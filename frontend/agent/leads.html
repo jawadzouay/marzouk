@@ -656,7 +656,10 @@ const PRIMARY_FILTERS = ['new', 'rdv', 'waiting', 'no_answer', 'contacted', 'vis
 const ALWAYS_SHOW = new Set(['new', 'rdv', 'waiting', 'no_answer']);
 // SECONDARY chips (terminal/disqualified buckets) push to the end and
 // only render when the agent has at least one lead in that bucket.
-const SECONDARY_FILTERS = ['bv', 'pi', 'pe', 'autre_ville', 'over_40', 'contra'];
+// NOTE: 'pe' (غير مؤهل) is intentionally excluded — the agent doesn't need
+// a filter button for unqualified leads, but the leads themselves still
+// appear in the default "الكل" view.
+const SECONDARY_FILTERS = ['bv', 'pi', 'autre_ville', 'over_40', 'contra'];
 const ALL_STATUSES = [
   'new','contacted','rdv','bv','pi','pe','autre_ville','over_40',
   'contra','visits','registered','waiting','no_answer','custom',

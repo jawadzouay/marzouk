@@ -188,11 +188,14 @@ def my_leads(
 ):
     """Leads assigned to me in a date range.
 
-    When `include_all_new=true` the response also includes every still-`new`
-    lead assigned to the agent, regardless of when it was assigned. This lets
-    the inbox surface untouched leads from previous days even when the agent
-    is filtered to "today" — the focus stays on the work that hasn't been
-    done yet.
+    When `include_all_new=true` the response also includes every ACTIVE lead
+    (any non-terminal status) assigned to the agent, regardless of when it
+    was assigned. Agents used to lose leads from view the moment they moved
+    a backlog lead out of `new` — since it was no longer `new` AND outside
+    the date window, the next refresh would hide it. Widening the merge to
+    every active-pipeline status keeps a lead visible until the agent hits
+    a terminal outcome (registered / pi / pe / autre_ville / over_40 /
+    contra), which intentionally retire the lead from the default inbox.
     """
     sb = get_client()
     df, dt = resolve_range(range, date_from, date_to)
@@ -207,15 +210,21 @@ def my_leads(
     res = q.order("assigned_at", desc=True).execute()
     rows = res.data or []
 
-    # Backlog merge: pull every still-new lead that fell outside the window.
-    # We skip this when the caller is already filtering by status — that
-    # means they explicitly want a single bucket, not the inbox view.
+    # Active-pipeline merge: pull every in-progress lead that fell outside
+    # the window, so status updates never make a lead silently disappear.
+    # Skipped when the caller is explicitly filtering by status — that
+    # means they want a single bucket, not the full inbox view.
+    ACTIVE_STATUSES = [
+        "new", "contacted", "rdv", "bv",
+        "waiting", "no_answer", "custom", "visits",
+    ]
     if include_all_new and not status:
         seen = {r["id"] for r in rows}
-        backlog = sb.table("ad_leads").select(fields) \
-            .eq("assigned_agent_id", agent["sub"]).eq("status", "new") \
+        active = sb.table("ad_leads").select(fields) \
+            .eq("assigned_agent_id", agent["sub"]) \
+            .in_("status", ACTIVE_STATUSES) \
             .order("assigned_at", desc=True).execute()
-        for b in (backlog.data or []):
+        for b in (active.data or []):
             if b["id"] not in seen:
                 rows.append(b)
                 seen.add(b["id"])
