@@ -93,8 +93,14 @@ def require_admin(credentials: HTTPAuthorizationCredentials = Depends(security))
 
 def resolve_range(range_key: str, date_from: Optional[str], date_to: Optional[str]):
     """All named ranges are anchored to Morocco calendar days so the app
-    doesn't roll over at UTC midnight (01:00 Casablanca)."""
+    doesn't roll over at UTC midnight (01:00 Casablanca).
+
+    Returns (None, None) for range_key='all' — callers should treat that as
+    "skip the date filter entirely" so the admin can see the full history of
+    ad performance without windowing."""
     today = today_morocco()
+    if range_key == "all":
+        return None, None
     if range_key == "today":
         return today.isoformat(), today.isoformat()
     if range_key == "yesterday":
@@ -112,10 +118,14 @@ def resolve_range(range_key: str, date_from: Optional[str], date_to: Optional[st
     return today.isoformat(), today.isoformat()
 
 
-def apply_date_filter(q, df: str, dt: str, field: str = "created_time"):
+def apply_date_filter(q, df: Optional[str], dt: Optional[str], field: str = "created_time"):
     """Filter a timestamptz column against a Morocco-local [df..dt] range.
     Converts the day boundaries to UTC so the DB query matches the calendar
-    day that agents actually see on their phones."""
+    day that agents actually see on their phones. Returns the query unchanged
+    when df/dt are None — that's how callers express "no date limit" (e.g.
+    range='all' on the admin ad-quality view)."""
+    if not df or not dt:
+        return q
     start_utc, end_utc = morocco_day_bounds_utc(df, dt)
     return q.gte(field, start_utc).lte(field, end_utc)
 
@@ -1253,6 +1263,7 @@ def admin_ad_quality(
     scope_id: Optional[str] = Query(None),
     city_id: Optional[str] = Query(None),
     branch_id: Optional[str] = Query(None),
+    date_basis: str = Query("activity"),
     admin=Depends(require_admin),
 ):
     """Aggregate leads by ad_name. Counts are cumulative through the funnel —
@@ -1262,6 +1273,15 @@ def admin_ad_quality(
     bring in" and prevents successful ads from looking weak just because
     their best leads kept advancing.
 
+    date_basis ∈ {activity, arrival}:
+      - activity  (default): filter by status_changed_at — "ads that had
+        live activity in this window". Picks up a lead the agent marked
+        RDV today even if FB delivered it weeks ago. Matches the admin's
+        real-time expectation. Falls back to created_time when the column
+        is missing or the lead has never been touched.
+      - arrival: filter by created_time — classical "ads that delivered
+        leads in this window". Kept for ad-performance audits.
+
     Sort: rdv_count desc, then registered_count desc — best-performing ads
     on top. Color: rdv_rate (green ≥20%, orange 8-20%, red <8%); mature ads
     with zero registered get downgraded one level since registered is the
@@ -1269,10 +1289,25 @@ def admin_ad_quality(
     sb = get_client()
     df, dt = resolve_range(range, date_from, date_to)
 
-    q = sb.table("ad_leads").select(
-        "ad_name, platform, status, created_time, scope_type, scope_id"
-    )
-    q = apply_date_filter(q, df, dt)
+    # Pick the date field to filter on. "activity" = status_changed_at so
+    # the ad quality board reflects live status updates; "arrival" keeps the
+    # classical created_time semantics for audits. Gracefully degrades to
+    # created_time if the migration hasn't been applied yet.
+    if date_basis == "arrival" or not _has_status_changed_at_col():
+        filter_field = "created_time"
+    else:
+        filter_field = "status_changed_at"
+
+    select_cols = "ad_name, platform, status, created_time, scope_type, scope_id"
+    if filter_field == "status_changed_at":
+        select_cols += ", status_changed_at"
+
+    q = sb.table("ad_leads").select(select_cols)
+    # range='all' ⇒ df/dt come back as None; skip the date filter entirely
+    # so the admin sees the full historical ad quality (every lead every ad
+    # ever delivered), which is what "see all previous leads" requires.
+    if df and dt:
+        q = apply_date_filter(q, df, dt, field=filter_field)
     if scope_type and scope_id:
         q = q.eq("scope_type", scope_type).eq("scope_id", scope_id)
     elif city_id:

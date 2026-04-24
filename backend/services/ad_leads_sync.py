@@ -36,10 +36,11 @@ log.setLevel(logging.INFO)
 
 _PHONE_STRIP = re.compile(r"[^\d]")
 
-# Tri-state probe: None=unknown, True/False=confirmed. Strips adset_name from
-# insert/update payloads when the Supabase migration hasn't been run yet, so
-# deploying the backend ahead of the SQL doesn't break the sync loop.
+# Tri-state probes: None=unknown, True/False=confirmed. Strip optional
+# columns from payloads when the Supabase migration hasn't been run yet,
+# so deploying the backend ahead of the SQL doesn't break the sync loop.
 _HAS_ADSET_COL: Optional[bool] = None
+_HAS_STATUS_CHANGED_AT_COL: Optional[bool] = None
 
 
 def has_adset_col() -> bool:
@@ -54,10 +55,31 @@ def has_adset_col() -> bool:
     return _HAS_ADSET_COL
 
 
+def has_status_changed_at_col() -> bool:
+    global _HAS_STATUS_CHANGED_AT_COL
+    if _HAS_STATUS_CHANGED_AT_COL is None:
+        try:
+            get_client().table("ad_leads").select("status_changed_at").limit(1).execute()
+            _HAS_STATUS_CHANGED_AT_COL = True
+        except Exception:
+            _HAS_STATUS_CHANGED_AT_COL = False
+    return _HAS_STATUS_CHANGED_AT_COL
+
+
+def _strip_optional_cols(payload: dict) -> dict:
+    """Remove columns that the DB doesn't have yet. Idempotent — returns
+    the original payload when every optional column exists."""
+    out = dict(payload)
+    if not has_adset_col():
+        out.pop("adset_name", None)
+    if not has_status_changed_at_col():
+        out.pop("status_changed_at", None)
+    return out
+
+
 def _strip_adset(payload: dict) -> dict:
-    if has_adset_col():
-        return payload
-    return {k: v for k, v in payload.items() if k != "adset_name"}
+    # Back-compat shim — existing call sites keep working.
+    return _strip_optional_cols(payload)
 
 
 def normalize_morocco_phone(raw: Optional[str]) -> Optional[str]:
@@ -401,7 +423,13 @@ def sync_config(config_id: str) -> dict:
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             })))
         else:
-            to_insert.append(_strip_adset(lead))
+            # Stamp status_changed_at on fresh inserts so the admin's
+            # activity-today filter picks up new leads immediately, without
+            # waiting for an agent to touch them. _strip_optional_cols
+            # drops the key if the DB column doesn't exist yet.
+            payload = dict(lead)
+            payload["status_changed_at"] = datetime.now(timezone.utc).isoformat()
+            to_insert.append(_strip_optional_cols(payload))
 
     inserted = 0
     if to_insert:

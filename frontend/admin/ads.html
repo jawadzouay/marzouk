@@ -191,11 +191,12 @@
     </div>
 
     <div class="chips-row" id="dateChips">
+      <div class="chip active" data-range="all">الكل</div>
       <div class="chip" data-range="today">اليوم</div>
       <div class="chip" data-range="yesterday">أمس</div>
       <div class="chip" data-range="last3">آخر 3 أيام</div>
       <div class="chip" data-range="week">هذا الأسبوع</div>
-      <div class="chip active" data-range="month">هذا الشهر</div>
+      <div class="chip" data-range="month">هذا الشهر</div>
     </div>
 
     <div class="summary-grid">
@@ -238,7 +239,10 @@ const API = window.location.origin;
 const token = localStorage.getItem('token');
 if (!token || localStorage.getItem('role') !== 'admin') { location.href = '/index.html'; }
 
-let currentRange = 'month';
+// Default to "all" so admins see the full historical ad quality on open —
+// previously-updated leads (RDV'd weeks ago, registered last month, etc.)
+// stay visible. Narrower chips let them drill into a specific period.
+let currentRange = 'all';
 let allAds = [];
 
 function toast(msg, type='') {
