@@ -6,6 +6,16 @@ from dotenv import load_dotenv
 from datetime import datetime, date, timedelta
 import os
 
+try:
+    from zoneinfo import ZoneInfo
+except Exception:  # pragma: no cover
+    from backports.zoneinfo import ZoneInfo  # type: ignore
+
+_MOROCCO_TZ = ZoneInfo("Africa/Casablanca")
+
+def _today_morocco() -> date:
+    return datetime.now(_MOROCCO_TZ).date()
+
 load_dotenv()
 
 router = APIRouter()
@@ -191,9 +201,9 @@ def quality_scores(
 
     # Default date range: today
     if not date_from:
-        date_from = date.today().isoformat()
+        date_from = _today_morocco().isoformat()
     if not date_to:
-        date_to = date.today().isoformat()
+        date_to = _today_morocco().isoformat()
 
     results = []
     for agent in agents.data:

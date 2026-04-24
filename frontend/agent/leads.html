@@ -629,7 +629,7 @@ const token = localStorage.getItem('token');
 if (!token) { window.location.href = '/index.html'; }
 
 // ── Header user identity ──
-const agentName = localStorage.getItem('agentName') || '';
+const agentName = localStorage.getItem('agentName') || localStorage.getItem('name') || '';
 document.getElementById('hdrAgentName').textContent = agentName || 'وكيل';
 document.getElementById('hdrAvatar').textContent = (agentName.charAt(0) || '?').toUpperCase();
 
@@ -917,8 +917,16 @@ function matchesSearch(lead, q) {
 }
 
 function todayISO() {
-  const t = new Date();
-  return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,'0')}-${String(t.getDate()).padStart(2,'0')}`;
+  // Build YYYY-MM-DD for Africa/Casablanca regardless of browser timezone —
+  // matches the backend's Morocco-time calendar so "today" is consistent.
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Africa/Casablanca',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const y = parts.find(p => p.type === 'year').value;
+  const m = parts.find(p => p.type === 'month').value;
+  const d = parts.find(p => p.type === 'day').value;
+  return `${y}-${m}-${d}`;
 }
 
 function formatRdvDate(iso) {

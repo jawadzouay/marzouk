@@ -181,10 +181,12 @@
     <div class="sync-bar">
       <div class="sync-info">
         <span id="sourcesSummary">—</span>
+        <span id="lastUpdated" style="margin-right:10px;color:#10b981;font-weight:700;"></span>
       </div>
       <div style="display:flex; gap: 6px;">
+        <button class="btn btn-secondary" onclick="loadAds()" title="تحديث الأرقام الآن">🔄</button>
         <button class="btn btn-secondary" onclick="redistribute()">إعادة التوزيع</button>
-        <button class="btn btn-primary" onclick="manualSync()">🔄 مزامنة الكل</button>
+        <button class="btn btn-primary" onclick="manualSync()">مزامنة الكل</button>
       </div>
     </div>
 
@@ -324,13 +326,32 @@ async function loadAds() {
       params.set('scope_type', st);
       params.set('scope_id', sid);
     }
+    // cache-busting timestamp so the browser never reuses a stale response —
+    // the page should feel live every time an agent updates a status.
+    params.set('_t', Date.now().toString());
     const d = await api(`/ad-leads/admin/ad-quality?${params.toString()}`);
     allAds = d.ads || [];
+    lastTotals = d.totals || null;
+    lastLoadedAt = new Date();
     render();
+    updateLastUpdated();
   } catch (e) { toast('تعذر تحميل الإعلانات', 'error'); }
 }
 
 function pct(v) { return (v*100).toFixed(0) + '%'; }
+
+let lastTotals = null;
+let lastLoadedAt = null;
+
+function updateLastUpdated() {
+  const el = document.getElementById('lastUpdated');
+  if (!el || !lastLoadedAt) return;
+  const t = lastLoadedAt;
+  const hh = String(t.getHours()).padStart(2,'0');
+  const mm = String(t.getMinutes()).padStart(2,'0');
+  const ss = String(t.getSeconds()).padStart(2,'0');
+  el.textContent = `آخر تحديث: ${hh}:${mm}:${ss}`;
+}
 
 function render() {
   const fp = document.getElementById('filterPlatform').value;
@@ -343,24 +364,45 @@ function render() {
     (!fc || a.color === fc)
   );
 
-  // summary
-  let L=0, R=0, V=0, Rg=0;
-  allAds.forEach(a => { L+=a.leads; R+=a.rdv; V+=a.visits; Rg+=a.registered; });
-  document.getElementById('sumLeads').textContent = L;
-  document.getElementById('sumRdv').textContent = R;
-  document.getElementById('sumVisits').textContent = V;
-  document.getElementById('sumReg').textContent = Rg;
+  // summary — use cumulative funnel counts straight from the backend totals
+  // so the numbers match what the cards show.
+  const t = lastTotals || {
+    leads: allAds.reduce((s,a)=>s+a.leads,0),
+    rdv: allAds.reduce((s,a)=>s+(a.rdv_count||0),0),
+    visits: allAds.reduce((s,a)=>s+(a.visits_count||0),0),
+    registered: allAds.reduce((s,a)=>s+(a.registered_count||0),0),
+  };
+  document.getElementById('sumLeads').textContent  = t.leads || 0;
+  document.getElementById('sumRdv').textContent    = t.rdv || 0;
+  document.getElementById('sumVisits').textContent = t.visits || 0;
+  document.getElementById('sumReg').textContent    = t.registered || 0;
 
   const grid = document.getElementById('adGrid');
+
+  // Diagnostic banner: every lead bucketed into "(بدون اسم)" almost always
+  // means no sheet column has been mapped as type=ad_name. Surface that
+  // explicitly with a link so the admin knows what to fix.
+  const onlyUnnamed = allAds.length === 1 && allAds[0].ad_name === '(بدون اسم)';
+  let banner = '';
+  if (onlyUnnamed && allAds[0].leads > 0) {
+    banner = `<div class="empty" style="background:#fef3c7;color:#92400e;border:1.5px dashed #fbbf24;text-align:right;padding:14px;border-radius:12px;margin-bottom:10px;">
+      ⚠️ الرسائل لا تحمل اسم إعلان. افتح <a href="lead-sources.html" style="color:#92400e;font-weight:800;text-decoration:underline;">مصادر الرسائل</a> وحدّد عمود "اسم الإعلان" في إعدادات المصدر.
+    </div>`;
+  }
+
   if (!ads.length) {
-    grid.innerHTML = '<div class="empty">لا توجد إعلانات في هذه الفترة. اضغط "مزامنة الآن" لتحميل البيانات من Google Sheet.</div>';
+    grid.innerHTML = banner + '<div class="empty">لا توجد إعلانات في هذه الفترة. اضغط "مزامنة الآن" لتحميل البيانات من Google Sheet.</div>';
     return;
   }
 
-  grid.innerHTML = ads.map(a => {
+  grid.innerHTML = banner + ads.map(a => {
     const matLbl = { fresh: 'جديد', evaluating: 'قيد التقييم', mature: 'ناضج' }[a.maturity];
     const tags = [];
     if (a.platform) tags.push(`<span class="tag platform">${a.platform.toUpperCase()}</span>`);
+    // Cumulative funnel numbers — every lead that ever reached each stage.
+    const rdvN = a.rdv_count ?? a.rdv ?? 0;
+    const visN = a.visits_count ?? a.visits ?? 0;
+    const regN = a.registered_count ?? a.registered ?? 0;
     return `
       <div class="ad-card ${a.color}">
         <div class="ad-head">
@@ -372,9 +414,9 @@ function render() {
         </div>
         <div class="funnel">
           <div class="funnel-tile"><div class="funnel-num">${a.leads}</div><div class="funnel-lbl">رسائل</div></div>
-          <div class="funnel-tile primary"><div class="funnel-num">${a.rdv}</div><div class="funnel-lbl">مواعيد</div></div>
-          <div class="funnel-tile"><div class="funnel-num">${a.visits}</div><div class="funnel-lbl">زيارات</div></div>
-          <div class="funnel-tile good"><div class="funnel-num">${a.registered}</div><div class="funnel-lbl">مسجلين</div></div>
+          <div class="funnel-tile primary"><div class="funnel-num">${rdvN}</div><div class="funnel-lbl">مواعيد</div></div>
+          <div class="funnel-tile"><div class="funnel-num">${visN}</div><div class="funnel-lbl">زيارات</div></div>
+          <div class="funnel-tile good"><div class="funnel-num">${regN}</div><div class="funnel-lbl">مسجلين</div></div>
         </div>
         <div class="rates-row">
           <div>RDV: <b>${pct(a.rdv_rate)}</b></div>
@@ -388,9 +430,24 @@ function render() {
 
 function escapeHtml(s) { return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
+// Auto-refresh every 30s while the page is visible — keeps the ad quality
+// view live as agents update statuses, without requiring a manual reload.
+const AUTO_REFRESH_MS = 30000;
+let autoRefreshTimer = null;
+function startAutoRefresh() {
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  autoRefreshTimer = setInterval(() => {
+    if (document.visibilityState === 'visible') loadAds();
+  }, AUTO_REFRESH_MS);
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') loadAds();
+});
+
 (async function() {
   await loadSources();
   loadAds();
+  startAutoRefresh();
 })();
 </script>
 </body>

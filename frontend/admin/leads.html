@@ -164,9 +164,9 @@
 
     <div class="filter-bar">
       <div class="chips-row" id="rangeChips">
-        <div class="chip" data-range="today">اليوم</div>
+        <div class="chip active" data-range="today">اليوم</div>
         <div class="chip" data-range="yesterday">أمس</div>
-        <div class="chip active" data-range="last3">آخر 3 أيام</div>
+        <div class="chip" data-range="last3">آخر 3 أيام</div>
         <div class="chip" data-range="week">هذا الأسبوع</div>
         <div class="chip" data-range="month">هذا الشهر</div>
         <div class="chip" data-range="custom">مخصص</div>
@@ -308,7 +308,7 @@
       'waiting','no_answer','custom',
       'bv','pi','pe','autre_ville','over_40','contra'
     ];
-    let currentRange = 'last3';
+    let currentRange = 'today';
     let customFrom = '', customTo = '';
     let allAgents = [];  // from the leaderboard response, used as transfer targets
     let expanded = new Set();  // agent IDs whose lead panel is open

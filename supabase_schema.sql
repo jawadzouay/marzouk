@@ -285,6 +285,18 @@ ALTER TABLE ad_leads ADD COLUMN IF NOT EXISTS adset_name    TEXT;
 CREATE INDEX IF NOT EXISTS idx_ad_leads_rdv_date   ON ad_leads(rdv_date) WHERE rdv_date IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_ad_leads_adset_name ON ad_leads(adset_name);
 
+-- status_changed_at powers the admin "today's activity" view: a lead
+-- assigned yesterday but marked RDV/registered today should count toward
+-- today in the admin dashboard. Backfill existing rows so every lead has
+-- a meaningful value (first contact → assignment → insertion time, in
+-- order of preference).
+ALTER TABLE ad_leads ADD COLUMN IF NOT EXISTS status_changed_at TIMESTAMPTZ;
+UPDATE ad_leads
+   SET status_changed_at = COALESCE(contacted_at, assigned_at, inserted_at)
+ WHERE status_changed_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_ad_leads_status_changed_at
+  ON ad_leads(status_changed_at DESC);
+
 -- ============================================================================
 -- AGENT OFF-DATES — per-agent list of future off days (unchanged)
 -- ============================================================================

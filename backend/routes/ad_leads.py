@@ -25,6 +25,11 @@ import os
 import logging
 import re
 
+try:
+    from zoneinfo import ZoneInfo
+except Exception:  # pragma: no cover
+    from backports.zoneinfo import ZoneInfo  # type: ignore
+
 load_dotenv()
 
 router = APIRouter()
@@ -34,6 +39,28 @@ ALGORITHM = "HS256"
 SYNC_TOKEN = os.getenv("SYNC_CRON_TOKEN", "")
 
 log = logging.getLogger("ad_leads")
+
+# ---------------------------------------------------------------------------
+# Moroccan time — the whole app lives in Africa/Casablanca (UTC+1, no DST).
+# Timestamps are still stored in UTC, but "today" / "yesterday" / the
+# boundaries of a calendar day are computed in Morocco local so the inbox
+# doesn't flip at UTC midnight (01:00 Morocco).
+# ---------------------------------------------------------------------------
+
+MOROCCO_TZ = ZoneInfo("Africa/Casablanca")
+
+
+def today_morocco() -> date:
+    return datetime.now(MOROCCO_TZ).date()
+
+
+def morocco_day_bounds_utc(df: str, dt: str) -> tuple[str, str]:
+    """Given Morocco-local calendar dates df..dt (YYYY-MM-DD inclusive),
+    return UTC ISO strings for the [00:00 Morocco, 23:59:59 Morocco] window."""
+    start_local = datetime.fromisoformat(f"{df}T00:00:00").replace(tzinfo=MOROCCO_TZ)
+    end_local = datetime.fromisoformat(f"{dt}T23:59:59").replace(tzinfo=MOROCCO_TZ)
+    return (start_local.astimezone(timezone.utc).isoformat(),
+            end_local.astimezone(timezone.utc).isoformat())
 
 
 def require_agent(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -65,7 +92,9 @@ def require_admin(credentials: HTTPAuthorizationCredentials = Depends(security))
 # ---------------------------------------------------------------------------
 
 def resolve_range(range_key: str, date_from: Optional[str], date_to: Optional[str]):
-    today = date.today()
+    """All named ranges are anchored to Morocco calendar days so the app
+    doesn't roll over at UTC midnight (01:00 Casablanca)."""
+    today = today_morocco()
     if range_key == "today":
         return today.isoformat(), today.isoformat()
     if range_key == "yesterday":
@@ -84,7 +113,11 @@ def resolve_range(range_key: str, date_from: Optional[str], date_to: Optional[st
 
 
 def apply_date_filter(q, df: str, dt: str, field: str = "created_time"):
-    return q.gte(field, f"{df}T00:00:00+00:00").lte(field, f"{dt}T23:59:59+00:00")
+    """Filter a timestamptz column against a Morocco-local [df..dt] range.
+    Converts the day boundaries to UTC so the DB query matches the calendar
+    day that agents actually see on their phones."""
+    start_utc, end_utc = morocco_day_bounds_utc(df, dt)
+    return q.gte(field, start_utc).lte(field, end_utc)
 
 
 def _agent_scopes(sb, agent_id: str):
@@ -174,6 +207,8 @@ def _lead_select_fields() -> str:
         extras.append("custom_status")
     if _has_rdv_date_col():
         extras.append("rdv_date")
+    if _has_status_changed_at_col():
+        extras.append("status_changed_at")
     return _LEAD_FIELDS_BASE + ("".join(f", {e}" for e in extras) if extras else "")
 
 
@@ -263,7 +298,7 @@ def my_rdvs(bucket: Optional[str] = Query(None), agent=Depends(require_agent)):
             "today": [], "tomorrow": [], "week": [], "later": [],
         }
 
-    today = date.today()
+    today = today_morocco()
     tomorrow = today + timedelta(days=1)
     week_end = today + timedelta(days=6)  # inclusive → "next 7 days"
 
@@ -312,10 +347,11 @@ def my_rdvs(bucket: Optional[str] = Query(None), agent=Depends(require_agent)):
 @router.get("/my/count")
 def my_counts(agent=Depends(require_agent)):
     sb = get_client()
-    today_start = f"{date.today().isoformat()}T00:00:00+00:00"
+    today_s = today_morocco().isoformat()
+    start_utc, _ = morocco_day_bounds_utc(today_s, today_s)
     r = sb.table("ad_leads").select("status") \
         .eq("assigned_agent_id", agent["sub"]) \
-        .gte("assigned_at", today_start).execute()
+        .gte("assigned_at", start_utc).execute()
     rows = r.data or []
     by_status: Dict[str, int] = {}
     for row in rows:
@@ -364,6 +400,7 @@ VALID_STATUSES = {
 
 _HAS_CUSTOM_STATUS_COL: Optional[bool] = None
 _HAS_RDV_DATE_COL: Optional[bool] = None
+_HAS_STATUS_CHANGED_AT_COL: Optional[bool] = None
 
 
 def _has_custom_status_col() -> bool:
@@ -390,6 +427,18 @@ def _has_rdv_date_col() -> bool:
     return _HAS_RDV_DATE_COL
 
 
+def _has_status_changed_at_col() -> bool:
+    global _HAS_STATUS_CHANGED_AT_COL
+    if _HAS_STATUS_CHANGED_AT_COL is None:
+        try:
+            get_client().table("ad_leads").select("status_changed_at").limit(1).execute()
+            _HAS_STATUS_CHANGED_AT_COL = True
+        except Exception:
+            _HAS_STATUS_CHANGED_AT_COL = False
+            log.warning("[ad_leads] status_changed_at column missing — admin 'today' filter falls back to assigned_at")
+    return _HAS_STATUS_CHANGED_AT_COL
+
+
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -411,6 +460,11 @@ def update_lead_status(lead_id: str, body: StatusUpdate, agent=Depends(require_a
         updates["last_note"] = body.note
     if body.status != "new":
         updates["contacted_at"] = now_iso
+    # status_changed_at gives admin "today's activity" view — every status
+    # change stamps this column so a lead the agent marked RDV today lands
+    # in today's admin bucket even if the lead itself was assigned yesterday.
+    if _has_status_changed_at_col():
+        updates["status_changed_at"] = now_iso
 
     # Custom status — requires the free-text label.
     if body.status == "custom":
@@ -506,7 +560,7 @@ def update_lead_name(lead_id: str, body: NameUpdate, agent=Depends(require_agent
 @router.get("/availability")
 def get_my_off_dates(agent=Depends(require_agent)):
     sb = get_client()
-    today_iso = date.today().isoformat()
+    today_iso = today_morocco().isoformat()
     res = sb.table("agent_off_dates").select("off_date") \
         .eq("agent_id", agent["sub"]).gte("off_date", today_iso) \
         .order("off_date").execute()
@@ -520,7 +574,7 @@ class OffDatesUpdate(BaseModel):
 @router.put("/availability")
 def set_my_off_dates(body: OffDatesUpdate, agent=Depends(require_agent)):
     sb = get_client()
-    today_iso = date.today().isoformat()
+    today_iso = today_morocco().isoformat()
     clean = sorted({d for d in body.off_dates if d >= today_iso})
 
     sb.table("agent_off_dates").delete() \
@@ -653,13 +707,20 @@ def admin_list_agent_leads(
         base += ", custom_status"
     if _has_rdv_date_col():
         base += ", rdv_date"
+    if _has_status_changed_at_col():
+        base += ", status_changed_at"
     q = sb.table("ad_leads").select(base).eq("assigned_agent_id", agent_id)
     if status:
         q = q.eq("status", status)
     if range:
         df, dt = resolve_range(range, date_from, date_to)
-        q = apply_date_filter(q, df, dt, field="assigned_at")
-    res = q.order("assigned_at", desc=True).limit(max(1, min(2000, limit))).execute()
+        # Admin "today" means "status changed today" — a lead assigned
+        # yesterday but marked RDV today should count toward today.
+        activity_field = "status_changed_at" if _has_status_changed_at_col() else "assigned_at"
+        q = apply_date_filter(q, df, dt, field=activity_field)
+    # Sort by the same field we filtered on so the most recent activity is first.
+    order_field = "status_changed_at" if _has_status_changed_at_col() else "assigned_at"
+    res = q.order(order_field, desc=True).limit(max(1, min(2000, limit))).execute()
     return {"leads": res.data or []}
 
 
@@ -696,11 +757,15 @@ def admin_agent_leaderboard(
 
     agent_ids = [a["id"] for a in agents_data]
     counts: Dict[str, Dict[str, Any]] = {}
+    # Admin "today" view = status changed today. A lead assigned yesterday
+    # that got marked RDV or registered today counts toward today's activity.
+    activity_field = "status_changed_at" if _has_status_changed_at_col() else "assigned_at"
     if agent_ids:
-        l_q = sb.table("ad_leads").select(
-            "assigned_agent_id, status, assigned_at"
-        ).in_("assigned_agent_id", agent_ids)
-        l_q = apply_date_filter(l_q, df, dt, field="assigned_at")
+        sel = "assigned_agent_id, status, assigned_at"
+        if activity_field != "assigned_at":
+            sel += f", {activity_field}"
+        l_q = sb.table("ad_leads").select(sel).in_("assigned_agent_id", agent_ids)
+        l_q = apply_date_filter(l_q, df, dt, field=activity_field)
         leads = l_q.execute().data or []
         for l in leads:
             aid = l["assigned_agent_id"]
@@ -1125,7 +1190,7 @@ def admin_pool(
 ):
     """Agents in the requested scope with today's lead count and off-dates."""
     sb = get_client()
-    today = date.today().isoformat()
+    today = today_morocco().isoformat()
 
     if scope_type == "branch":
         agents = sb.table("agents").select(
@@ -1158,9 +1223,9 @@ def admin_pool(
     for r in (off.data or []):
         off_map.setdefault(r["agent_id"], []).append(r["off_date"])
 
-    today_start = f"{today}T00:00:00+00:00"
+    today_start_utc, _ = morocco_day_bounds_utc(today, today)
     leads = sb.table("ad_leads").select("assigned_agent_id") \
-        .in_("assigned_agent_id", ids).gte("assigned_at", today_start).execute()
+        .in_("assigned_agent_id", ids).gte("assigned_at", today_start_utc).execute()
     count_map: Dict[str, int] = {}
     for r in (leads.data or []):
         aid = r["assigned_agent_id"]
@@ -1190,7 +1255,17 @@ def admin_ad_quality(
     branch_id: Optional[str] = Query(None),
     admin=Depends(require_admin),
 ):
-    """Aggregate leads by ad_name with RDV-first quality scoring."""
+    """Aggregate leads by ad_name. Counts are cumulative through the funnel —
+    a lead that progressed new→rdv→visits→registered is counted at every
+    stage it passed (so rdv_count includes it), not just its current state.
+    This matches the admin's mental model of "how many RDVs did this ad
+    bring in" and prevents successful ads from looking weak just because
+    their best leads kept advancing.
+
+    Sort: rdv_count desc, then registered_count desc — best-performing ads
+    on top. Color: rdv_rate (green ≥20%, orange 8-20%, red <8%); mature ads
+    with zero registered get downgraded one level since registered is the
+    secondary long-term metric (1-10 days to materialize)."""
     sb = get_client()
     df, dt = resolve_range(range, date_from, date_to)
 
@@ -1206,21 +1281,40 @@ def admin_ad_quality(
         q = q.eq("scope_type", "branch").eq("scope_id", branch_id)
     res = q.execute()
 
+    # Statuses that have "passed through" RDV / visits / registered. Used to
+    # build cumulative funnel counts.
+    PAST_RDV     = {"rdv", "visits", "registered"}
+    PAST_VISITS  = {"visits", "registered"}
+    PAST_REG     = {"registered"}
+
     buckets: Dict[str, dict] = {}
     for r in (res.data or []):
         key = r.get("ad_name") or "(بدون اسم)"
         b = buckets.setdefault(key, {
             "ad_name": key,
             "platform": r.get("platform"),
-            "leads": 0, "new": 0, "contacted": 0, "rdv": 0,
-            "visits": 0, "registered": 0, "bv": 0, "pi": 0, "pe": 0,
-            "autre_ville": 0, "over_40": 0, "contra": 0,
+            # Funnel buckets — rdv_count / visits_count / registered_count
+            # are CUMULATIVE; the per-status fields are the raw current-state
+            # counts kept for diagnostics.
+            "leads": 0,
+            "rdv_count": 0, "visits_count": 0, "registered_count": 0,
+            "new": 0, "contacted": 0, "rdv": 0, "visits": 0, "registered": 0,
+            "bv": 0, "pi": 0, "pe": 0, "waiting": 0, "no_answer": 0,
+            "custom": 0, "autre_ville": 0, "over_40": 0, "contra": 0,
             "first_lead_at": None, "last_lead_at": None,
         })
         b["leads"] += 1
         s = r.get("status") or "new"
         if s in b:
             b[s] += 1
+        # Cumulative funnel counts — every lead that ever became RDV / visit /
+        # registered is counted, regardless of where it sits now.
+        if s in PAST_RDV:
+            b["rdv_count"] += 1
+        if s in PAST_VISITS:
+            b["visits_count"] += 1
+        if s in PAST_REG:
+            b["registered_count"] += 1
         ct = r.get("created_time")
         if ct:
             if not b["first_lead_at"] or ct < b["first_lead_at"]:
@@ -1232,9 +1326,9 @@ def admin_ad_quality(
     ads = []
     for b in buckets.values():
         leads = b["leads"]
-        rdv = b["rdv"]
-        visits = b["visits"]
-        registered = b["registered"]
+        rdv = b["rdv_count"]
+        visits = b["visits_count"]
+        registered = b["registered_count"]
         contacted_total = leads - b["new"]
 
         b["rdv_rate"] = round(rdv / leads, 3) if leads else 0
@@ -1258,23 +1352,32 @@ def admin_ad_quality(
         else:
             b["maturity"] = "mature"
 
-        if age_days >= 7:
-            if b["registered_rate"] >= 0.10:
-                b["color"] = "green"
-            elif b["registered_rate"] >= 0.04:
-                b["color"] = "orange"
-            else:
-                b["color"] = "red"
+        # PRIMARY signal: rdv_rate. Single threshold across all maturity
+        # levels — fewer surprises for the admin. If the ad is mature
+        # (≥7 days, enough time to register) AND hasn't registered anyone,
+        # downgrade one level since the secondary metric is also failing.
+        if b["rdv_rate"] >= 0.20:
+            color = "green"
+        elif b["rdv_rate"] >= 0.08:
+            color = "orange"
         else:
-            if b["rdv_rate"] >= 0.20:
-                b["color"] = "green"
-            elif b["rdv_rate"] >= 0.08:
-                b["color"] = "orange"
-            else:
-                b["color"] = "red"
+            color = "red"
+        if age_days >= 7 and registered == 0 and color != "red":
+            color = "orange" if color == "green" else "red"
+        b["color"] = color
 
         ads.append(b)
 
-    color_order = {"red": 0, "orange": 1, "green": 2}
-    ads.sort(key=lambda x: (color_order.get(x["color"], 3), -x["leads"]))
-    return {"ads": ads, "date_from": df, "date_to": dt}
+    # Sort: best-performing first. RDV count is the primary metric (more
+    # RDVs = better ad), registered is the long-term tiebreaker, then
+    # total leads as a final tiebreaker for ads with identical funnel.
+    ads.sort(key=lambda x: (-x["rdv_count"], -x["registered_count"], -x["leads"]))
+
+    totals = {
+        "ads": len(ads),
+        "leads": sum(a["leads"] for a in ads),
+        "rdv": sum(a["rdv_count"] for a in ads),
+        "visits": sum(a["visits_count"] for a in ads),
+        "registered": sum(a["registered_count"] for a in ads),
+    }
+    return {"ads": ads, "totals": totals, "date_from": df, "date_to": dt}

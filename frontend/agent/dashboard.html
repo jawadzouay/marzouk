@@ -315,7 +315,8 @@
 <script>
 const API = window.location.origin;
 const token = localStorage.getItem('token');
-const agentName = localStorage.getItem('agentName') || '';
+// Fallback to `name` — older logins only set `name`, newer logins set both.
+const agentName = localStorage.getItem('agentName') || localStorage.getItem('name') || '';
 
 if (!token) { location.href = '/index.html'; }
 

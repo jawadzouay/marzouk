@@ -124,6 +124,10 @@
         localStorage.setItem('token', data.token);
         localStorage.setItem('role', data.role);
         localStorage.setItem('name', data.name);
+        // agentName is read by the agent dashboard + leads pages; keep both
+        // keys in sync so every page shows the signed-in name regardless of
+        // which key it reads.
+        localStorage.setItem('agentName', data.name);
         if (data.agent_id) localStorage.setItem('agent_id', data.agent_id);
 
         window.location.href = data.role === 'admin' ? '/admin/dashboard.html' : '/agent/leads.html';

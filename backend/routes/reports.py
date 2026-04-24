@@ -6,6 +6,16 @@ from dotenv import load_dotenv
 from datetime import datetime, timedelta, date
 import os
 
+try:
+    from zoneinfo import ZoneInfo
+except Exception:  # pragma: no cover
+    from backports.zoneinfo import ZoneInfo  # type: ignore
+
+_MOROCCO_TZ = ZoneInfo("Africa/Casablanca")
+
+def _today_morocco() -> date:
+    return datetime.now(_MOROCCO_TZ).date()
+
 load_dotenv()
 
 router = APIRouter()
@@ -135,7 +145,7 @@ def get_all_reports(
 @router.get("/submission-status")
 def submission_status(admin=Depends(require_admin)):
     sb = get_client()
-    today = date.today()
+    today = _today_morocco()
     yesterday = today - timedelta(days=1)
 
     agents = sb.table("agents").select("id, name, day_off").eq("is_active", True).execute()
@@ -303,7 +313,7 @@ def goal_progress(goal_id: str, user=Depends(get_current_user)):
     # Calculate where they should be today on the target line
     start = datetime.strptime(g["start_date"], "%Y-%m-%d").date()
     end = datetime.strptime(g["end_date"], "%Y-%m-%d").date()
-    today = date.today()
+    today = _today_morocco()
     current_day = min(today, end)
 
     total_days = (end - start).days or 1
