@@ -1264,6 +1264,7 @@ def admin_ad_quality(
     city_id: Optional[str] = Query(None),
     branch_id: Optional[str] = Query(None),
     date_basis: str = Query("activity"),
+    group_by: str = Query("ad"),
     admin=Depends(require_admin),
 ):
     """Aggregate leads by ad_name. Counts are cumulative through the funnel —
@@ -1298,7 +1299,11 @@ def admin_ad_quality(
     else:
         filter_field = "status_changed_at"
 
-    select_cols = "ad_name, platform, status, created_time, scope_type, scope_id"
+    # adset_name + data are needed for group_by=adset and group_by=campaign
+    # (campaign_name lives in the data JSONB; we don't have a promoted column
+    # for it yet). data also lets the cards expose a clickable variation
+    # count when grouping above the ad level.
+    select_cols = "ad_name, adset_name, platform, status, created_time, scope_type, scope_id, data"
     if filter_field == "status_changed_at":
         select_cols += ", status_changed_at"
 
@@ -1322,11 +1327,46 @@ def admin_ad_quality(
     PAST_VISITS  = {"visits", "registered"}
     PAST_REG     = {"registered"}
 
+    # Bucket key extractor + label. Determines the unit of comparison so
+    # the same endpoint can serve creative-level, adset-level, campaign-level
+    # and platform-level analytics — what an FB ads operator needs for
+    # split-testing reads.
+    if group_by not in ("ad", "adset", "campaign", "platform"):
+        group_by = "ad"
+    EMPTY_BUCKET = {
+        "ad":       "(بدون اسم)",
+        "adset":    "(بدون مجموعة)",
+        "campaign": "(بدون حملة)",
+        "platform": "(غير محدد)",
+    }[group_by]
+
+    def _bucket_key(r: dict) -> str:
+        if group_by == "ad":
+            return r.get("ad_name") or EMPTY_BUCKET
+        if group_by == "adset":
+            return r.get("adset_name") or EMPTY_BUCKET
+        if group_by == "campaign":
+            d = r.get("data") or {}
+            # case-insensitive lookup, common variants of the key
+            for k in ("campaign_name", "Campaign Name", "campaign", "اسم الحملة"):
+                v = d.get(k) if isinstance(d, dict) else None
+                if v:
+                    return v
+            return EMPTY_BUCKET
+        if group_by == "platform":
+            return (r.get("platform") or EMPTY_BUCKET)
+        return EMPTY_BUCKET
+
     buckets: Dict[str, dict] = {}
     for r in (res.data or []):
-        key = r.get("ad_name") or "(بدون اسم)"
+        key = _bucket_key(r)
         b = buckets.setdefault(key, {
+            "key": key,
+            # Backward-compatible alias — the frontend cards still read
+            # `ad_name` for the title; we mirror the bucket key into it
+            # regardless of which level we grouped at.
             "ad_name": key,
+            "group_by": group_by,
             "platform": r.get("platform"),
             # Funnel buckets — rdv_count / visits_count / registered_count
             # are CUMULATIVE; the per-status fields are the raw current-state
@@ -1337,6 +1377,12 @@ def admin_ad_quality(
             "bv": 0, "pi": 0, "pe": 0, "waiting": 0, "no_answer": 0,
             "custom": 0, "autre_ville": 0, "over_40": 0, "contra": 0,
             "first_lead_at": None, "last_lead_at": None,
+            # Variation counts — for split-test reads at adset/campaign level.
+            # _ad_set / _adset_set / _campaign_set are accumulators stripped
+            # before serialization.
+            "_ad_set": set(),
+            "_adset_set": set(),
+            "_campaign_set": set(),
         })
         b["leads"] += 1
         s = r.get("status") or "new"
@@ -1350,6 +1396,18 @@ def admin_ad_quality(
             b["visits_count"] += 1
         if s in PAST_REG:
             b["registered_count"] += 1
+        # Track variations inside the bucket so split testing reads obvious.
+        if r.get("ad_name"):
+            b["_ad_set"].add(r["ad_name"])
+        if r.get("adset_name"):
+            b["_adset_set"].add(r["adset_name"])
+        d = r.get("data") or {}
+        if isinstance(d, dict):
+            for k in ("campaign_name", "Campaign Name", "campaign", "اسم الحملة"):
+                v = d.get(k)
+                if v:
+                    b["_campaign_set"].add(v)
+                    break
         ct = r.get("created_time")
         if ct:
             if not b["first_lead_at"] or ct < b["first_lead_at"]:
@@ -1401,12 +1459,22 @@ def admin_ad_quality(
             color = "orange" if color == "green" else "red"
         b["color"] = color
 
+        # Convert variation accumulators to int counts before serializing.
+        # ad_count = how many distinct creatives in this bucket; same for
+        # adset/campaign. Surfaces split-test fan-out at a glance.
+        b["ad_count"] = len(b.pop("_ad_set"))
+        b["adset_count"] = len(b.pop("_adset_set"))
+        b["campaign_count"] = len(b.pop("_campaign_set"))
+
         ads.append(b)
 
-    # Sort: best-performing first. RDV count is the primary metric (more
-    # RDVs = better ad), registered is the long-term tiebreaker, then
-    # total leads as a final tiebreaker for ads with identical funnel.
-    ads.sort(key=lambda x: (-x["rdv_count"], -x["registered_count"], -x["leads"]))
+    # Sort: highest RDV percentage first (the user's chosen primary metric),
+    # then total RDVs (volume tiebreaker so an ad with more RDVs at the same
+    # rate still wins), then registered, then leads. A bucket with zero
+    # leads can't have a rate, so leads desc handles it.
+    ads.sort(key=lambda x: (
+        -x["rdv_rate"], -x["rdv_count"], -x["registered_count"], -x["leads"]
+    ))
 
     totals = {
         "ads": len(ads),
@@ -1415,4 +1483,10 @@ def admin_ad_quality(
         "visits": sum(a["visits_count"] for a in ads),
         "registered": sum(a["registered_count"] for a in ads),
     }
-    return {"ads": ads, "totals": totals, "date_from": df, "date_to": dt}
+    return {
+        "ads": ads,
+        "totals": totals,
+        "group_by": group_by,
+        "date_from": df,
+        "date_to": dt,
+    }

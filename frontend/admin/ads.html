@@ -91,33 +91,59 @@
       font-family: 'Cairo', sans-serif; font-size: 13px; background: white;
     }
 
-    /* Ad card */
-    .ad-grid {
-      display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 12px;
+    /* View-mode + group-by control row */
+    .view-controls {
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+      margin-bottom: 10px;
     }
+    .view-controls .seg {
+      display: inline-flex; background: white; border-radius: 10px; padding: 3px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .view-controls .seg button {
+      padding: 7px 14px; border: none; background: transparent; border-radius: 7px;
+      font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer;
+      color: #6b7280;
+    }
+    .view-controls .seg button.active { background: #1a1a1a; color: white; }
+    .view-controls .group-by-label {
+      font-size: 12px; font-weight: 700; color: #6b7280;
+    }
+
+    /* Ad list — basic view */
+    .ad-grid { display: flex; flex-direction: column; gap: 8px; }
     .ad-card {
-      background: white; border-radius: 14px; padding: 14px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      background: white; border-radius: 12px; padding: 12px 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
       border-right: 5px solid #d1d5db;
+      display: grid;
+      grid-template-columns: minmax(220px, 1.6fr) auto auto;
+      gap: 16px; align-items: center;
+    }
+    @media (max-width: 800px) {
+      .ad-card { grid-template-columns: 1fr; gap: 10px; }
     }
     .ad-card.green { border-right-color: #10b981; }
     .ad-card.orange { border-right-color: #f59e0b; }
     .ad-card.red { border-right-color: #dc2626; }
 
-    .ad-head {
-      display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;
-      margin-bottom: 10px;
+    .ad-head { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .ad-name {
+      font-size: 14px; font-weight: 800; color: #1a1a1a;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
-    .ad-name { font-size: 14px; font-weight: 800; color: #1a1a1a; word-break: break-word; }
-    .ad-meta {
-      display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
-    }
+    .ad-meta { display: flex; flex-wrap: wrap; gap: 4px; }
     .ad-meta .tag {
       font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px;
       background: #f3f4f6; color: #4b5563;
     }
     .ad-meta .tag.platform { background: #f3e8ff; color: #6b21a8; }
+    .ad-meta .tag.variation { background: #ecfeff; color: #0e7490; }
+    .ad-meta .tag.maturity-fresh { background: #dbeafe; color: #1e40af; }
+    .ad-meta .tag.maturity-evaluating { background: #fef3c7; color: #92400e; }
+    .ad-meta .tag.maturity-mature { background: #d1fae5; color: #065f46; }
 
+    /* Kept for back-compat with any leftover code paths */
     .maturity-pill {
       font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 14px;
       flex-shrink: 0; white-space: nowrap;
@@ -127,22 +153,54 @@
     .maturity-pill.mature { background: #d1fae5; color: #065f46; }
 
     .funnel {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
-      margin-bottom: 10px;
+      display: grid; grid-template-columns: repeat(4, 70px); gap: 6px;
     }
     .funnel-tile {
-      background: #f9fafb; border-radius: 10px; padding: 8px; text-align: center;
+      background: #f9fafb; border-radius: 8px; padding: 6px 4px; text-align: center;
     }
-    .funnel-num { font-size: 20px; font-weight: 900; color: #1a1a1a; line-height: 1.1; }
+    .funnel-num { font-size: 18px; font-weight: 900; color: #1a1a1a; line-height: 1.1; }
     .funnel-lbl { font-size: 10px; color: #6b7280; font-weight: 700; margin-top: 2px; }
     .funnel-tile.primary .funnel-num { color: #e63329; }
     .funnel-tile.good .funnel-num { color: #059669; }
 
     .rates-row {
-      display: flex; justify-content: space-around; padding-top: 8px;
-      border-top: 1px dashed #e5e7eb; font-size: 11px; color: #6b7280;
+      display: flex; gap: 14px; font-size: 11px; color: #6b7280;
+      white-space: nowrap;
     }
     .rates-row b { color: #1a1a1a; font-size: 13px; }
+    .rates-row .rate-rdv b { color: #e63329; }
+
+    /* Advanced view — comparison table */
+    .ad-table-wrap {
+      background: white; border-radius: 12px; overflow: auto;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .ad-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 920px; }
+    .ad-table th, .ad-table td {
+      padding: 10px 12px; text-align: right; border-bottom: 1px solid #f3f4f6;
+      white-space: nowrap;
+    }
+    .ad-table th {
+      background: #f9fafb; color: #4b5563; font-weight: 700;
+      cursor: pointer; user-select: none; position: sticky; top: 0;
+    }
+    .ad-table th:hover { color: #1a1a1a; background: #f3f4f6; }
+    .ad-table th .sort-arrow { margin-right: 4px; opacity: 0.5; }
+    .ad-table th.sort-active .sort-arrow { opacity: 1; color: #e63329; }
+    .ad-table tr:hover td { background: #fafafa; }
+    .ad-table td.name { font-weight: 700; color: #1a1a1a; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+    .ad-table td.num  { font-weight: 800; color: #1a1a1a; text-align: center; font-variant-numeric: tabular-nums; }
+    .ad-table td.pct  { font-weight: 800; text-align: center; font-variant-numeric: tabular-nums; }
+    .ad-table td.pct.rdv { color: #e63329; }
+    .ad-table tr.color-green td:first-child { border-right: 4px solid #10b981; }
+    .ad-table tr.color-orange td:first-child { border-right: 4px solid #f59e0b; }
+    .ad-table tr.color-red td:first-child { border-right: 4px solid #dc2626; }
+    .ad-table .col-narrow { width: 70px; }
+    .ad-table .platform-cell {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      padding: 2px 7px; border-radius: 8px;
+      background: #f3e8ff; color: #6b21a8;
+    }
 
     .empty {
       background: white; border-radius: 14px; padding: 40px; text-align: center;
@@ -206,6 +264,21 @@
       <div class="sum-tile good"><div class="sum-num" id="sumReg">0</div><div class="sum-lbl">مُسجلين</div></div>
     </div>
 
+    <!-- View mode + group-by row -->
+    <div class="view-controls">
+      <div class="seg" id="viewModeSeg">
+        <button data-mode="basic"    class="active">عرض بسيط</button>
+        <button data-mode="advanced">عرض متقدم</button>
+      </div>
+      <span class="group-by-label">تجميع حسب:</span>
+      <div class="seg" id="groupBySeg">
+        <button data-group="ad"       class="active">الإعلان</button>
+        <button data-group="adset">المجموعة (Adset)</button>
+        <button data-group="campaign">الحملة</button>
+        <button data-group="platform">المنصة</button>
+      </div>
+    </div>
+
     <div class="filters">
       <select id="filterScope">
         <option value="">كل النطاقات</option>
@@ -244,6 +317,19 @@ if (!token || localStorage.getItem('role') !== 'admin') { location.href = '/inde
 // stay visible. Narrower chips let them drill into a specific period.
 let currentRange = 'all';
 let allAds = [];
+
+// View mode + group_by — persisted in localStorage so the admin's preferred
+// drilldown level sticks across reloads.
+let viewMode = localStorage.getItem('adsViewMode') || 'basic';   // basic | advanced
+let groupBy  = localStorage.getItem('adsGroupBy')  || 'ad';      // ad | adset | campaign | platform
+let advancedSort = { field: 'rdv_rate', dir: 'desc' };
+
+const GROUP_LABEL = {
+  ad: 'الإعلان', adset: 'مجموعة الإعلانات', campaign: 'الحملة', platform: 'المنصة',
+};
+const EMPTY_LABEL_BY_GROUP = {
+  ad: '(بدون اسم)', adset: '(بدون مجموعة)', campaign: '(بدون حملة)', platform: '(غير محدد)',
+};
 
 function toast(msg, type='') {
   const el = document.getElementById('toast');
@@ -324,7 +410,7 @@ async function redistribute() {
 async function loadAds() {
   try {
     const scopeVal = document.getElementById('filterScope').value;
-    const params = new URLSearchParams({ range: currentRange });
+    const params = new URLSearchParams({ range: currentRange, group_by: groupBy });
     if (scopeVal) {
       const [st, sid] = scopeVal.split(':');
       params.set('scope_type', st);
@@ -341,6 +427,39 @@ async function loadAds() {
     updateLastUpdated();
   } catch (e) { toast('تعذر تحميل الإعلانات', 'error'); }
 }
+
+// View-mode + group-by segmented toggles
+document.querySelectorAll('#viewModeSeg button').forEach(b => {
+  b.addEventListener('click', () => {
+    viewMode = b.dataset.mode;
+    localStorage.setItem('adsViewMode', viewMode);
+    document.querySelectorAll('#viewModeSeg button').forEach(x =>
+      x.classList.toggle('active', x.dataset.mode === viewMode)
+    );
+    render();  // no refetch — same data, different layout
+  });
+});
+document.querySelectorAll('#groupBySeg button').forEach(b => {
+  b.addEventListener('click', () => {
+    groupBy = b.dataset.group;
+    localStorage.setItem('adsGroupBy', groupBy);
+    document.querySelectorAll('#groupBySeg button').forEach(x =>
+      x.classList.toggle('active', x.dataset.group === groupBy)
+    );
+    loadAds();  // bucket key changes server-side — refetch
+  });
+});
+
+// Restore the persisted view mode + group-by on page load
+function applyToggleStateFromStorage() {
+  document.querySelectorAll('#viewModeSeg button').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === viewMode)
+  );
+  document.querySelectorAll('#groupBySeg button').forEach(b =>
+    b.classList.toggle('active', b.dataset.group === groupBy)
+  );
+}
+applyToggleStateFromStorage();
 
 function pct(v) { return (v*100).toFixed(0) + '%'; }
 
@@ -383,54 +502,163 @@ function render() {
 
   const grid = document.getElementById('adGrid');
 
-  // Diagnostic banner: every lead bucketed into "(بدون اسم)" almost always
-  // means no sheet column has been mapped as type=ad_name. Surface that
-  // explicitly with a link so the admin knows what to fix.
-  const onlyUnnamed = allAds.length === 1 && allAds[0].ad_name === '(بدون اسم)';
+  // Diagnostic banner: every lead bucketed into the empty bucket for the
+  // current group_by almost always means the corresponding sheet column
+  // isn't mapped (or doesn't exist). Surface that with a link to fix.
+  const emptyLabel = EMPTY_LABEL_BY_GROUP[groupBy] || '(بدون اسم)';
+  const onlyUnnamed = allAds.length === 1 && allAds[0].ad_name === emptyLabel;
   let banner = '';
   if (onlyUnnamed && allAds[0].leads > 0) {
     banner = `<div class="empty" style="background:#fef3c7;color:#92400e;border:1.5px dashed #fbbf24;text-align:right;padding:14px;border-radius:12px;margin-bottom:10px;">
-      ⚠️ الرسائل لا تحمل اسم إعلان. افتح <a href="lead-sources.html" style="color:#92400e;font-weight:800;text-decoration:underline;">مصادر الرسائل</a> وحدّد عمود "اسم الإعلان" في إعدادات المصدر.
+      ⚠️ الرسائل لا تحمل ${escapeHtml(GROUP_LABEL[groupBy])}. افتح <a href="lead-sources.html" style="color:#92400e;font-weight:800;text-decoration:underline;">مصادر الرسائل</a> وأضف العمود المناسب إلى إعدادات المصدر، أو سيقوم النظام بالكشف التلقائي إذا كان الاسم المعتاد موجوداً في الجدول.
     </div>`;
   }
 
   if (!ads.length) {
-    grid.innerHTML = banner + '<div class="empty">لا توجد إعلانات في هذه الفترة. اضغط "مزامنة الآن" لتحميل البيانات من Google Sheet.</div>';
+    grid.innerHTML = banner + '<div class="empty">لا توجد بيانات في هذه الفترة. اضغط "مزامنة الكل" لتحميل البيانات من Google Sheet.</div>';
     return;
   }
 
-  grid.innerHTML = banner + ads.map(a => {
-    const matLbl = { fresh: 'جديد', evaluating: 'قيد التقييم', mature: 'ناضج' }[a.maturity];
-    const tags = [];
-    if (a.platform) tags.push(`<span class="tag platform">${a.platform.toUpperCase()}</span>`);
-    // Cumulative funnel numbers — every lead that ever reached each stage.
-    const rdvN = a.rdv_count ?? a.rdv ?? 0;
-    const visN = a.visits_count ?? a.visits ?? 0;
-    const regN = a.registered_count ?? a.registered ?? 0;
-    return `
-      <div class="ad-card ${a.color}">
-        <div class="ad-head">
-          <div>
-            <div class="ad-name">${escapeHtml(a.ad_name)}</div>
-            <div class="ad-meta">${tags.join('')}</div>
-          </div>
-          <div class="maturity-pill ${a.maturity}">${matLbl} · ${a.age_days}ي</div>
-        </div>
-        <div class="funnel">
-          <div class="funnel-tile"><div class="funnel-num">${a.leads}</div><div class="funnel-lbl">رسائل</div></div>
-          <div class="funnel-tile primary"><div class="funnel-num">${rdvN}</div><div class="funnel-lbl">مواعيد</div></div>
-          <div class="funnel-tile"><div class="funnel-num">${visN}</div><div class="funnel-lbl">زيارات</div></div>
-          <div class="funnel-tile good"><div class="funnel-num">${regN}</div><div class="funnel-lbl">مسجلين</div></div>
-        </div>
-        <div class="rates-row">
-          <div>RDV: <b>${pct(a.rdv_rate)}</b></div>
-          <div>Show: <b>${pct(a.show_rate)}</b></div>
-          <div>Close: <b>${pct(a.close_rate)}</b></div>
-          <div>Reg: <b>${pct(a.registered_rate)}</b></div>
-        </div>
-      </div>`;
-  }).join('');
+  if (viewMode === 'advanced') {
+    grid.innerHTML = banner + renderAdvancedTable(ads);
+    wireAdvancedTableSort();
+  } else {
+    grid.innerHTML = banner + ads.map(renderBasicRow).join('');
+  }
 }
+
+function renderBasicRow(a) {
+  const matLbl = { fresh: 'جديد', evaluating: 'قيد التقييم', mature: 'ناضج' }[a.maturity] || '';
+  const tags = [];
+  if (a.platform) tags.push(`<span class="tag platform">${escapeHtml(a.platform.toUpperCase())}</span>`);
+  if (matLbl)     tags.push(`<span class="tag maturity-${a.maturity}">${matLbl} · ${a.age_days}ي</span>`);
+  // Variation tags — only meaningful when grouping above the ad level
+  if (groupBy === 'adset' && a.ad_count > 1) {
+    tags.push(`<span class="tag variation">${a.ad_count} إعلان</span>`);
+  } else if (groupBy === 'campaign') {
+    if (a.adset_count > 1) tags.push(`<span class="tag variation">${a.adset_count} مجموعة</span>`);
+    if (a.ad_count > 1)    tags.push(`<span class="tag variation">${a.ad_count} إعلان</span>`);
+  } else if (groupBy === 'platform') {
+    if (a.adset_count > 0) tags.push(`<span class="tag variation">${a.adset_count} مجموعة</span>`);
+    if (a.ad_count > 0)    tags.push(`<span class="tag variation">${a.ad_count} إعلان</span>`);
+  }
+
+  const rdvN = a.rdv_count ?? a.rdv ?? 0;
+  const visN = a.visits_count ?? a.visits ?? 0;
+  const regN = a.registered_count ?? a.registered ?? 0;
+  return `
+    <div class="ad-card ${a.color}">
+      <div class="ad-head">
+        <div class="ad-name" title="${escapeAttr(a.ad_name)}">${escapeHtml(a.ad_name)}</div>
+        ${tags.length ? `<div class="ad-meta">${tags.join('')}</div>` : ''}
+      </div>
+      <div class="funnel">
+        <div class="funnel-tile"><div class="funnel-num">${a.leads}</div><div class="funnel-lbl">رسائل</div></div>
+        <div class="funnel-tile primary"><div class="funnel-num">${rdvN}</div><div class="funnel-lbl">مواعيد</div></div>
+        <div class="funnel-tile"><div class="funnel-num">${visN}</div><div class="funnel-lbl">زيارات</div></div>
+        <div class="funnel-tile good"><div class="funnel-num">${regN}</div><div class="funnel-lbl">مسجلين</div></div>
+      </div>
+      <div class="rates-row">
+        <div class="rate-rdv">RDV: <b>${pct(a.rdv_rate)}</b></div>
+        <div>Show: <b>${pct(a.show_rate)}</b></div>
+        <div>Close: <b>${pct(a.close_rate)}</b></div>
+        <div>Reg: <b>${pct(a.registered_rate)}</b></div>
+      </div>
+    </div>`;
+}
+
+// ── Advanced comparison table ─────────────────────────────────────────
+const ADV_COLS = [
+  { key: 'ad_name',          label: 'الاسم',           type: 'name',   sortable: true,  cls: 'name' },
+  { key: 'platform',         label: 'المنصة',          type: 'plat',   sortable: true,  cls: 'platform' },
+  { key: 'leads',            label: 'رسائل',           type: 'num',    sortable: true,  cls: 'num col-narrow' },
+  { key: 'rdv_count',        label: 'مواعيد',          type: 'num',    sortable: true,  cls: 'num col-narrow' },
+  { key: 'visits_count',     label: 'زيارات',          type: 'num',    sortable: true,  cls: 'num col-narrow' },
+  { key: 'registered_count', label: 'مُسجلين',          type: 'num',    sortable: true,  cls: 'num col-narrow' },
+  { key: 'rdv_rate',         label: 'RDV %',          type: 'pct',    sortable: true,  cls: 'pct rdv col-narrow' },
+  { key: 'show_rate',        label: 'Show %',         type: 'pct',    sortable: true,  cls: 'pct col-narrow' },
+  { key: 'close_rate',       label: 'Close %',        type: 'pct',    sortable: true,  cls: 'pct col-narrow' },
+  { key: 'registered_rate',  label: 'Reg %',          type: 'pct',    sortable: true,  cls: 'pct col-narrow' },
+  { key: 'age_days',         label: 'العمر',           type: 'num',    sortable: true,  cls: 'num col-narrow' },
+];
+
+function getVariationCols() {
+  // Show the variation-count column only when it adds info
+  if (groupBy === 'campaign') {
+    return [
+      { key: 'adset_count', label: 'مجموعات',  type: 'num', sortable: true, cls: 'num col-narrow' },
+      { key: 'ad_count',    label: 'إعلانات',  type: 'num', sortable: true, cls: 'num col-narrow' },
+    ];
+  }
+  if (groupBy === 'adset') {
+    return [{ key: 'ad_count', label: 'إعلانات', type: 'num', sortable: true, cls: 'num col-narrow' }];
+  }
+  if (groupBy === 'platform') {
+    return [
+      { key: 'campaign_count', label: 'حملات',  type: 'num', sortable: true, cls: 'num col-narrow' },
+      { key: 'adset_count',    label: 'مجموعات', type: 'num', sortable: true, cls: 'num col-narrow' },
+      { key: 'ad_count',       label: 'إعلانات', type: 'num', sortable: true, cls: 'num col-narrow' },
+    ];
+  }
+  return [];
+}
+
+function renderAdvancedTable(ads) {
+  const cols = ADV_COLS.concat(getVariationCols());
+  const sorted = [...ads].sort((a, b) => {
+    const f = advancedSort.field, dir = advancedSort.dir === 'asc' ? 1 : -1;
+    const av = a[f] ?? 0, bv = b[f] ?? 0;
+    if (typeof av === 'string' || typeof bv === 'string') {
+      return dir * String(av).localeCompare(String(bv), 'ar');
+    }
+    return dir * (av - bv);
+  });
+
+  const head = cols.map(c => {
+    const active = advancedSort.field === c.key ? 'sort-active' : '';
+    const arrow = advancedSort.field === c.key
+      ? (advancedSort.dir === 'asc' ? '▲' : '▼')
+      : '↕';
+    return `<th data-sort="${c.key}" class="${active}">${escapeHtml(c.label)} <span class="sort-arrow">${arrow}</span></th>`;
+  }).join('');
+
+  const body = sorted.map(a => {
+    return '<tr class="color-' + (a.color || 'red') + '">' + cols.map(c => {
+      const v = a[c.key];
+      if (c.type === 'pct') return `<td class="${c.cls}">${pct(v || 0)}</td>`;
+      if (c.type === 'num') return `<td class="${c.cls}">${v ?? 0}</td>`;
+      if (c.type === 'plat') return `<td class="${c.cls}">${v ? `<span class="platform-cell">${escapeHtml(String(v).toUpperCase())}</span>` : '—'}</td>`;
+      // name
+      return `<td class="${c.cls}" title="${escapeAttr(v || '')}">${escapeHtml(v || '—')}</td>`;
+    }).join('') + '</tr>';
+  }).join('');
+
+  return `
+    <div class="ad-table-wrap">
+      <table class="ad-table">
+        <thead><tr>${head}</tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>`;
+}
+
+function wireAdvancedTableSort() {
+  document.querySelectorAll('.ad-table th[data-sort]').forEach(th => {
+    th.addEventListener('click', () => {
+      const f = th.dataset.sort;
+      if (advancedSort.field === f) {
+        advancedSort.dir = advancedSort.dir === 'asc' ? 'desc' : 'asc';
+      } else {
+        advancedSort.field = f;
+        // Numeric/percent columns default to desc (highest first); name col asc.
+        advancedSort.dir = (f === 'ad_name' || f === 'platform') ? 'asc' : 'desc';
+      }
+      render();
+    });
+  });
+}
+
+function escapeAttr(s) { return (s||'').toString().replace(/"/g, '&quot;'); }
 
 function escapeHtml(s) { return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
