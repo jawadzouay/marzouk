@@ -333,9 +333,21 @@
     }
     .missed-row a.missed-wa { background: #25d366; }
     .missed-row a.missed-call { background: rgba(255,255,255,0.22); }
+    .missed-row .missed-dismiss {
+      background: rgba(255,255,255,0.18); border: none; color: white;
+      width: 28px; height: 28px; border-radius: 8px;
+      font-size: 14px; font-weight: 900; cursor: pointer; flex-shrink: 0;
+      padding: 0; line-height: 1; display: inline-flex;
+      align-items: center; justify-content: center;
+    }
+    .missed-row .missed-dismiss:hover { background: rgba(255,255,255,0.32); }
     .missed-more {
-      display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 700;
+      display: inline-block; margin-top: 8px; margin-left: 12px; font-size: 12px; font-weight: 700;
       color: white; text-decoration: underline; opacity: 0.9; cursor: pointer;
+    }
+    .missed-empty {
+      background: rgba(255,255,255,0.16); border-radius: 10px;
+      padding: 10px 12px; font-size: 12px; font-weight: 700; text-align: center;
     }
     .rdv-empty-msg {
       background: rgba(255,255,255,0.16); border-radius: 10px;
@@ -949,13 +961,79 @@ document.querySelectorAll('#rdvTiles .rdv-tile').forEach(t => {
 });
 
 let _missedExpanded = false;
+
+// Per-agent dismiss list — kept in localStorage so the agent's choice
+// survives reloads but doesn't pollute the DB. The lead naturally falls
+// out of the missed bucket once status moves off `rdv` or rdv_date is
+// updated to a future day, so we just need to remember "skip this id".
+const _DISMISSED_KEY = 'marzouk_dismissed_followups';
+function _loadDismissed() {
+  try {
+    const raw = localStorage.getItem(_DISMISSED_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch { return new Set(); }
+}
+function _saveDismissed(set) {
+  try { localStorage.setItem(_DISMISSED_KEY, JSON.stringify([...set])); } catch {}
+}
+
+function dismissMissedFollowUp(leadId) {
+  const set = _loadDismissed();
+  set.add(leadId);
+  _saveDismissed(set);
+  renderMissedRdvSection();
+  // Undo toast — Gmail-style. 6 seconds is the sweet spot. Need raw HTML
+  // for the undo link, so we bypass toast() (which escapes text) and
+  // write innerHTML directly on the same element.
+  const t = document.getElementById('toast');
+  t.innerHTML = `تم إخفاء المتابعة <a href="#" onclick="undoDismissMissedFollowUp('${leadId}');return false;" style="color:#fde68a;font-weight:800;text-decoration:underline;margin-right:8px;">تراجع</a>`;
+  t.className = 'toast show';
+  clearTimeout(t._undoT);
+  t._undoT = setTimeout(() => t.classList.remove('show'), 6000);
+}
+function undoDismissMissedFollowUp(leadId) {
+  const set = _loadDismissed();
+  set.delete(leadId);
+  _saveDismissed(set);
+  renderMissedRdvSection();
+  const t = document.getElementById('toast');
+  t.classList.remove('show');
+}
+function clearAllDismissedFollowUps() {
+  _saveDismissed(new Set());
+  renderMissedRdvSection();
+  toast('تمت إعادة عرض كل المتابعات المتروكة', 'success');
+}
+
 function renderMissedRdvSection() {
   const card = document.getElementById('missedRdvCard');
   const list = document.getElementById('missedRdvList');
   const pill = document.getElementById('missedRdvPill');
-  const missed = (rdvBuckets && rdvBuckets.missed) || [];
-  if (!missed.length) {
+  const all = (rdvBuckets && rdvBuckets.missed) || [];
+
+  // Sweep stale dismissed IDs that are no longer in the missed bucket —
+  // keeps localStorage from growing forever and re-surfaces a lead if it
+  // fell off then comes back later.
+  const dismissed = _loadDismissed();
+  const currentIds = new Set(all.map(l => l.id));
+  let pruned = false;
+  for (const id of [...dismissed]) {
+    if (!currentIds.has(id)) { dismissed.delete(id); pruned = true; }
+  }
+  if (pruned) _saveDismissed(dismissed);
+
+  const missed = all.filter(l => !dismissed.has(l.id));
+  const dismissedCount = all.length - missed.length;
+
+  if (!missed.length && !dismissedCount) {
     card.style.display = 'none';
+    return;
+  }
+  if (!missed.length) {
+    // Everything dismissed — collapse the card to a single restore link
+    card.style.display = 'block';
+    pill.textContent = '0';
+    list.innerHTML = `<div class="missed-empty">تم إخفاء كل المتابعات (${dismissedCount}). <a class="missed-more" onclick="clearAllDismissedFollowUps()">إعادة عرضها</a></div>`;
     return;
   }
   card.style.display = 'block';
@@ -976,6 +1054,7 @@ function renderMissedRdvSection() {
         ${meta ? `<span class="missed-meta">${escapeHtml(meta)}</span>` : ''}
         ${waHref ? `<a class="missed-wa" href="${waHref}" target="_blank" rel="noopener" title="إرسال رسالة متابعة">💬</a>` : ''}
         ${phone ? `<a class="missed-call" href="${callHref}" title="اتصال">📞</a>` : ''}
+        <button class="missed-dismiss" onclick="dismissMissedFollowUp('${l.id}')" title="عدم إرسال المتابعة لهذا العميل">✕</button>
       </div>`;
   }).join('');
   if (missed.length > SHOW_MAX) {
@@ -984,6 +1063,10 @@ function renderMissedRdvSection() {
   } else if (_missedExpanded && missed.length > 4) {
     list.insertAdjacentHTML('beforeend',
       `<a class="missed-more" onclick="_toggleMissedExpand()">عرض أقل</a>`);
+  }
+  if (dismissedCount > 0) {
+    list.insertAdjacentHTML('beforeend',
+      `<a class="missed-more" onclick="clearAllDismissedFollowUps()" title="استعادة كل المتابعات المتروكة">↩ استعادة ${dismissedCount} متروكة</a>`);
   }
 }
 function _toggleMissedExpand() {
