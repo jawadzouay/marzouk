@@ -281,6 +281,7 @@ CREATE INDEX IF NOT EXISTS idx_ad_leads_ad_name   ON ad_leads(ad_name);
 -- ============================================================================
 ALTER TABLE ad_leads ADD COLUMN IF NOT EXISTS custom_status TEXT;
 ALTER TABLE ad_leads ADD COLUMN IF NOT EXISTS rdv_date      DATE;
+ALTER TABLE ad_leads ADD COLUMN IF NOT EXISTS rdv_time      TIME;
 ALTER TABLE ad_leads ADD COLUMN IF NOT EXISTS adset_name    TEXT;
 CREATE INDEX IF NOT EXISTS idx_ad_leads_rdv_date   ON ad_leads(rdv_date) WHERE rdv_date IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_ad_leads_adset_name ON ad_leads(adset_name);

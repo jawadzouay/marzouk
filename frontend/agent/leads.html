@@ -159,6 +159,31 @@
       border-radius: 8px; margin-right: 4px; vertical-align: middle;
     }
 
+    /* Hot lead: < 5 min old. Speed-to-lead is the #1 conversion lever
+       (Harvard study: contacting < 5 min vs 30 min = 21× higher
+       qualification). Pulsing border + animated badge make the agent's
+       eye snap to it without being annoying. */
+    .lead-card.hot-fresh {
+      animation: hot-card-pulse 2.2s ease-in-out infinite;
+      border-right-color: #dc2626 !important;
+    }
+    @keyframes hot-card-pulse {
+      0%, 100% { box-shadow: 0 1px 4px rgba(220,38,38,0.15); }
+      50%      { box-shadow: 0 4px 18px rgba(220,38,38,0.45); }
+    }
+    .hot-badge {
+      display: inline-block; background: #dc2626; color: white;
+      font-size: 10px; font-weight: 900; padding: 2px 8px;
+      border-radius: 10px; margin-right: 5px; vertical-align: middle;
+      animation: hot-dot-pulse 1.1s ease-in-out infinite;
+      box-shadow: 0 0 0 0 rgba(220,38,38,0.6);
+    }
+    @keyframes hot-dot-pulse {
+      0%   { transform: scale(1);    box-shadow: 0 0 0 0 rgba(220,38,38,0.55); }
+      70%  { transform: scale(1.05); box-shadow: 0 0 0 6px rgba(220,38,38,0); }
+      100% { transform: scale(1);    box-shadow: 0 0 0 0 rgba(220,38,38,0); }
+    }
+
     /* Search + filter chips */
     .search-box {
       display: flex; align-items: center; gap: 8px;
@@ -257,6 +282,60 @@
       color: white; text-decoration: none; flex-shrink: 0;
       background: rgba(255,255,255,0.22); padding: 5px 10px; border-radius: 8px;
       font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;
+    }
+    .rdv-row a.rdv-wa {
+      color: white; text-decoration: none; flex-shrink: 0;
+      background: #25d366; padding: 5px 10px; border-radius: 8px;
+      font-size: 14px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;
+      box-shadow: 0 1px 4px rgba(37,211,102,0.4);
+    }
+    .rdv-time-pill {
+      display: inline-block; background: rgba(255,255,255,0.28);
+      padding: 1px 7px; border-radius: 8px; font-size: 11px; font-weight: 800;
+      margin-right: 4px; vertical-align: middle; direction: ltr;
+    }
+
+    /* Missed-RDV follow-up card — different psychology from upcoming RDVs:
+       urgency, salvageable. Red-orange so it can't be missed. */
+    .missed-rdv-card {
+      background: linear-gradient(135deg, #f87171, #dc2626); color: white;
+      border-radius: 16px; padding: 14px; margin-bottom: 12px;
+      box-shadow: 0 4px 16px rgba(220,38,38,0.3);
+      position: relative; overflow: hidden;
+    }
+    .missed-head {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px;
+    }
+    .missed-title { font-size: 14px; font-weight: 800; }
+    .missed-pill {
+      background: rgba(255,255,255,0.25); padding: 3px 10px; border-radius: 12px;
+      font-size: 12px; font-weight: 800;
+    }
+    .missed-list { display: flex; flex-direction: column; gap: 6px; }
+    .missed-row {
+      background: rgba(255,255,255,0.16); border-radius: 10px;
+      padding: 8px 10px; display: flex; justify-content: space-between; align-items: center;
+      gap: 8px;
+    }
+    .missed-row .missed-name {
+      font-size: 13px; font-weight: 700; min-width: 0; flex: 1;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .missed-row .missed-meta {
+      font-size: 10px; font-weight: 700; opacity: 0.85;
+      white-space: nowrap; margin-right: 6px;
+    }
+    .missed-row a {
+      color: white; text-decoration: none; flex-shrink: 0;
+      padding: 5px 10px; border-radius: 8px; font-size: 13px; font-weight: 700;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .missed-row a.missed-wa { background: #25d366; }
+    .missed-row a.missed-call { background: rgba(255,255,255,0.22); }
+    .missed-more {
+      display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 700;
+      color: white; text-decoration: underline; opacity: 0.9; cursor: pointer;
     }
     .rdv-empty-msg {
       background: rgba(255,255,255,0.16); border-radius: 10px;
@@ -494,6 +573,16 @@
       </div>
     </div>
 
+    <!-- Missed RDVs follow-up card: red-orange, urgent, with the
+         multi-choice WhatsApp follow-up message -->
+    <div class="missed-rdv-card" id="missedRdvCard" style="display:none;">
+      <div class="missed-head">
+        <div class="missed-title">⚠️ متابعة عملاء لم يحضروا</div>
+        <div class="missed-pill" id="missedRdvPill">0</div>
+      </div>
+      <div class="missed-list" id="missedRdvList"></div>
+    </div>
+
     <!-- RDV scheduled summary: prominent card with today's list + week filters -->
     <div class="rdv-section" id="rdvSection" style="display:none;">
       <div class="rdv-section-head">
@@ -587,7 +676,7 @@
   <!-- RDV date picker modal -->
   <div class="modal-overlay" id="rdvModal" onclick="if(event.target===this)closeModal('rdvModal')">
     <div class="modal">
-      <h3>📅 تاريخ الموعد<button class="close-x" onclick="closeModal('rdvModal')">×</button></h3>
+      <h3>📅 موعد العميل<button class="close-x" onclick="closeModal('rdvModal')">×</button></h3>
       <p style="font-size:12px;color:#6b7280;margin-bottom:10px;">متى تم تحديد الموعد مع العميل؟</p>
       <div class="rdv-quick-dates" id="rdvQuickDates">
         <div class="quick-chip" data-offset="0">اليوم</div>
@@ -595,8 +684,19 @@
         <div class="quick-chip" data-offset="2">بعد غد</div>
       </div>
       <div class="form-group">
-        <label>أو اختر تاريخاً مخصصاً</label>
+        <label>التاريخ</label>
         <input type="date" id="rdvDateInput" />
+      </div>
+      <div class="form-group">
+        <label>الساعة (اختياري)</label>
+        <div class="rdv-quick-dates" id="rdvQuickTimes" style="margin-bottom:6px;">
+          <div class="quick-chip" data-time="10:00">10:00</div>
+          <div class="quick-chip" data-time="14:00">14:00</div>
+          <div class="quick-chip" data-time="16:00">16:00</div>
+          <div class="quick-chip" data-time="18:00">18:00</div>
+        </div>
+        <input type="time" id="rdvTimeInput" />
+        <div class="form-hint">الوقت سيُضاف تلقائياً إلى رسالة التذكير عبر واتساب.</div>
       </div>
       <div style="display:flex; gap:8px;">
         <button class="btn-secondary" style="flex:1;" onclick="closeModal('rdvModal')">إلغاء</button>
@@ -758,10 +858,11 @@ async function loadRdvBuckets() {
   try {
     const data = await api('/ad-leads/my/rdvs');
     rdvBuckets = {
-      today: data.today || [],
+      today:    data.today || [],
       tomorrow: data.tomorrow || [],
-      week: data.week || [],
-      later: data.later || [],
+      week:     data.week || [],
+      later:    data.later || [],
+      missed:   data.missed || [],
     };
     renderRdvSection();
   } catch (e) {
@@ -771,6 +872,10 @@ async function loadRdvBuckets() {
 }
 
 function renderRdvSection() {
+  // The missed-RDV card is independent — render it on every pass even if
+  // there are no upcoming RDVs.
+  renderMissedRdvSection();
+
   const sec = document.getElementById('rdvSection');
   const todayList = rdvBuckets.today || [];
   const tmrList   = rdvBuckets.tomorrow || [];
@@ -811,10 +916,16 @@ function renderRdvSection() {
       const name = l.full_name || '(بدون اسم)';
       const phone = l.phone_primary || '';
       const callHref = phone ? `tel:${phone.replace(/\s/g, '')}` : '';
+      const time = _hhmm(l.rdv_time);
+      // WA reminder is only meaningful for today's RDVs
+      const waHref = (when === 'اليوم' && phone) ? waLink(phone, buildRdvReminderText(l)) : null;
       return `
         <div class="rdv-row">
-          <div class="rdv-row-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+          <div class="rdv-row-name" title="${escapeHtml(name)}">
+            ${escapeHtml(name)}${time ? ` <span class="rdv-time-pill">${escapeHtml(time)}</span>` : ''}
+          </div>
           <span class="rdv-row-when">${when}</span>
+          ${waHref ? `<a class="rdv-wa" href="${waHref}" target="_blank" rel="noopener" title="إرسال تذكير عبر واتساب">💬</a>` : ''}
           ${phone ? `<a class="rdv-call" href="${callHref}">📞</a>` : ''}
         </div>`;
     }).join('');
@@ -836,6 +947,49 @@ document.querySelectorAll('#rdvTiles .rdv-tile').forEach(t => {
     render();
   });
 });
+
+let _missedExpanded = false;
+function renderMissedRdvSection() {
+  const card = document.getElementById('missedRdvCard');
+  const list = document.getElementById('missedRdvList');
+  const pill = document.getElementById('missedRdvPill');
+  const missed = (rdvBuckets && rdvBuckets.missed) || [];
+  if (!missed.length) {
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+  pill.textContent = missed.length;
+  const SHOW_MAX = _missedExpanded ? missed.length : 4;
+  const visible = missed.slice(0, SHOW_MAX);
+  list.innerHTML = visible.map(l => {
+    const name = l.full_name || '(بدون اسم)';
+    const phone = l.phone_primary || '';
+    const callHref = phone ? `tel:${phone.replace(/\s/g, '')}` : '';
+    const waHref = phone ? waLink(phone, buildRdvFollowUpText(l)) : null;
+    const meta = l.rdv_date
+      ? `${l.rdv_date}${_hhmm(l.rdv_time) ? ' · ' + _hhmm(l.rdv_time) : ''}`
+      : '';
+    return `
+      <div class="missed-row">
+        <div class="missed-name" title="${escapeHtml(name)}">${escapeHtml(name)}</div>
+        ${meta ? `<span class="missed-meta">${escapeHtml(meta)}</span>` : ''}
+        ${waHref ? `<a class="missed-wa" href="${waHref}" target="_blank" rel="noopener" title="إرسال رسالة متابعة">💬</a>` : ''}
+        ${phone ? `<a class="missed-call" href="${callHref}" title="اتصال">📞</a>` : ''}
+      </div>`;
+  }).join('');
+  if (missed.length > SHOW_MAX) {
+    list.insertAdjacentHTML('beforeend',
+      `<a class="missed-more" onclick="_toggleMissedExpand()">عرض ${missed.length - SHOW_MAX} إضافية ←</a>`);
+  } else if (_missedExpanded && missed.length > 4) {
+    list.insertAdjacentHTML('beforeend',
+      `<a class="missed-more" onclick="_toggleMissedExpand()">عرض أقل</a>`);
+  }
+}
+function _toggleMissedExpand() {
+  _missedExpanded = !_missedExpanded;
+  renderMissedRdvSection();
+}
 
 function statusLabel(s) {
   return {
@@ -950,6 +1104,87 @@ function rdvBadgeClass(iso) {
   return '';
 }
 
+// ── WhatsApp message helpers ─────────────────────────────────────────
+// Phone normalization: store is 06xxxxxxxx (Moroccan 10-digit).
+// WhatsApp wants international without + — drop leading 0, prepend 212.
+function normalizePhoneForWA(phone) {
+  if (!phone) return null;
+  let p = String(phone).replace(/\D/g, '');
+  if (p.startsWith('00'))  p = p.slice(2);
+  if (p.startsWith('0'))   p = '212' + p.slice(1);
+  if (!p.startsWith('212')) p = '212' + p;
+  return p;
+}
+function waLink(phone, text) {
+  const p = normalizePhoneForWA(phone);
+  if (!p) return null;
+  return `https://wa.me/${p}?text=${encodeURIComponent(text)}`;
+}
+function _hhmm(rawTime) {
+  // PG returns HH:MM:SS; trim to HH:MM for display.
+  if (!rawTime) return '';
+  return String(rawTime).slice(0, 5);
+}
+// Today's RDV reminder. Agent name + optional appointment hour are
+// substituted live from the signed-in agent + the lead's rdv_time.
+function buildRdvReminderText(lead) {
+  const name = (typeof agentName !== 'undefined' && agentName) ? agentName : 'فريق المتابعة';
+  const time = _hhmm(lead && lead.rdv_time);
+  const timeLine = time
+    ? `نذكّركم بموعدكم المحدّد معنا اليوم على الساعة *${time}* 📅`
+    : `نذكّركم بموعدكم المحدّد معنا اليوم 📅`;
+  return `السلام عليكم 👋\n\nأنا ${name} من *Centre Marzouk Academy* 🎓\n\n${timeLine}\nنتطلّع لرؤيتكم 🤝\n\nونتمنى لكم يومًا موفقًا 🌟`;
+}
+// Follow-up message for clients who missed their appointment. The
+// multi-choice numbered list lowers the friction for the lead to reply
+// (they just hit a digit) and gives the agent qualified intent fast.
+function buildRdvFollowUpText(lead) {
+  const name = (typeof agentName !== 'undefined' && agentName) ? agentName : 'فريق المتابعة';
+  return [
+    `السلام عليكم، أنا ${name} من Centre Marzouk Academy.`,
+    `كان لديكم موعد معنا اليوم ولم نتمكن من لقائكم.`,
+    ``,
+    `لمساعدتكم بشكل أفضل، المرجو اختيار الرقم الذي يناسب السبب:`,
+    ``,
+    `1️⃣ لم يكن الوقت مناسب`,
+    `2️⃣ ظرف طارئ`,
+    `3️⃣ أحتاج مزيدًا من المعلومات`,
+    `4️⃣ أسباب مالية`,
+    `5️⃣ غير مهتم حاليًا`,
+    ``,
+    `📩 يمكننا إعادة برمجة الموعد في وقت يناسبكم،`,
+    `خصوصًا أن الأماكن محدودة هذه الفترة.`,
+  ].join('\n');
+}
+
+// Hot-lead window — speed-to-lead psychology. 5 minutes since assignment.
+const HOT_WINDOW_MS = 5 * 60 * 1000;
+
+function _isHotLead(assignedAtIso) {
+  if (!assignedAtIso) return false;
+  const ms = Date.parse(assignedAtIso);
+  if (isNaN(ms)) return false;
+  return (Date.now() - ms) < HOT_WINDOW_MS;
+}
+
+// Soft re-render ticker — every 30s, if there are still-hot leads, redraw
+// so they cool down on screen without waiting for the next refetch. Stops
+// itself the moment no leads are hot, so it doesn't burn cycles.
+let _hotTimer = null;
+function _scheduleHotRerender() {
+  if (_hotTimer) return;
+  _hotTimer = setInterval(() => {
+    const anyHot = (allLeads || []).some(l =>
+      (l.status || 'new') === 'new' && _isHotLead(l.assigned_at)
+    );
+    if (!anyHot) {
+      clearInterval(_hotTimer); _hotTimer = null;
+      return;
+    }
+    if (document.visibilityState === 'visible') render();
+  }, 30000);
+}
+
 function formatBacklogTitle(assignedAtIso) {
   if (!assignedAtIso) return 'رسالة لم يتم العمل عليها بعد';
   try {
@@ -1062,6 +1297,13 @@ function render() {
     const backlogPill = (l._outOfWindow && status === 'new')
       ? `<span class="backlog-pill" title="${escapeHtml(formatBacklogTitle(l.assigned_at))}">⏳ متأخر</span>`
       : '';
+    // Hot lead: assigned in the last 5 minutes AND still untouched.
+    // Speed-to-lead is the #1 conversion driver — this badge tells the
+    // agent "call NOW" without them having to read timestamps.
+    const isHot = status === 'new' && _isHotLead(l.assigned_at);
+    const hotBadge = isHot
+      ? `<span class="hot-badge">🔥 جديد الآن</span>`
+      : '';
 
     const existingNote = l.last_note || '';
     const commentInput = `
@@ -1074,11 +1316,11 @@ function render() {
       </div>`;
 
     return `
-      <div class="lead-card ${status}${l._outOfWindow && status === 'new' ? ' backlog' : ''}">
+      <div class="lead-card ${status}${l._outOfWindow && status === 'new' ? ' backlog' : ''}${isHot ? ' hot-fresh' : ''}">
         ${checkHtml}
         <div class="lead-main">
           <div class="lead-name" data-id="${l.id}" onclick="editName(this, '${l.id}')" title="اضغط للتعديل">
-            ${escapeHtml(name)} ${backlogPill}
+            ${hotBadge}${escapeHtml(name)} ${backlogPill}
           </div>
           ${fieldsHtml ? `<div class="lead-fields">${fieldsHtml}</div>` : ''}
           ${badges.length ? `<div class="lead-meta">${badges.join('')}</div>` : ''}
@@ -1093,6 +1335,8 @@ function render() {
         </div>
       </div>`;
   }).join('');
+  // Kick the cool-down ticker if any hot lead is on screen.
+  _scheduleHotRerender();
 }
 
 // ── Status change flow ─────────────────────────────────────
@@ -1112,7 +1356,7 @@ async function updateStatus(id, status) {
       return sendStatusPatch(id, { status });
     }
     pendingStatusChange = { leadId: id, oldStatus, newStatus: status };
-    openRdvModal(lead && lead.rdv_date);
+    openRdvModal(lead && lead.rdv_date, lead && lead.rdv_time);
     return;
   }
 
@@ -1139,12 +1383,19 @@ async function sendStatusPatch(id, payload) {
       lead.status = payload.status;
       if (payload.status === 'rdv') {
         lead.rdv_date = payload.rdv_date || lead.rdv_date || null;
+        if (payload.rdv_time !== undefined) {
+          // server stores HH:MM:00 — keep the same shape locally so the
+          // formatter and re-open of the modal both behave correctly.
+          lead.rdv_time = payload.rdv_time ? payload.rdv_time + ':00' : null;
+        }
         lead.custom_status = null;
       } else if (payload.status === 'custom') {
         lead.custom_status = payload.custom_status;
         lead.rdv_date = null;
+        lead.rdv_time = null;
       } else {
         lead.rdv_date = null;
+        lead.rdv_time = null;
         lead.custom_status = null;
       }
     }
@@ -1165,14 +1416,18 @@ async function sendStatusPatch(id, payload) {
   }
 }
 
-// ── RDV date picker modal ──────────────────────────────────
-function openRdvModal(preselected) {
+// ── RDV date + time picker modal ──────────────────────────
+function openRdvModal(preselectedDate, preselectedTime) {
   const today = todayISO();
-  const input = document.getElementById('rdvDateInput');
-  input.min = today;
-  input.value = preselected || today;
-  // Mark the matching quick-chip (if any)
-  const picked = preselected || today;
+  const dateInput = document.getElementById('rdvDateInput');
+  const timeInput = document.getElementById('rdvTimeInput');
+  dateInput.min = today;
+  dateInput.value = preselectedDate || today;
+  // rdv_time comes back as HH:MM:SS from PG; <input type=time> wants HH:MM
+  const trimmedTime = (preselectedTime || '').slice(0, 5);
+  timeInput.value = trimmedTime;
+  // Mark the matching quick-chip (date)
+  const picked = preselectedDate || today;
   document.querySelectorAll('#rdvQuickDates .quick-chip').forEach(c => {
     const d = new Date(today + 'T00:00:00');
     d.setDate(d.getDate() + parseInt(c.dataset.offset, 10));
@@ -1181,11 +1436,23 @@ function openRdvModal(preselected) {
     c.onclick = () => {
       document.querySelectorAll('#rdvQuickDates .quick-chip').forEach(x => x.classList.remove('active'));
       c.classList.add('active');
-      input.value = iso;
+      dateInput.value = iso;
     };
   });
-  input.onchange = () => {
+  dateInput.onchange = () => {
     document.querySelectorAll('#rdvQuickDates .quick-chip').forEach(x => x.classList.remove('active'));
+  };
+  // Time quick chips
+  document.querySelectorAll('#rdvQuickTimes .quick-chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.time === trimmedTime);
+    c.onclick = () => {
+      document.querySelectorAll('#rdvQuickTimes .quick-chip').forEach(x => x.classList.remove('active'));
+      c.classList.add('active');
+      timeInput.value = c.dataset.time;
+    };
+  });
+  timeInput.onchange = () => {
+    document.querySelectorAll('#rdvQuickTimes .quick-chip').forEach(x => x.classList.remove('active'));
   };
   document.getElementById('rdvModal').classList.add('show');
 }
@@ -1193,10 +1460,13 @@ function openRdvModal(preselected) {
 async function confirmRdvDate() {
   if (!pendingStatusChange) return;
   const rdvDate = document.getElementById('rdvDateInput').value;
+  const rdvTime = document.getElementById('rdvTimeInput').value;
   if (!rdvDate) { toast('اختر تاريخ الموعد', 'error'); return; }
   const { leadId } = pendingStatusChange;
   closeModal('rdvModal');
-  await sendStatusPatch(leadId, { status: 'rdv', rdv_date: rdvDate });
+  const payload = { status: 'rdv', rdv_date: rdvDate };
+  if (rdvTime) payload.rdv_time = rdvTime;
+  await sendStatusPatch(leadId, payload);
   pendingStatusChange = null;
 }
 

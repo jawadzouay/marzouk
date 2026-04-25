@@ -177,6 +177,55 @@
     /* Loading spinner */
     .loading { text-align: center; padding: 40px; color: #9ca3af; font-size: 14px; }
 
+    /* ===== Streak card ===== */
+    .streak-card {
+      background: linear-gradient(135deg, #fb923c, #ea580c);
+      color: white; border-radius: 18px;
+      padding: 16px 18px; margin-bottom: 14px;
+      display: grid; grid-template-columns: auto 1fr auto; gap: 14px;
+      align-items: center;
+      box-shadow: 0 8px 28px rgba(234,88,12,0.35);
+      position: relative; overflow: hidden;
+    }
+    .streak-card::before {
+      content: ''; position: absolute; inset: 0;
+      background: radial-gradient(circle at 90% 20%, rgba(255,255,255,0.18) 0%, transparent 50%);
+      pointer-events: none;
+    }
+    .streak-flame {
+      font-size: 42px; line-height: 1;
+      animation: flame-flicker 1.6s ease-in-out infinite;
+      filter: drop-shadow(0 2px 6px rgba(0,0,0,0.25));
+    }
+    @keyframes flame-flicker {
+      0%, 100% { transform: scale(1) rotate(-2deg); }
+      50%      { transform: scale(1.08) rotate(2deg); }
+    }
+    .streak-body { min-width: 0; position: relative; }
+    .streak-num {
+      font-size: 32px; font-weight: 900; line-height: 1;
+      display: flex; align-items: baseline; gap: 6px;
+    }
+    .streak-num .streak-unit { font-size: 14px; font-weight: 700; opacity: 0.9; }
+    .streak-lbl {
+      font-size: 12px; font-weight: 700; opacity: 0.95; margin-top: 4px;
+    }
+    .streak-best {
+      font-size: 11px; font-weight: 600; opacity: 0.85; margin-top: 6px;
+    }
+    .streak-today {
+      background: rgba(255,255,255,0.18); border-radius: 12px;
+      padding: 6px 10px; font-size: 11px; font-weight: 800;
+      white-space: nowrap; position: relative;
+    }
+    .streak-today.done    { background: rgba(255,255,255,0.28); }
+    .streak-today.pending { background: rgba(0,0,0,0.18); }
+    .streak-card.cold {
+      background: linear-gradient(135deg, #6b7280, #4b5563);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+    }
+    .streak-card.cold .streak-flame { animation: none; opacity: 0.8; }
+
     /* ===== Today's RDVs section ===== */
     .rdv-today-card {
       background: linear-gradient(135deg, #10b981, #059669); color: white;
@@ -208,6 +257,12 @@
       background: rgba(255,255,255,0.18); padding: 4px 10px; border-radius: 8px;
       font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;
     }
+    .rdv-today-item a.rwa { background: #25d366; box-shadow: 0 1px 4px rgba(37,211,102,0.45); }
+    .rdv-today-item .rtime {
+      display: inline-block; background: rgba(255,255,255,0.28);
+      padding: 1px 7px; border-radius: 8px; font-size: 11px; font-weight: 800;
+      direction: ltr; margin-right: 4px; vertical-align: middle;
+    }
     .rdv-today-link {
       display: inline-block; margin-top: 8px; font-size: 12px; font-weight: 700;
       color: white; text-decoration: none; opacity: 0.9;
@@ -231,6 +286,17 @@
 </header>
 
 <div class="container">
+
+  <!-- Streak (RDV booking streak) — front and center, the dopamine anchor -->
+  <div class="streak-card" id="streakCard" style="display:none;">
+    <div class="streak-flame">🔥</div>
+    <div class="streak-body">
+      <div class="streak-num"><span id="streakCount">0</span> <span class="streak-unit">يوم</span></div>
+      <div class="streak-lbl">متتالية مع موعد جديد</div>
+      <div class="streak-best" id="streakBest"></div>
+    </div>
+    <div class="streak-today" id="streakToday"></div>
+  </div>
 
   <!-- CTA -->
   <a href="submit.html" class="cta-btn">إرسال التقرير اليومي</a>
@@ -740,9 +806,14 @@ async function loadTodayRdvs() {
       const name = l.full_name || '(بدون اسم)';
       const phone = l.phone_primary || '';
       const callHref = phone ? `tel:${phone.replace(/\s/g, '')}` : '';
+      const time = (l.rdv_time || '').slice(0, 5);
+      const waHref = phone ? buildRdvWaLink(phone, l, time) : null;
       return `
         <div class="rdv-today-item">
-          <div class="rname" title="${escAttr(name)}">${escHtml(name)}</div>
+          <div class="rname" title="${escAttr(name)}">
+            ${escHtml(name)}${time ? ` <span class="rtime">${escHtml(time)}</span>` : ''}
+          </div>
+          ${waHref ? `<a class="rwa" href="${waHref}" target="_blank" rel="noopener" title="إرسال تذكير عبر واتساب">💬</a>` : ''}
           ${phone ? `<a href="${callHref}">📞 ${escHtml(phone)}</a>` : '<span class="rphone">—</span>'}
         </div>`;
     }).join('');
@@ -760,12 +831,84 @@ async function loadTodayRdvs() {
 function escHtml(s) { return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function escAttr(s) { return (s||'').toString().replace(/"/g, '&quot;'); }
 
+// WhatsApp pre-filled reminder for today's RDV — same wording as the
+// agent leads page so the lead gets a consistent message regardless of
+// where the agent triggers it from.
+function _normalizePhoneForWA(phone) {
+  if (!phone) return null;
+  let p = String(phone).replace(/\D/g, '');
+  if (p.startsWith('00'))  p = p.slice(2);
+  if (p.startsWith('0'))   p = '212' + p.slice(1);
+  if (!p.startsWith('212')) p = '212' + p;
+  return p;
+}
+function buildRdvWaLink(phone, lead, time) {
+  const p = _normalizePhoneForWA(phone);
+  if (!p) return null;
+  const name = (typeof agentName !== 'undefined' && agentName) ? agentName : 'فريق المتابعة';
+  const t = time || '';
+  const timeLine = t
+    ? `نذكّركم بموعدكم المحدّد معنا اليوم على الساعة *${t}* 📅`
+    : `نذكّركم بموعدكم المحدّد معنا اليوم 📅`;
+  const text = `السلام عليكم 👋\n\nأنا ${name} من *Centre Marzouk Academy* 🎓\n\n${timeLine}\nنتطلّع لرؤيتكم 🤝\n\nونتمنى لكم يومًا موفقًا 🌟`;
+  return `https://wa.me/${p}?text=${encodeURIComponent(text)}`;
+}
+
+// ── Streak (consecutive RDV-booking days) ──
+async function loadStreak() {
+  try {
+    const r = await fetch(API + '/ad-leads/my/streak', { headers: hdr() });
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d || d.enabled === false) return;
+    const card  = document.getElementById('streakCard');
+    const count = document.getElementById('streakCount');
+    const best  = document.getElementById('streakBest');
+    const today = document.getElementById('streakToday');
+
+    const cur = d.current_streak || 0;
+    const bst = d.best_streak || 0;
+    // Hide entirely if there's nothing to celebrate yet — first RDV will
+    // surface the card with a satisfying first-day reveal.
+    if (cur === 0 && bst === 0) {
+      card.style.display = 'none';
+      return;
+    }
+    card.style.display = 'grid';
+    count.textContent = cur;
+    // Cool down the card when the streak is broken (current=0 but best>0)
+    if (cur === 0) {
+      card.classList.add('cold');
+    } else {
+      card.classList.remove('cold');
+    }
+    if (bst > cur) {
+      best.textContent = `أفضل سلسلة: ${bst} يوم`;
+    } else if (cur >= 3) {
+      best.textContent = `🏆 أعلى سلسلة لك حتى الآن — استمر!`;
+    } else {
+      best.textContent = '';
+    }
+    if (d.today_has_rdv) {
+      today.className = 'streak-today done';
+      today.textContent = '✓ اليوم';
+    } else if (cur > 0) {
+      today.className = 'streak-today pending';
+      today.textContent = 'احجز اليوم!';
+    } else {
+      today.className = 'streak-today pending';
+      today.textContent = 'ابدأ سلسلة جديدة';
+    }
+  } catch (e) { /* silent — card stays hidden */ }
+}
+
 // ── Init ──
 loadStats();
 loadGoal();
 loadRecentReports();
 loadLeadsInbox();
 loadTodayRdvs();
+loadStreak();
 </script>
 </body>
 </html>

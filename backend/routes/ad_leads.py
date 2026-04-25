@@ -217,6 +217,8 @@ def _lead_select_fields() -> str:
         extras.append("custom_status")
     if _has_rdv_date_col():
         extras.append("rdv_date")
+    if _has_rdv_time_col():
+        extras.append("rdv_time")
     if _has_status_changed_at_col():
         extras.append("status_changed_at")
     return _LEAD_FIELDS_BASE + ("".join(f", {e}" for e in extras) if extras else "")
@@ -325,6 +327,11 @@ def my_rdvs(bucket: Optional[str] = Query(None), agent=Depends(require_agent)):
         q = q.gte("rdv_date", today.isoformat()).lte("rdv_date", week_end.isoformat())
     elif bucket == "later":
         q = q.gt("rdv_date", week_end.isoformat())
+    elif bucket == "missed":
+        # No-shows: status is still rdv (agent hasn't moved them to visits or
+        # registered) AND the appointment date is in the past. Drives the
+        # follow-up flow on the agent leads page.
+        q = q.lt("rdv_date", today.isoformat())
 
     res = q.execute()
     # Drop leads with no rdv_date set — simpler than chaining a nullable filter
@@ -334,16 +341,18 @@ def my_rdvs(bucket: Optional[str] = Query(None), agent=Depends(require_agent)):
     if bucket:
         return {"enabled": True, "leads": rows, "bucket": bucket}
 
-    # Group mode — split into buckets client-side to avoid four round trips.
+    # Group mode — split into buckets client-side to avoid five round trips.
     today_s = today.isoformat()
     tomorrow_s = tomorrow.isoformat()
     week_end_s = week_end.isoformat()
-    buckets = {"today": [], "tomorrow": [], "week": [], "later": []}
+    buckets = {"today": [], "tomorrow": [], "week": [], "later": [], "missed": []}
     for r in rows:
         d = r.get("rdv_date")
         if not d:
             continue
-        if d == today_s:
+        if d < today_s:
+            buckets["missed"].append(r)
+        elif d == today_s:
             buckets["today"].append(r)
         elif d == tomorrow_s:
             buckets["tomorrow"].append(r)
@@ -352,6 +361,107 @@ def my_rdvs(bucket: Optional[str] = Query(None), agent=Depends(require_agent)):
         elif d > week_end_s:
             buckets["later"].append(r)
     return {"enabled": True, **buckets}
+
+
+@router.get("/my/streak")
+def my_streak(agent=Depends(require_agent)):
+    """Consecutive-day streak of booking at least one new RDV (or moving a
+    lead past the RDV stage). Computed in Morocco-local days. The agent's
+    fixed weekly day_off is treated as a free pass — it doesn't break the
+    streak, so reps don't feel punished for taking their planned day off.
+
+    Returns:
+      current_streak: how many consecutive days of RDV activity ending today
+                      (or yesterday if today has no activity yet)
+      best_streak:    longest streak in the last 90 days
+      today_has_rdv:  true if today already counts toward the streak
+    """
+    sb = get_client()
+    aid = agent["sub"]
+
+    # Without status_changed_at the streak is meaningless — fall back to
+    # zero so the UI can hide the card silently.
+    if not _has_status_changed_at_col():
+        return {"current_streak": 0, "best_streak": 0, "today_has_rdv": False, "enabled": False}
+
+    today = today_morocco()
+    horizon_days = 90
+    horizon_start = today - timedelta(days=horizon_days)
+    horizon_start_utc, _ = morocco_day_bounds_utc(horizon_start.isoformat(), horizon_start.isoformat())
+
+    # Pull every lead the agent moved to rdv-or-beyond in the last 90 days.
+    # status_changed_at is stamped on every status change; same-day moves
+    # past RDV still register the day as an "RDV day" (one bucket per day).
+    res = sb.table("ad_leads").select("status_changed_at") \
+        .eq("assigned_agent_id", aid) \
+        .in_("status", ["rdv", "visits", "registered"]) \
+        .gte("status_changed_at", horizon_start_utc) \
+        .execute()
+
+    days = set()
+    for r in (res.data or []):
+        ts = r.get("status_changed_at")
+        if not ts:
+            continue
+        try:
+            dt = datetime.fromisoformat(ts.replace("Z", "+00:00"))
+            days.add(dt.astimezone(MOROCCO_TZ).date())
+        except Exception:
+            continue
+
+    # Day-off lookup for free-pass logic
+    agent_row = sb.table("agents").select("day_off").eq("id", aid).execute()
+    day_off = agent_row.data[0].get("day_off") if agent_row.data else None
+
+    def is_off(d: date) -> bool:
+        if day_off is None:
+            return False
+        # JS-style weekday: 0=Sun..6=Sat (matches the day_off field).
+        return ((d.weekday() + 1) % 7) == day_off
+
+    # Current streak — walk back from today. If today has no activity AND
+    # is not an off-day, start from yesterday so the streak doesn't drop
+    # to zero just because the agent hasn't booked an RDV yet today.
+    today_has = today in days
+    cursor = today
+    if not today_has and not is_off(today):
+        cursor = today - timedelta(days=1)
+    current = 0
+    safety = 0
+    while safety < horizon_days + 5:
+        safety += 1
+        if cursor in days:
+            current += 1
+            cursor -= timedelta(days=1)
+        elif is_off(cursor):
+            cursor -= timedelta(days=1)  # skip day-off without breaking
+        else:
+            break
+
+    # Best streak across the horizon — walk sorted activity days, allowing
+    # gaps that consist entirely of the agent's day_off.
+    best = 0
+    if days:
+        sorted_days = sorted(days)
+        cur = 1
+        best = 1
+        for i in range(1, len(sorted_days)):
+            gap = (sorted_days[i] - sorted_days[i - 1]).days
+            if gap == 1:
+                cur += 1
+            elif gap > 1 and all(is_off(sorted_days[i - 1] + timedelta(days=k)) for k in range(1, gap)):
+                cur += 1  # gap was only off-days
+            else:
+                cur = 1
+            best = max(best, cur)
+    best = max(best, current)
+
+    return {
+        "current_streak": current,
+        "best_streak": best,
+        "today_has_rdv": today_has,
+        "enabled": True,
+    }
 
 
 @router.get("/my/count")
@@ -392,6 +502,7 @@ class StatusUpdate(BaseModel):
     # features (see _has_custom_status_col / _has_rdv_date_col probes).
     custom_status: Optional[str] = None
     rdv_date: Optional[str] = None  # YYYY-MM-DD
+    rdv_time: Optional[str] = None  # HH:MM (24h)
 
 
 VALID_STATUSES = {
@@ -410,6 +521,7 @@ VALID_STATUSES = {
 
 _HAS_CUSTOM_STATUS_COL: Optional[bool] = None
 _HAS_RDV_DATE_COL: Optional[bool] = None
+_HAS_RDV_TIME_COL: Optional[bool] = None
 _HAS_STATUS_CHANGED_AT_COL: Optional[bool] = None
 
 
@@ -437,6 +549,18 @@ def _has_rdv_date_col() -> bool:
     return _HAS_RDV_DATE_COL
 
 
+def _has_rdv_time_col() -> bool:
+    global _HAS_RDV_TIME_COL
+    if _HAS_RDV_TIME_COL is None:
+        try:
+            get_client().table("ad_leads").select("rdv_time").limit(1).execute()
+            _HAS_RDV_TIME_COL = True
+        except Exception:
+            _HAS_RDV_TIME_COL = False
+            log.warning("[ad_leads] rdv_time column missing — run migration to enable scheduled RDV hour-of-day")
+    return _HAS_RDV_TIME_COL
+
+
 def _has_status_changed_at_col() -> bool:
     global _HAS_STATUS_CHANGED_AT_COL
     if _HAS_STATUS_CHANGED_AT_COL is None:
@@ -450,6 +574,7 @@ def _has_status_changed_at_col() -> bool:
 
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_TIME_RE = re.compile(r"^\d{2}:\d{2}$")
 
 
 @router.patch("/{lead_id}/status")
@@ -499,9 +624,18 @@ def update_lead_status(lead_id: str, body: StatusUpdate, agent=Depends(require_a
                 raise HTTPException(400, "يرجى تنفيذ تحديث قاعدة البيانات لحفظ تاريخ الموعد")
             updates["rdv_date"] = body.rdv_date
         # If agent didn't provide rdv_date, leave whatever was there alone.
+        # Same for rdv_time — gets stored as HH:MM:00 for the TIME column.
+        if body.rdv_time:
+            if not _TIME_RE.match(body.rdv_time):
+                raise HTTPException(400, "صيغة الوقت غير صحيحة (HH:MM)")
+            if not _has_rdv_time_col():
+                raise HTTPException(400, "يرجى تنفيذ تحديث قاعدة البيانات لحفظ وقت الموعد")
+            updates["rdv_time"] = body.rdv_time + ":00"
     elif _has_rdv_date_col():
         # Clear RDV date when moving off rdv — avoids stale dates haunting lists.
         updates["rdv_date"] = None
+        if _has_rdv_time_col():
+            updates["rdv_time"] = None
 
     sb.table("ad_leads").update(updates).eq("id", lead_id).execute()
     return {"ok": True}
@@ -717,6 +851,8 @@ def admin_list_agent_leads(
         base += ", custom_status"
     if _has_rdv_date_col():
         base += ", rdv_date"
+    if _has_rdv_time_col():
+        base += ", rdv_time"
     if _has_status_changed_at_col():
         base += ", status_changed_at"
     q = sb.table("ad_leads").select(base).eq("assigned_agent_id", agent_id)
