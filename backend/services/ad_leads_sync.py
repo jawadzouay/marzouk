@@ -171,6 +171,32 @@ def _parse_created_time(raw: Optional[str]) -> Optional[str]:
         return None
 
 
+# ---------------------------------------------------------------------------
+# Auto-detect ad / adset / platform / campaign by header name. Admins often
+# don't mark these columns as type=ad_name in the lead-sources mapping
+# because they don't want them shown to agents — but the admin's ad quality
+# page still needs them populated to bucket leads by ad. These regexes
+# match the common Facebook / Meta lead-export headers in English and
+# Arabic so the values get extracted automatically as a fallback.
+# ---------------------------------------------------------------------------
+
+_AD_NAME_HEADER     = re.compile(r'(?:^|[\s_-])ad[\s_-]*name\b|اسم\s*الإعلان', re.IGNORECASE)
+_ADSET_NAME_HEADER  = re.compile(r'ad[\s_-]*set[\s_-]*name|adset[\s_-]*name|اسم\s*المجموعة', re.IGNORECASE)
+_CAMPAIGN_HEADER    = re.compile(r'campaign[\s_-]*name|اسم\s*الحملة', re.IGNORECASE)
+_PLATFORM_HEADER    = re.compile(r'^platform$|المنصة|منصة', re.IGNORECASE)
+
+
+def _find_by_header(row: list, header_idx: Dict[str, int], pattern: re.Pattern) -> Optional[str]:
+    """Return the first non-empty cell whose header matches the regex.
+    Used as a fallback when the admin hasn't explicitly mapped the column."""
+    for h, i in header_idx.items():
+        if pattern.search(h or ""):
+            v = _cell(row, i)
+            if v:
+                return v
+    return None
+
+
 def _row_key(row: list, header_row: List[str], key_idx: Optional[int]) -> str:
     """Unique stable key per sheet row. Uses the admin-marked key column
     when present; otherwise hashes the row contents."""
@@ -254,6 +280,53 @@ def _build_lead_from_row(
             data[display] = raw
         else:
             data[display] = raw
+
+    # ── Auto-detection fallback ──────────────────────────────────────────
+    # The admin doesn't have to mark ad-related columns as type=ad_name in
+    # the mapping. If a sheet header looks like an ad / adset / platform
+    # field, lift the value into the promoted column so the admin's ad
+    # quality page can group by it. Explicit mappings still win.
+    if not ad_name:
+        v = _find_by_header(row, header_idx, _AD_NAME_HEADER)
+        if v:
+            ad_name = v
+            any_value = True
+    if not adset_name:
+        v = _find_by_header(row, header_idx, _ADSET_NAME_HEADER)
+        if v:
+            adset_name = v
+            any_value = True
+    if not platform:
+        v = _find_by_header(row, header_idx, _PLATFORM_HEADER)
+        if v:
+            platform = v.lower()
+            any_value = True
+    # Campaign name has no dedicated column yet; stash in data JSONB so
+    # admin tooling can read it without a schema change.
+    campaign = _find_by_header(row, header_idx, _CAMPAIGN_HEADER)
+    if campaign:
+        data.setdefault("campaign_name", campaign)
+        any_value = True
+
+    # Stash every unmapped sheet column into `data` too — the admin asked
+    # to "extract the entire sheet to backend" so they (or future analytics)
+    # can read any field without re-syncing or remapping. Mapped columns
+    # already populated above keep their display_name keys; unmapped
+    # columns use the raw header verbatim.
+    for h, i in header_idx.items():
+        if not h:
+            continue
+        # Already populated by the explicit mapping loop?
+        already_mapped = any(
+            (col.get("source_header") or "") == h for col in columns
+        )
+        if already_mapped:
+            continue
+        v = _cell(row, i)
+        if v is None or v == "":
+            continue
+        data.setdefault(h, v)
+        any_value = True
 
     if not any_value:
         return None
