@@ -193,6 +193,9 @@
         <button class="btn btn-view" onclick="applyCustom()">تطبيق</button>
       </div>
       <div class="filter-selects">
+        <select id="cityFilter" onchange="onCityChanged()">
+          <option value="">كل المدن</option>
+        </select>
         <select id="branchFilter" onchange="load()">
           <option value="">كل الفروع</option>
         </select>
@@ -348,12 +351,45 @@
       load();
     }
 
+    // Cached lookup tables for the cascading city → branch filter.
+    let _allBranches = [];
+    let _allCities = [];
+
     async function loadBranches() {
-      const res = await fetch(API + '/branches/', { headers: hdr() });
-      const data = await res.json();
+      // Pull cities + branches in parallel — both lists are tiny.
+      const [bRes, cRes] = await Promise.all([
+        fetch(API + '/branches/', { headers: hdr() }),
+        fetch(API + '/cities/',   { headers: hdr() }),
+      ]);
+      _allBranches = (await bRes.json()) || [];
+      _allCities   = (await cRes.json()) || [];
+
+      // City dropdown: lists every distinct city we know about. Branches
+      // table stores city as TEXT; cities table is the authoritative list
+      // of UUIDs needed by the backend's city_id filter.
+      const citySel = document.getElementById('cityFilter');
+      citySel.innerHTML = '<option value="">كل المدن</option>' +
+        _allCities.map(c => `<option value="${c.id}" data-name="${escAttr(c.name)}">${escHTML(c.name)}</option>`).join('');
+
+      // Branch dropdown: starts with all branches; narrows when a city is picked.
+      _renderBranchOptions('');
+    }
+
+    function _renderBranchOptions(cityName) {
       const sel = document.getElementById('branchFilter');
-      sel.innerHTML = '<option value="">كل الفروع</option>' +
-        (data || []).map(b => `<option value="${b.id}">${b.city ? b.city + ' — ' : ''}${b.name}</option>`).join('');
+      const branches = cityName
+        ? _allBranches.filter(b => (b.city || '') === cityName)
+        : _allBranches;
+      sel.innerHTML = '<option value="">' + (cityName ? `كل فروع ${escHTML(cityName)}` : 'كل الفروع') + '</option>' +
+        branches.map(b => `<option value="${b.id}">${b.city ? escHTML(b.city) + ' — ' : ''}${escHTML(b.name)}</option>`).join('');
+    }
+
+    function onCityChanged() {
+      const citySel = document.getElementById('cityFilter');
+      const opt = citySel.options[citySel.selectedIndex];
+      const cityName = opt ? (opt.dataset.name || '') : '';
+      _renderBranchOptions(cityName);
+      load();  // refetch with city_id (and the now-cleared branch_id)
     }
 
     // ─── LOAD LEADERBOARD ──────────────────────────────────
@@ -361,7 +397,11 @@
       const params = new URLSearchParams({ range: currentRange });
       if (currentRange === 'custom') { params.set('date_from', customFrom); params.set('date_to', customTo); }
       const bid = document.getElementById('branchFilter').value;
-      if (bid) params.set('branch_id', bid);
+      const cid = document.getElementById('cityFilter').value;
+      // branch_id wins when both are set — narrowest scope. Otherwise
+      // city_id covers "every branch in this city".
+      if (bid)      params.set('branch_id', bid);
+      else if (cid) params.set('city_id', cid);
 
       const { ok, data } = await callAPI(`${API}/ad-leads/admin/agent-leaderboard?${params}`);
       if (!ok) return toast(data?.detail || 'تعذر التحميل', 'error');
