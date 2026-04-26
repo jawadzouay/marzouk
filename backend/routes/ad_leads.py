@@ -920,6 +920,24 @@ def admin_agent_leaderboard(
             s = l.get("status") or "new"
             bucket["by_status"][s] = bucket["by_status"].get(s, 0) + 1
 
+    # All-time pending pile per agent: any lead currently in `new` status
+    # regardless of when it was assigned. The date-filtered new_count above
+    # only captures activity in the selected window — admins also need the
+    # untouched-backlog total so they can see who's drowning in cold leads.
+    pending_new_total: Dict[str, int] = {}
+    pending_active_total: Dict[str, int] = {}
+    if agent_ids:
+        ACTIVE_STATUSES = ["new", "contacted", "rdv", "bv", "waiting", "no_answer", "custom", "visits"]
+        p_q = sb.table("ad_leads").select("assigned_agent_id, status") \
+            .in_("assigned_agent_id", agent_ids) \
+            .in_("status", ACTIVE_STATUSES) \
+            .execute()
+        for r in (p_q.data or []):
+            aid = r["assigned_agent_id"]
+            if r.get("status") == "new":
+                pending_new_total[aid] = pending_new_total.get(aid, 0) + 1
+            pending_active_total[aid] = pending_active_total.get(aid, 0) + 1
+
     rows = []
     for a in agents_data:
         cd = counts.get(a["id"], {"total": 0, "by_status": {}})
@@ -946,6 +964,9 @@ def admin_agent_leaderboard(
             "visits_count":     by.get("visits", 0),
             "registered_count": registered,
             "conversion_pct": round(registered / cd["total"], 3) if cd["total"] else 0,
+            # All-time pile (ignores date filter) — surfaces accumulated work
+            "pending_new_total":    pending_new_total.get(a["id"], 0),
+            "pending_active_total": pending_active_total.get(a["id"], 0),
         })
 
     rows.sort(key=lambda x: (-x["registered_count"], -x["rdv_count"], -x["total"], x["name"]))

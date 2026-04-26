@@ -90,6 +90,22 @@
     .pill.muted  { background: #f9fafb; color: #6b7280; }
     .pill b { font-weight: 900; margin-left: 2px; }
 
+    /* All-time totals strip — sits between the agent header and the per-status
+       pills. Visually distinct from the date-filtered status-pills so admins
+       know these numbers ignore the date chip. */
+    .agent-totals-line {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px;
+      padding-top: 8px; border-top: 1px dashed #e5e7eb;
+    }
+    .all-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700;
+    }
+    .all-pill b { font-weight: 900; font-size: 13px; margin-right: 2px; }
+    .all-pill .extra { font-size: 10px; font-weight: 700; opacity: 0.85; margin-right: 4px; }
+    .all-pill-new    { background: #fef3c7; color: #92400e; }
+    .all-pill-active { background: #e0e7ff; color: #3730a3; }
+
     /* Expanded leads panel */
     .leads-panel { margin-top: 12px; border-top: 1px dashed #e5e7eb; padding-top: 12px; display: none; }
     .leads-panel.open { display: block; }
@@ -395,6 +411,23 @@
       const branchLbl = a.branch_name ? `${a.branch_city ? a.branch_city + ' — ' : ''}${a.branch_name}` : '—';
       const convPct = (a.conversion_pct * 100).toFixed(1);
       const isOpen = expanded.has(a.id);
+      // All-time pile (ignores the date chip). pending_new_total = leads
+      // currently sitting in `new` regardless of when they were assigned;
+      // pending_active_total = anything still in the active pipeline.
+      const pendingNew = a.pending_new_total ?? 0;
+      const pendingActive = a.pending_active_total ?? 0;
+      // Show the all-time chips only if there's more than what's already
+      // visible in the date window — otherwise it's noise.
+      const extraNew    = Math.max(0, pendingNew    - (a.new_count || 0));
+      const totalsLine = (pendingNew > 0 || pendingActive > 0) ? `
+        <div class="agent-totals-line">
+          <span class="all-pill all-pill-new" title="إجمالي الرسائل الجديدة (غير المُتواصل معها) لدى الوكيل، بغضّ النظر عن الفلتر الزمني">
+            🆕 جديدة كلياً <b>${pendingNew}</b>${extraNew > 0 ? ` <span class="extra">+${extraNew} خارج الفلتر</span>` : ''}
+          </span>
+          <span class="all-pill all-pill-active" title="إجمالي الرسائل التي ما زالت قيد العمل (جديدة أو قيد المتابعة)">
+            📂 قيد العمل <b>${pendingActive}</b>
+          </span>
+        </div>` : '';
 
       return `
         <div class="agent-card" id="card-${a.id}">
@@ -415,6 +448,7 @@
               <button class="btn btn-xfer" onclick="openTransferModal('${a.id}','${escAttr(a.name)}')">🔄 نقل</button>
             </div>
           </div>
+          ${totalsLine}
           <div class="status-pills">${pills || '<span class="pill muted">لا توجد رسائل</span>'}</div>
           <div class="leads-panel ${isOpen ? 'open' : ''}" id="panel-${a.id}"></div>
         </div>`;
