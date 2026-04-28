@@ -364,14 +364,20 @@ def _build_lead_from_row(
 
 def _agent_pool_for_scope(scope_type: str, scope_id: str) -> List[dict]:
     """Active agents in the given scope, ordered for fair round-robin,
-    excluding anyone marked off for today."""
+    excluding anyone admin has paused via the accepts_leads toggle."""
     sb = get_client()
-    today = date.today().isoformat()
 
-    q = sb.table("agents").select(
-        "id, name, branch_id, last_distributed_at, branches(id, city)"
-    ).eq("is_active", True)
-    result = q.execute()
+    # SELECT accepts_leads when the column exists; fall back gracefully if
+    # the migration hasn't been applied yet (treat all agents as accepting).
+    fields = "id, name, branch_id, last_distributed_at, branches(id, city)"
+    try:
+        q = sb.table("agents").select(fields + ", accepts_leads").eq("is_active", True)
+        result = q.execute()
+        accepts_col = True
+    except Exception:
+        q = sb.table("agents").select(fields).eq("is_active", True)
+        result = q.execute()
+        accepts_col = False
     agents = result.data or []
 
     matched = []
@@ -397,18 +403,20 @@ def _agent_pool_for_scope(scope_type: str, scope_id: str) -> List[dict]:
     if not matched:
         return []
 
-    ids = [a["id"] for a in matched]
-    off = sb.table("agent_off_dates").select("agent_id") \
-        .eq("off_date", today).in_("agent_id", ids).execute()
-    off_ids = {r["agent_id"] for r in (off.data or [])}
-    available = [a for a in matched if a["id"] not in off_ids]
+    # Admin pause: agents with accepts_leads=false skip the round-robin.
+    # NULL is treated as accepting (default behavior for old rows).
+    if accepts_col:
+        matched = [a for a in matched if a.get("accepts_leads") is not False]
+
+    if not matched:
+        return []
 
     def sort_key(a):
         ts = a.get("last_distributed_at")
         return (1, ts) if ts else (0, "")
 
-    available.sort(key=sort_key)
-    return available
+    matched.sort(key=sort_key)
+    return matched
 
 
 # ---------------------------------------------------------------------------

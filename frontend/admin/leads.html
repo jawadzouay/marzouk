@@ -106,6 +106,32 @@
     .all-pill-new    { background: #fef3c7; color: #92400e; }
     .all-pill-active { background: #e0e7ff; color: #3730a3; }
 
+    /* Multi-agent transfer list — searchable, with workload counters so the
+       admin sends to the agents who actually have capacity. */
+    .xfer-agent-row {
+      display: grid; grid-template-columns: auto 1fr auto;
+      gap: 10px; align-items: center;
+      padding: 8px 10px; border-bottom: 1px solid #e5e7eb;
+      cursor: pointer; background: white; transition: background 0.1s;
+    }
+    .xfer-agent-row:last-child { border-bottom: none; }
+    .xfer-agent-row:hover { background: #f9fafb; }
+    .xfer-agent-row.selected { background: #ecfdf5; }
+    .xfer-agent-row input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; }
+    .xfer-agent-name { font-size: 13px; font-weight: 700; color: #1a1a1a; }
+    .xfer-agent-branch {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      background: #f3f4f6; color: #4b5563; padding: 1px 7px; border-radius: 8px;
+      margin-right: 4px;
+    }
+    .xfer-agent-counts { display: flex; gap: 6px; font-size: 11px; font-weight: 800; }
+    .xfer-agent-counts .cnt-new {
+      background: #fef3c7; color: #92400e; padding: 2px 7px; border-radius: 8px;
+    }
+    .xfer-agent-counts .cnt-active {
+      background: #e0e7ff; color: #3730a3; padding: 2px 7px; border-radius: 8px;
+    }
+
     /* Expanded leads panel */
     .leads-panel { margin-top: 12px; border-top: 1px dashed #e5e7eb; padding-top: 12px; display: none; }
     .leads-panel.open { display: block; }
@@ -222,13 +248,19 @@
       </div>
       <div class="xfer-body">
         <div class="mode-tabs" style="background:#fef3c7">
-          <button id="tgt-agent"  class="active" onclick="setTargetMode('agent')">وكيل واحد</button>
+          <button id="tgt-agent"  class="active" onclick="setTargetMode('agent')">وكلاء محددون</button>
           <button id="tgt-branch" onclick="setTargetMode('branch')">توزيع على فرع</button>
           <button id="tgt-city"   onclick="setTargetMode('city')">توزيع على مدينة</button>
         </div>
-        <div class="xfer-row" id="target-agent-row">
-          <span class="xfer-label">إلى الوكيل:</span>
-          <select id="xfer-target"></select>
+        <div id="target-agent-row">
+          <input type="text" id="xfer-agent-search" placeholder="🔍 ابحث عن وكيل بالاسم..."
+                 oninput="filterTargetAgents()"
+                 style="width:100%; padding:8px 12px; border:1.5px solid #e5e7eb; border-radius:8px; font-family:'Cairo',sans-serif; font-size:13px; margin-bottom:6px;" />
+          <div id="xfer-agent-list" style="max-height:240px; overflow-y:auto; border:1.5px solid #e5e7eb; border-radius:10px; background:#f9fafb;"></div>
+          <div style="font-size:11px;color:#6b7280;margin-top:4px;display:flex;justify-content:space-between;">
+            <span>يمكن اختيار أكثر من وكيل — سيتم التوزيع بالتساوي.</span>
+            <span>المختار: <b id="xfer-agent-selected-count" style="color:#1a1a1a;">0</b></span>
+          </div>
         </div>
         <div class="xfer-row" id="target-branch-row" style="display:none">
           <span class="xfer-label">الفرع:</span>
@@ -581,7 +613,12 @@
     }
 
     // ─── TRANSFER MODAL ────────────────────────────────────
-    let xferState = { fromId: null, mode: 'count', targetMode: 'agent', leads: [], selected: new Set() };
+    // selectedAgents holds the ids the admin has ticked for the multi-agent
+    // transfer mode. Distribution backend round-robins across them.
+    let xferState = {
+      fromId: null, mode: 'count', targetMode: 'agent',
+      leads: [], selected: new Set(), selectedAgents: new Set(),
+    };
     let allBranches = [];
     let allCities   = [];
 
@@ -598,20 +635,22 @@
     }
 
     function openTransferModal(agentId, agentName) {
-      xferState = { fromId: agentId, mode: 'count', targetMode: 'agent', leads: [], selected: new Set() };
+      xferState = {
+        fromId: agentId, mode: 'count', targetMode: 'agent',
+        leads: [], selected: new Set(), selectedAgents: new Set(),
+      };
       document.getElementById('xfer-from-name').textContent = agentName;
       document.getElementById('xfer-count').value = '';
       document.getElementById('xfer-status').value = '';
       document.getElementById('xfer-select-all').checked = false;
+      document.getElementById('xfer-agent-search').value = '';
       setTransferMode('count');
       setTargetMode('agent');
 
-      // Agent dropdown (single-target)
-      document.getElementById('xfer-target').innerHTML =
-        '<option value="">— اختر الوكيل المستهدف —</option>' +
-        allAgents.filter(a => a.id !== agentId).map(a =>
-          `<option value="${a.id}">${escHTML(a.name)} ${a.branch_name ? '— ' + escHTML(a.branch_name) : ''}</option>`
-        ).join('');
+      // Multi-agent target list (replaces the single-agent dropdown). Shows
+      // each candidate with their all-time pending-new count so the admin
+      // can rebalance toward agents who have fewer leads in their pile.
+      renderTargetAgentList();
 
       // Branch + city dropdowns (distribute modes)
       document.getElementById('xfer-target-branch').innerHTML =
@@ -628,6 +667,46 @@
 
       document.getElementById('xfer-overlay').classList.add('open');
     }
+
+    function renderTargetAgentList() {
+      const list = document.getElementById('xfer-agent-list');
+      const q = (document.getElementById('xfer-agent-search').value || '').toLowerCase().trim();
+      const candidates = allAgents
+        .filter(a => a.id !== xferState.fromId)
+        .filter(a => !q || (a.name || '').toLowerCase().includes(q))
+        // Sort by lightest workload first — admins usually want to balance.
+        .sort((a, b) => (a.pending_new_total || 0) - (b.pending_new_total || 0));
+      if (!candidates.length) {
+        list.innerHTML = '<div style="padding:14px;text-align:center;color:#9ca3af;font-size:12px;">لا يوجد وكلاء مطابقون</div>';
+        return;
+      }
+      list.innerHTML = candidates.map(a => {
+        const checked = xferState.selectedAgents.has(a.id) ? 'checked' : '';
+        const branch = a.branch_name ? `<span class="xfer-agent-branch">${escHTML(a.branch_name)}</span>` : '';
+        const newCount = a.pending_new_total ?? 0;
+        const activeCount = a.pending_active_total ?? 0;
+        return `
+          <label class="xfer-agent-row${checked ? ' selected' : ''}">
+            <input type="checkbox" ${checked} onchange="toggleTargetAgent('${a.id}', this.checked)" />
+            <div class="xfer-agent-name">${escHTML(a.name)} ${branch}</div>
+            <div class="xfer-agent-counts" title="جديدة كلياً · قيد العمل">
+              <span class="cnt-new">🆕 ${newCount}</span>
+              <span class="cnt-active">📂 ${activeCount}</span>
+            </div>
+          </label>`;
+      }).join('');
+      document.getElementById('xfer-agent-selected-count').textContent = xferState.selectedAgents.size;
+    }
+    function filterTargetAgents() { renderTargetAgentList(); }
+    function toggleTargetAgent(id, checked) {
+      if (checked) xferState.selectedAgents.add(id);
+      else         xferState.selectedAgents.delete(id);
+      // Update only the selected count + the row's class — full rerender wipes
+      // focus from the search box.
+      document.getElementById('xfer-agent-selected-count').textContent = xferState.selectedAgents.size;
+      const row = event && event.target && event.target.closest('.xfer-agent-row');
+      if (row) row.classList.toggle('selected', checked);
+    }
     function closeTransferModal() { document.getElementById('xfer-overlay').classList.remove('open'); }
 
     function setTargetMode(mode) {
@@ -635,9 +714,10 @@
       ['agent','branch','city'].forEach(m => {
         document.getElementById(`tgt-${m}`).classList.toggle('active', m === mode);
       });
-      document.getElementById('target-agent-row').style.display  = mode === 'agent'  ? 'flex' : 'none';
-      document.getElementById('target-branch-row').style.display = mode === 'branch' ? 'flex' : 'none';
-      document.getElementById('target-city-row').style.display   = mode === 'city'   ? 'flex' : 'none';
+      // Multi-agent panel uses block layout (not flex like the dropdown rows).
+      document.getElementById('target-agent-row').style.display  = mode === 'agent'  ? 'block' : 'none';
+      document.getElementById('target-branch-row').style.display = mode === 'branch' ? 'flex'  : 'none';
+      document.getElementById('target-city-row').style.display   = mode === 'city'   ? 'flex'  : 'none';
       updateDistributePreview();
     }
 
@@ -730,11 +810,22 @@
       const mode = xferState.targetMode;
       const body = { from_agent_id: xferState.fromId };
 
-      // Target resolution
+      // Target resolution. Three flows: hand-picked agents (via /distribute
+      // with to_agent_ids), branch round-robin, city round-robin.
+      let endpoint = '/ad-leads/admin/distribute';
+      let targetCountForMsg = 0;
       if (mode === 'agent') {
-        const toId = document.getElementById('xfer-target').value;
-        if (!toId) return toast('اختر الوكيل المستهدف', 'error');
-        body.to_agent_id = toId;
+        const ids = Array.from(xferState.selectedAgents || []);
+        if (!ids.length) return toast('اختر وكيلاً واحداً على الأقل', 'error');
+        if (ids.length === 1) {
+          // Single agent → use the dedicated /transfer endpoint (cleaner
+          // semantics, returns transferred/requested for the toast).
+          endpoint = '/ad-leads/admin/transfer';
+          body.to_agent_id = ids[0];
+        } else {
+          body.to_agent_ids = ids;
+        }
+        targetCountForMsg = ids.length;
       } else if (mode === 'branch') {
         const bid = document.getElementById('xfer-target-branch').value;
         if (!bid) return toast('اختر الفرع المستهدف', 'error');
@@ -762,19 +853,20 @@
         summaryCount = body.lead_ids.length;
       }
 
-      const confirmMsg = mode === 'agent'
+      const isSingleAgent = (mode === 'agent' && targetCountForMsg === 1);
+      const confirmMsg = isSingleAgent
         ? `تأكيد نقل حتى ${summaryCount} رسالة؟`
         : `تأكيد توزيع حتى ${summaryCount} رسالة بالتساوي؟`;
       if (!confirm(confirmMsg)) return;
 
-      const endpoint = mode === 'agent' ? '/ad-leads/admin/transfer' : '/ad-leads/admin/distribute';
       const btn = document.getElementById('xfer-confirm');
-      btn.disabled = true; btn.textContent = mode === 'agent' ? 'جارٍ النقل...' : 'جارٍ التوزيع...';
+      btn.disabled = true;
+      btn.textContent = isSingleAgent ? 'جارٍ النقل...' : 'جارٍ التوزيع...';
       const { ok, data } = await callAPI(`${API}${endpoint}`, { method: 'POST', body: JSON.stringify(body) });
       btn.disabled = false; btn.textContent = 'تأكيد النقل';
 
       if (ok) {
-        if (mode === 'agent') {
+        if (isSingleAgent) {
           toast(`تم نقل ${data.transferred} من ${data.requested} رسالة`, 'success');
         } else {
           toast(`تم توزيع ${data.transferred} رسالة على ${data.target_count} وكيلاً`, 'success');

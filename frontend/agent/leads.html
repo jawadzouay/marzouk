@@ -543,14 +543,12 @@
       </div>
     </div>
     <div style="display: flex; gap: 6px;">
-      <button class="action-btn" onclick="openAvailabilityModal()">🗓️ الإجازة</button>
       <a href="submit.html" class="action-btn">📤 التقرير</a>
       <a href="dashboard.html" class="back-btn">📊 لوحتي</a>
     </div>
   </header>
 
   <div class="container">
-    <div class="banner-availability" id="availBanner"></div>
 
     <div class="toolbar">
       <div class="chips" id="dateChips">
@@ -666,25 +664,6 @@
     </div>
   </div>
 
-  <!-- Availability modal -->
-  <div class="modal-overlay" id="availModal" onclick="if(event.target===this)closeModal('availModal')">
-    <div class="modal">
-      <h3>🗓️ أيام الإجازة<button class="close-x" onclick="closeModal('availModal')">×</button></h3>
-      <p style="font-size: 12px; color: #6b7280; margin-bottom: 10px;">
-        اختر الأيام المستقبلية التي لن تستقبل فيها رسائل. ستظل تستقبل الرسائل حتى يحل اليوم المحدد.
-      </p>
-      <div class="form-group">
-        <label>إضافة يوم إجازة</label>
-        <div style="display: flex; gap: 6px;">
-          <input type="date" id="newOffDate" style="flex:1;" />
-          <button class="btn-primary" style="flex:0; padding: 8px 14px;" onclick="addOffDate()">إضافة</button>
-        </div>
-      </div>
-      <div class="date-grid" id="offDateGrid"></div>
-      <div class="empty" id="noOffDatesMsg" style="padding: 14px 0;">لا توجد أيام إجازة مسجلة</div>
-    </div>
-  </div>
-
   <!-- RDV date picker modal -->
   <div class="modal-overlay" id="rdvModal" onclick="if(event.target===this)closeModal('rdvModal')">
     <div class="modal">
@@ -751,7 +730,6 @@ let allLeads = [];
 let columns = [];                // visible columns from backend: [{display_name, column_type, display_order}]
 let selectMode = false;
 let selected = new Set();
-let currentOffDates = [];
 
 // New UI state for search / filter / RDV
 let features = { custom_status: false, rdv_date: false };
@@ -1770,84 +1748,10 @@ async function submitTransfer() {
   }
 }
 
-// Availability
+// Availability flow removed — admin now controls a per-agent
+// "accepts_leads" toggle on the agents page. No agent-side UI needed.
 
-async function openAvailabilityModal() {
-  try {
-    const data = await api('/ad-leads/availability');
-    currentOffDates = data.off_dates || [];
-    renderOffDates(currentOffDates);
-    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
-    document.getElementById('newOffDate').min = tomorrow.toISOString().slice(0,10);
-    document.getElementById('newOffDate').value = tomorrow.toISOString().slice(0,10);
-    document.getElementById('availModal').classList.add('show');
-  } catch (e) {
-    toast('تعذر فتح الإعدادات', 'error');
-  }
-}
-
-function renderOffDates(dates) {
-  currentOffDates = dates;
-  const grid = document.getElementById('offDateGrid');
-  const msg = document.getElementById('noOffDatesMsg');
-  if (!dates.length) {
-    grid.innerHTML = '';
-    msg.style.display = 'block';
-  } else {
-    msg.style.display = 'none';
-    grid.innerHTML = dates.map(d => {
-      const dt = new Date(d).toLocaleDateString('ar-MA', { day: 'numeric', month: 'short', weekday: 'short' });
-      return `<div class="date-chip" onclick="removeOffDate('${d}')">${dt}<span class="x">×</span></div>`;
-    }).join('');
-  }
-  updateAvailBanner(dates);
-}
-
-async function addOffDate() {
-  const d = document.getElementById('newOffDate').value;
-  if (!d) return;
-  const today = new Date().toISOString().slice(0,10);
-  if (d <= today) { toast('اختر يوم مستقبلي', 'error'); return; }
-  if (currentOffDates.includes(d)) return;
-  currentOffDates = [...new Set([...currentOffDates, d])].sort();
-  await saveOffDates();
-}
-
-async function removeOffDate(d) {
-  currentOffDates = currentOffDates.filter(x => x !== d);
-  await saveOffDates();
-}
-
-async function saveOffDates() {
-  try {
-    const res = await api('/ad-leads/availability', { method: 'PUT', body: { off_dates: currentOffDates } });
-    currentOffDates = res.off_dates || [];
-    renderOffDates(currentOffDates);
-    toast('تم الحفظ', 'success');
-  } catch (e) {
-    toast('فشل الحفظ', 'error');
-  }
-}
-
-function updateAvailBanner(dates) {
-  const banner = document.getElementById('availBanner');
-  if (!dates.length) { banner.classList.remove('show'); return; }
-  const next = dates[0];
-  const dt = new Date(next).toLocaleDateString('ar-MA', { day: 'numeric', month: 'short' });
-  banner.textContent = `📅 أنت في إجازة يوم ${dt}. لن تستقبل رسائل جديدة في ذلك اليوم.`;
-  banner.classList.add('show');
-}
-
-async function init() {
-  try {
-    const data = await api('/ad-leads/availability');
-    currentOffDates = data.off_dates || [];
-    updateAvailBanner(currentOffDates);
-  } catch (e) {}
-  loadLeads();
-}
-
-init();
+loadLeads();
 </script>
 </body>
 </html>

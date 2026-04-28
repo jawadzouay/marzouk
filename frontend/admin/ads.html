@@ -202,6 +202,63 @@
       background: #f3e8ff; color: #6b21a8;
     }
 
+    /* Clickable funnel cells / numbers — admin can drill into any number
+       to see the underlying leads + which agent handled each. */
+    .funnel-tile.clickable, .ad-table td.clickable {
+      cursor: pointer; transition: background 0.1s, transform 0.05s;
+    }
+    .funnel-tile.clickable:hover { background: #f3f4f6; }
+    .funnel-tile.clickable:active { transform: scale(0.97); }
+    .ad-table td.clickable:hover { background: #fef3c7 !important; }
+
+    /* Drilldown modal */
+    .dd-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+      z-index: 1500; align-items: center; justify-content: center; padding: 16px;
+    }
+    .dd-overlay.open { display: flex; }
+    .dd-modal {
+      background: white; border-radius: 16px; padding: 16px;
+      width: 100%; max-width: 760px; max-height: 88vh; overflow: hidden;
+      display: flex; flex-direction: column;
+    }
+    .dd-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 10px; border-bottom: 1px solid #e5e7eb;
+    }
+    .dd-title { font-size: 15px; font-weight: 800; color: #1a1a1a; }
+    .dd-sub { font-size: 12px; color: #6b7280; margin-top: 3px; }
+    .dd-close {
+      background: transparent; border: none; font-size: 22px; cursor: pointer; color: #6b7280;
+    }
+    .dd-body { overflow: auto; padding-top: 10px; }
+    .dd-agents {
+      display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px;
+    }
+    .dd-agent-pill {
+      background: #eff6ff; color: #1d4ed8; padding: 4px 10px; border-radius: 12px;
+      font-size: 12px; font-weight: 700;
+    }
+    .dd-agent-pill b { color: #1a1a1a; margin-right: 4px; }
+    .dd-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    .dd-table th, .dd-table td {
+      text-align: right; padding: 8px 10px; border-bottom: 1px solid #f3f4f6;
+    }
+    .dd-table th {
+      background: #f9fafb; color: #6b7280; font-weight: 700; position: sticky; top: 0;
+    }
+    .dd-table td.name  { font-weight: 700; color: #1a1a1a; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .dd-table td.phone { direction: ltr; font-variant-numeric: tabular-nums; }
+    .dd-status {
+      display: inline-block; font-size: 10px; font-weight: 800;
+      padding: 2px 7px; border-radius: 8px; background: #f3f4f6; color: #4b5563;
+    }
+    .dd-status.s-rdv         { background: #d1fae5; color: #065f46; }
+    .dd-status.s-visits      { background: #dbeafe; color: #1e40af; }
+    .dd-status.s-registered  { background: #fee2e2; color: #991b1b; }
+    .dd-status.s-new         { background: #fef3c7; color: #92400e; }
+    .dd-empty { text-align: center; padding: 30px; color: #9ca3af; }
+
     .empty {
       background: white; border-radius: 14px; padding: 40px; text-align: center;
       color: #9ca3af; font-weight: 600;
@@ -303,6 +360,20 @@
     </div>
 
     <div class="ad-grid" id="adGrid"></div>
+  </div>
+
+  <!-- Drilldown modal -->
+  <div class="dd-overlay" id="ddOverlay" onclick="if(event.target===this)closeDrilldown()">
+    <div class="dd-modal">
+      <div class="dd-head">
+        <div>
+          <div class="dd-title" id="ddTitle">تفاصيل</div>
+          <div class="dd-sub" id="ddSub">—</div>
+        </div>
+        <button class="dd-close" onclick="closeDrilldown()">×</button>
+      </div>
+      <div class="dd-body" id="ddBody">جارٍ التحميل...</div>
+    </div>
   </div>
 
   <div class="toast" id="toast"></div>
@@ -553,10 +624,10 @@ function renderBasicRow(a) {
         ${tags.length ? `<div class="ad-meta">${tags.join('')}</div>` : ''}
       </div>
       <div class="funnel">
-        <div class="funnel-tile"><div class="funnel-num">${a.leads}</div><div class="funnel-lbl">رسائل</div></div>
-        <div class="funnel-tile primary"><div class="funnel-num">${rdvN}</div><div class="funnel-lbl">مواعيد</div></div>
-        <div class="funnel-tile"><div class="funnel-num">${visN}</div><div class="funnel-lbl">زيارات</div></div>
-        <div class="funnel-tile good"><div class="funnel-num">${regN}</div><div class="funnel-lbl">مسجلين</div></div>
+        <div class="funnel-tile clickable" onclick="openDrilldown('${escapeAttr(a.ad_name)}','leads')"><div class="funnel-num">${a.leads}</div><div class="funnel-lbl">رسائل</div></div>
+        <div class="funnel-tile primary clickable" onclick="openDrilldown('${escapeAttr(a.ad_name)}','rdv')"><div class="funnel-num">${rdvN}</div><div class="funnel-lbl">مواعيد</div></div>
+        <div class="funnel-tile clickable" onclick="openDrilldown('${escapeAttr(a.ad_name)}','visits')"><div class="funnel-num">${visN}</div><div class="funnel-lbl">زيارات</div></div>
+        <div class="funnel-tile good clickable" onclick="openDrilldown('${escapeAttr(a.ad_name)}','registered')"><div class="funnel-num">${regN}</div><div class="funnel-lbl">مسجلين</div></div>
       </div>
       <div class="rates-row">
         <div class="rate-rdv">RDV: <b>${pct(a.rdv_rate)}</b></div>
@@ -622,14 +693,25 @@ function renderAdvancedTable(ads) {
     return `<th data-sort="${c.key}" class="${active}">${escapeHtml(c.label)} <span class="sort-arrow">${arrow}</span></th>`;
   }).join('');
 
+  // Numeric funnel cells become clickable drilldowns. Map column keys
+   // back to the metric the drilldown endpoint understands.
+  const NUM_TO_METRIC = {
+    leads: 'leads', rdv_count: 'rdv', visits_count: 'visits', registered_count: 'registered',
+  };
   const body = sorted.map(a => {
     return '<tr class="color-' + (a.color || 'red') + '">' + cols.map(c => {
       const v = a[c.key];
       if (c.type === 'pct') return `<td class="${c.cls}">${pct(v || 0)}</td>`;
-      if (c.type === 'num') return `<td class="${c.cls}">${v ?? 0}</td>`;
+      if (c.type === 'num') {
+        const metric = NUM_TO_METRIC[c.key];
+        if (metric) {
+          return `<td class="${c.cls} clickable" onclick="openDrilldown('${escapeAttr(a.ad_name)}','${metric}')">${v ?? 0}</td>`;
+        }
+        return `<td class="${c.cls}">${v ?? 0}</td>`;
+      }
       if (c.type === 'plat') return `<td class="${c.cls}">${v ? `<span class="platform-cell">${escapeHtml(String(v).toUpperCase())}</span>` : '—'}</td>`;
-      // name
-      return `<td class="${c.cls}" title="${escapeAttr(v || '')}">${escapeHtml(v || '—')}</td>`;
+      // name → click opens drilldown for "all leads" of that bucket
+      return `<td class="${c.cls} clickable" onclick="openDrilldown('${escapeAttr(a.ad_name)}','leads')" title="${escapeAttr(v || '')}">${escapeHtml(v || '—')}</td>`;
     }).join('') + '</tr>';
   }).join('');
 
@@ -659,6 +741,92 @@ function wireAdvancedTableSort() {
 }
 
 function escapeAttr(s) { return (s||'').toString().replace(/"/g, '&quot;'); }
+
+// ── Drilldown modal — click any number on the ad quality view to see
+//    the underlying leads and which agent is handling each one.
+const METRIC_LABEL = {
+  leads:      'كل الرسائل',
+  rdv:        'المواعيد (تراكمي)',
+  visits:     'الزيارات (تراكمي)',
+  registered: 'المسجلين',
+};
+const STATUS_LABEL_AR = {
+  new: 'جديد', contacted: 'تم التواصل', rdv: 'موعد', bv: 'بريد صوتي',
+  pi: 'غير مهتم', pe: 'غير مؤهل', autre_ville: 'مدينة أخرى',
+  over_40: 'فوق 40', contra: 'كونترا', visits: 'زيارة', registered: 'مسجل',
+  waiting: 'في الانتظار', no_answer: 'لا يجيب', custom: 'مخصص',
+};
+
+async function openDrilldown(bucketKey, metric) {
+  const overlay = document.getElementById('ddOverlay');
+  const titleEl = document.getElementById('ddTitle');
+  const subEl   = document.getElementById('ddSub');
+  const bodyEl  = document.getElementById('ddBody');
+  titleEl.textContent = `${GROUP_LABEL[groupBy]}: ${bucketKey}`;
+  subEl.textContent   = METRIC_LABEL[metric] || metric;
+  bodyEl.innerHTML    = '<div class="dd-empty">جارٍ التحميل...</div>';
+  overlay.classList.add('open');
+
+  try {
+    const params = new URLSearchParams({
+      range: currentRange,
+      group_by: groupBy,
+      bucket_key: bucketKey,
+      metric: metric,
+      _t: Date.now().toString(),
+    });
+    const scopeVal = document.getElementById('filterScope').value;
+    if (scopeVal) {
+      const [st, sid] = scopeVal.split(':');
+      params.set('scope_type', st);
+      params.set('scope_id', sid);
+    }
+    const d = await api(`/ad-leads/admin/ad-quality/drilldown?${params.toString()}`);
+    renderDrilldown(d);
+  } catch (e) {
+    bodyEl.innerHTML = '<div class="dd-empty">تعذر التحميل</div>';
+  }
+}
+
+function renderDrilldown(d) {
+  const bodyEl = document.getElementById('ddBody');
+  const subEl  = document.getElementById('ddSub');
+  subEl.textContent = `${METRIC_LABEL[d.metric] || d.metric} · ${d.total} نتيجة`;
+  if (!d.leads || !d.leads.length) {
+    bodyEl.innerHTML = '<div class="dd-empty">لا توجد بيانات</div>';
+    return;
+  }
+  // Per-agent breakdown chips first — answers "who's handling these?"
+  const agentsHtml = (d.agents || []).map(a =>
+    `<span class="dd-agent-pill"><b>${a.count}</b> ${escapeHtml(a.agent_name)}</span>`
+  ).join('');
+
+  const rows = d.leads.map(l => {
+    const status = l.status || 'new';
+    const rdvWhen = (status === 'rdv' && l.rdv_date)
+      ? `${l.rdv_date}${l.rdv_time ? ' · ' + String(l.rdv_time).slice(0,5) : ''}` : '';
+    return `
+      <tr>
+        <td class="name" title="${escapeAttr(l.full_name || '')}">${escapeHtml(l.full_name || '—')}</td>
+        <td class="phone">${escapeHtml(l.phone_primary || '—')}</td>
+        <td>${escapeHtml(l.agent_name || '—')}</td>
+        <td><span class="dd-status s-${status}">${escapeHtml(STATUS_LABEL_AR[status] || status)}</span></td>
+        <td>${escapeHtml(rdvWhen)}</td>
+      </tr>`;
+  }).join('');
+
+  bodyEl.innerHTML = `
+    <div class="dd-agents">${agentsHtml || '<span class="dd-agent-pill">لا يوجد وكيل مرتبط</span>'}</div>
+    <table class="dd-table">
+      <thead>
+        <tr><th>الاسم</th><th>الهاتف</th><th>الوكيل</th><th>الحالة</th><th>الموعد</th></tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+function closeDrilldown() {
+  document.getElementById('ddOverlay').classList.remove('open');
+}
 
 function escapeHtml(s) { return (s||'').toString().replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 

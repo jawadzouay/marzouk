@@ -1048,8 +1048,12 @@ def admin_transfer(body: AdminTransferBody, admin=Depends(require_admin)):
 
 class AdminDistributeBody(BaseModel):
     from_agent_id: str
-    to_scope_type: str  # 'branch' or 'city'
-    to_scope_id: str
+    # Either pick a scope (every active agent in that branch/city) OR pass
+    # an explicit list of agent IDs for hand-picked round-robin. to_agent_ids
+    # wins when both are present.
+    to_scope_type: Optional[str] = None  # 'branch' or 'city'
+    to_scope_id: Optional[str] = None
+    to_agent_ids: Optional[List[str]] = None
     lead_ids: Optional[List[str]] = None
     count: Optional[int] = None
     status: Optional[str] = None
@@ -1057,34 +1061,43 @@ class AdminDistributeBody(BaseModel):
 
 @router.post("/admin/distribute")
 def admin_distribute(body: AdminDistributeBody, admin=Depends(require_admin)):
-    """Round-robin split leads from one agent across every active agent in
-    a branch or city. Source agent is excluded from the target pool."""
+    """Round-robin split leads from one agent across either:
+      - every active agent in a branch / city (to_scope_type + to_scope_id), or
+      - a hand-picked list of agents (to_agent_ids).
+    Source agent is excluded from the target pool either way."""
     sb = get_client()
 
-    if body.to_scope_type not in ("branch", "city"):
-        raise HTTPException(400, "to_scope_type must be 'branch' or 'city'")
-
-    # Resolve target agents within scope
-    if body.to_scope_type == "branch":
+    # Resolve target agents
+    if body.to_agent_ids:
+        # Hand-picked list — must all be active to receive new leads.
         ta = sb.table("agents").select("id, name") \
-            .eq("branch_id", body.to_scope_id).eq("is_active", True).execute()
+            .in_("id", body.to_agent_ids).eq("is_active", True).execute()
         target_agents = ta.data or []
+    elif body.to_scope_type and body.to_scope_id:
+        if body.to_scope_type not in ("branch", "city"):
+            raise HTTPException(400, "to_scope_type must be 'branch' or 'city'")
+        if body.to_scope_type == "branch":
+            ta = sb.table("agents").select("id, name") \
+                .eq("branch_id", body.to_scope_id).eq("is_active", True).execute()
+            target_agents = ta.data or []
+        else:
+            city = sb.table("cities").select("name").eq("id", body.to_scope_id).execute()
+            if not city.data:
+                raise HTTPException(404, "المدينة غير موجودة")
+            brs = sb.table("branches").select("id") \
+                .eq("city", city.data[0]["name"]).execute()
+            branch_ids = [b["id"] for b in (brs.data or [])]
+            if not branch_ids:
+                return {"transferred": 0, "distribution": [], "target_count": 0}
+            ta = sb.table("agents").select("id, name") \
+                .in_("branch_id", branch_ids).eq("is_active", True).execute()
+            target_agents = ta.data or []
     else:
-        city = sb.table("cities").select("name").eq("id", body.to_scope_id).execute()
-        if not city.data:
-            raise HTTPException(404, "المدينة غير موجودة")
-        brs = sb.table("branches").select("id") \
-            .eq("city", city.data[0]["name"]).execute()
-        branch_ids = [b["id"] for b in (brs.data or [])]
-        if not branch_ids:
-            return {"transferred": 0, "distribution": [], "target_count": 0}
-        ta = sb.table("agents").select("id, name") \
-            .in_("branch_id", branch_ids).eq("is_active", True).execute()
-        target_agents = ta.data or []
+        raise HTTPException(400, "يرجى تحديد نطاق التوزيع أو قائمة الوكلاء")
 
     target_agents = [a for a in target_agents if a["id"] != body.from_agent_id]
     if not target_agents:
-        raise HTTPException(400, "لا يوجد وكلاء مستهدفون في هذا النطاق")
+        raise HTTPException(400, "لا يوجد وكلاء مستهدفون")
 
     # Resolve eligible leads
     if body.lead_ids:
@@ -1408,6 +1421,147 @@ def admin_pool(
             "leads_today": count_map.get(a["id"], 0),
         } for a in matched],
         "today": today,
+    }
+
+
+# ---------------------------------------------------------------------------
+# Ad-quality drill-down — clicking a number on the ad-quality card answers
+# "which leads are these, and which agent is handling each one?". Same
+# filter primitives as /admin/ad-quality, plus a target status (or a
+# special pseudo-status: 'rdv_funnel' for ever-rdv, 'visits_funnel' for
+# ever-visited; matches the cumulative funnel the cards display).
+# ---------------------------------------------------------------------------
+
+@router.get("/admin/ad-quality/drilldown")
+def admin_ad_quality_drilldown(
+    range: str = Query("month"),
+    date_from: Optional[str] = Query(None),
+    date_to: Optional[str] = Query(None),
+    scope_type: Optional[str] = Query(None),
+    scope_id: Optional[str] = Query(None),
+    city_id: Optional[str] = Query(None),
+    branch_id: Optional[str] = Query(None),
+    date_basis: str = Query("activity"),
+    group_by: str = Query("ad"),
+    bucket_key: str = Query(...),  # e.g. ad name / adset name / campaign name / platform
+    metric: str = Query("leads"),  # leads | rdv | visits | registered | <raw status>
+    limit: int = Query(500),
+    admin=Depends(require_admin),
+):
+    sb = get_client()
+    df, dt = resolve_range(range, date_from, date_to)
+
+    if date_basis == "arrival" or not _has_status_changed_at_col():
+        filter_field = "created_time"
+    else:
+        filter_field = "status_changed_at"
+
+    if group_by not in ("ad", "adset", "campaign", "platform"):
+        group_by = "ad"
+    if metric not in ("leads", "rdv", "visits", "registered") and metric not in VALID_STATUSES:
+        metric = "leads"
+
+    # Cumulative funnel mapping — must match what the cards render.
+    METRIC_STATUSES = {
+        "rdv":        ["rdv", "visits", "registered"],
+        "visits":     ["visits", "registered"],
+        "registered": ["registered"],
+    }
+
+    sel = ("id, full_name, phone_primary, ad_name, adset_name, platform, "
+           "status, created_time, assigned_at, assigned_agent_id, last_note, data, "
+           "scope_type, scope_id")
+    if _has_rdv_date_col():        sel += ", rdv_date"
+    if _has_rdv_time_col():        sel += ", rdv_time"
+    if _has_status_changed_at_col(): sel += ", status_changed_at"
+    if _has_custom_status_col():   sel += ", custom_status"
+
+    q = sb.table("ad_leads").select(sel)
+    if df and dt:
+        q = apply_date_filter(q, df, dt, field=filter_field)
+    if scope_type and scope_id:
+        q = q.eq("scope_type", scope_type).eq("scope_id", scope_id)
+    elif city_id:
+        q = q.eq("scope_type", "city").eq("scope_id", city_id)
+    elif branch_id:
+        q = q.eq("scope_type", "branch").eq("scope_id", branch_id)
+
+    # Filter by the bucket key. campaign isn't a column — match in Python.
+    if group_by == "ad":
+        if bucket_key == "(بدون اسم)":
+            q = q.is_("ad_name", "null")
+        else:
+            q = q.eq("ad_name", bucket_key)
+    elif group_by == "adset":
+        if bucket_key == "(بدون مجموعة)":
+            q = q.is_("adset_name", "null")
+        else:
+            q = q.eq("adset_name", bucket_key)
+    elif group_by == "platform":
+        if bucket_key == "(غير محدد)":
+            q = q.is_("platform", "null")
+        else:
+            q = q.eq("platform", bucket_key)
+
+    # Status filter — server-side when single, otherwise let the cumulative
+    # funnel map filter in Python.
+    if metric in METRIC_STATUSES:
+        q = q.in_("status", METRIC_STATUSES[metric])
+    elif metric in VALID_STATUSES:
+        q = q.eq("status", metric)
+    # metric == "leads" → no status narrowing
+
+    res = q.order(filter_field, desc=True).limit(max(1, min(2000, limit))).execute()
+    rows = res.data or []
+
+    # Campaign filter (Python-side) — same key variants as the aggregator.
+    if group_by == "campaign":
+        def _campaign_of(r):
+            d = r.get("data") or {}
+            if not isinstance(d, dict):
+                return None
+            for k in ("campaign_name", "Campaign Name", "campaign", "اسم الحملة"):
+                v = d.get(k)
+                if v:
+                    return v
+            return None
+        if bucket_key == "(بدون حملة)":
+            rows = [r for r in rows if not _campaign_of(r)]
+        else:
+            rows = [r for r in rows if _campaign_of(r) == bucket_key]
+
+    # Resolve agent names in one shot
+    agent_ids = list({r.get("assigned_agent_id") for r in rows if r.get("assigned_agent_id")})
+    name_by_id: Dict[str, str] = {}
+    if agent_ids:
+        ag = sb.table("agents").select("id, name").in_("id", agent_ids).execute()
+        for a in (ag.data or []):
+            name_by_id[a["id"]] = a["name"]
+
+    # Per-agent rollup so the modal can show "who's responsible" at a glance.
+    rollup: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        aid = r.get("assigned_agent_id")
+        if not aid:
+            continue
+        b = rollup.setdefault(aid, {
+            "agent_id": aid,
+            "agent_name": name_by_id.get(aid, "—"),
+            "count": 0,
+        })
+        b["count"] += 1
+        # attach human-readable agent name on each row too
+        r["agent_name"] = name_by_id.get(aid, "—")
+
+    agents_breakdown = sorted(rollup.values(), key=lambda x: -x["count"])
+
+    return {
+        "leads": rows,
+        "agents": agents_breakdown,
+        "total": len(rows),
+        "group_by": group_by,
+        "bucket_key": bucket_key,
+        "metric": metric,
     }
 
 

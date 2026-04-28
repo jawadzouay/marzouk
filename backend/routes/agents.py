@@ -46,14 +46,22 @@ class BonusCreate(BaseModel):
     note: Optional[str] = None
 
 
-_AGENT_FIELDS_FULL    = "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off, pin_plain"
-_AGENT_FIELDS_LEGACY  = "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off"
+# Field tiers walked in order by _select_agents — drops the newest optional
+# column on the first error so an un-migrated DB still returns the rest.
+_AGENT_FIELDS_TIERS = [
+    "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off, pin_plain, accepts_leads",
+    "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off, pin_plain",
+    "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off",
+]
+# Back-compat: existing call sites elsewhere reference these names.
+_AGENT_FIELDS_FULL    = _AGENT_FIELDS_TIERS[1]
+_AGENT_FIELDS_LEGACY  = _AGENT_FIELDS_TIERS[2]
 
 
 def _safe_write(fn, *, fallback_key="pin_plain"):
-    """Run a DB write that may reference the yet-to-be-migrated pin_plain
-    column. fn gets a bool telling it whether to include pin_plain. If the
-    first attempt fails because the column is missing, we retry without."""
+    """Run a DB write that may reference an optional column. fn gets a bool
+    telling it whether to include the optional field. If the first attempt
+    fails because the column is missing, we retry without."""
     try:
         return fn(True)
     except Exception as e:
@@ -63,19 +71,25 @@ def _safe_write(fn, *, fallback_key="pin_plain"):
 
 
 def _select_agents(sb, branch_id=None):
-    """Query agents with pin_plain, falling back if the column hasn't been
-    migrated yet. Keeps the list working for anyone who deployed the new
-    code before running ALTER TABLE agents ADD COLUMN pin_plain."""
-    for fields in (_AGENT_FIELDS_FULL, _AGENT_FIELDS_LEGACY):
+    """Query agents with optional columns, falling back through tiers when
+    the DB hasn't been migrated yet. Keeps the list working for anyone who
+    deployed the new code before running the ALTER TABLE."""
+    last_err = None
+    for fields in _AGENT_FIELDS_TIERS:
         try:
             q = sb.table("agents").select(fields).eq("is_active", True).order("created_at")
             if branch_id:
                 q = q.eq("branch_id", branch_id)
             return q.execute().data
         except Exception as e:
-            if fields == _AGENT_FIELDS_FULL and "pin_plain" in str(e):
+            last_err = e
+            # only fall through on missing-column errors
+            if "accepts_leads" in str(e) or "pin_plain" in str(e):
                 continue
             raise
+    if last_err:
+        raise last_err
+    return []
 
 
 @router.get("/")
@@ -424,6 +438,26 @@ def transfer_agent_branch(agent_id: str, body: dict, admin=Depends(require_admin
     if not result.data:
         raise HTTPException(404, "الوكيل غير موجود")
     return result.data[0]
+
+
+@router.patch("/{agent_id}/accepts-leads")
+def set_accepts_leads(agent_id: str, body: dict, admin=Depends(require_admin)):
+    """Pause / resume new-lead distribution for a single agent. When false,
+    the round-robin in ad_leads_sync skips this agent until the admin flips
+    it back on. Replaces the agent-managed off-dates / vacation flow."""
+    sb = get_client()
+    val = body.get("accepts_leads")
+    if not isinstance(val, bool):
+        raise HTTPException(400, "accepts_leads must be true or false")
+    try:
+        result = sb.table("agents").update({"accepts_leads": val}).eq("id", agent_id).execute()
+    except Exception as e:
+        if "accepts_leads" in str(e):
+            raise HTTPException(400, "يرجى تنفيذ تحديث قاعدة البيانات لتفعيل هذه الميزة")
+        raise
+    if not result.data:
+        raise HTTPException(404, "الوكيل غير موجود")
+    return {"id": agent_id, "accepts_leads": val}
 
 
 @router.get("/{agent_id}/stats")

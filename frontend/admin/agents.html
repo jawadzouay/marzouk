@@ -101,8 +101,12 @@
     .btn-close-modal { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 18px; font-family: 'Cairo', sans-serif; font-weight: 700; cursor: pointer; font-size: 14px; }
     .xfer-summary { font-size: 13px; color: #6b7280; }
     .xfer-summary strong { color: #0e7490; }
-    .dayoff-tag { display: inline-block; background: #fef9c3; color: #854d0e; border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 600; margin-top: 4px; }
-    .btn-dayoff { background: #fef9c3; color: #854d0e; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 600; font-size: 13px; }
+    .accept-tag { display: inline-block; border-radius: 20px; padding: 2px 10px; font-size: 11px; font-weight: 700; margin-top: 4px; margin-right: 4px; }
+    .accept-tag.accept-on  { background: #dcfce7; color: #166534; }
+    .accept-tag.accept-off { background: #fee2e2; color: #991b1b; }
+    .btn-accept { border: none; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 700; font-size: 13px; }
+    .btn-accept.accept-on  { background: #fef2f2; color: #b91c1c; border: 1.5px solid #fecaca; }
+    .btn-accept.accept-off { background: #ecfdf5; color: #065f46; border: 1.5px solid #bbf7d0; }
     .dayoff-panel { margin-top: 10px; padding: 10px 12px; background: #fefce8; border-radius: 8px; border: 1px solid #fde68a; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .dayoff-panel select { flex: 1; min-width: 160px; padding: 7px 10px; font-size: 13px; border: 2px solid #fde68a; border-radius: 8px; font-family: 'Cairo', sans-serif; }
 
@@ -447,23 +451,25 @@
           ? `<span class="branch-tag">🏢 ${branch.city ? branch.city + ' — ' : ''}${branch.name}</span>`
           : '';
         const DAY_NAMES = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-        const dayOffLabel = (a.day_off != null)
-          ? `<span class="dayoff-tag">🏖️ إجازة: ${DAY_NAMES[a.day_off]}</span>`
-          : '';
         const driveLink = a.drive_folder_id
           ? `<a href="https://drive.google.com/drive/folders/${a.drive_folder_id}" target="_blank" style="display:inline-block;background:#e8f5e9;color:#2e7d32;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:600;margin-top:4px;text-decoration:none">📁 Drive</a>`
           : '';
+        // accepts_leads is undefined on un-migrated DBs — treat as true.
+        const accepting = a.accepts_leads !== false;
+        const acceptTagLabel = accepting ? '✅ يستقبل رسائل جديدة' : '⏸ موقوف عن استلام رسائل';
+        const acceptTagClass = accepting ? 'accept-on' : 'accept-off';
+        const acceptBtnLabel = accepting ? '⏸ إيقاف الاستلام' : '▶ استئناف الاستلام';
         return `<div class="agent-row" id="agent-row-${a.id}">
           <div class="agent-main">
             <div class="agent-info">
               <div class="agent-name">${a.name}</div>
               <div class="agent-meta">تاريخ الإضافة: ${new Date(a.created_at).toLocaleDateString('ar-MA')}</div>
               ${branchLabel}
-              ${dayOffLabel}
+              <span class="accept-tag ${acceptTagClass}">${acceptTagLabel}</span>
               ${driveLink}
             </div>
             <div class="agent-actions">
-              <button class="btn-dayoff" onclick="toggleDayOff('${a.id}',${a.day_off ?? 'null'})">🏖️ يوم إجازة</button>
+              <button class="btn-accept ${acceptTagClass}" onclick="toggleAcceptsLeads('${a.id}',${accepting})" title="عند الإيقاف يتم تخطّي الوكيل في توزيع الرسائل الجديدة تلقائياً">${acceptBtnLabel}</button>
               <button class="btn-creds"  onclick="toggleCreds('${a.id}')">🔑 بيانات الدخول</button>
               <button class="btn-xfer"   onclick="openTransferModal('${a.id}','${escQ(a.name)}')">🔄 نقل الرسائل</button>
               <button class="btn-rename" onclick="toggleRename('${a.id}','${escQ(a.name)}')">✏️ تعديل الاسم</button>
@@ -493,21 +499,6 @@
               <button class="btn-sm btn-cancel" onclick="toggleCreds('${a.id}')">إغلاق</button>
             </div>
           </div>
-          <div class="dayoff-panel" id="dayoff-${a.id}" style="display:none">
-            <span style="font-size:13px;font-weight:600;color:#854d0e">🏖️ يوم الإجازة الأسبوعية:</span>
-            <select id="dayoff-sel-${a.id}">
-              <option value="">— بدون إجازة ثابتة —</option>
-              <option value="0">الأحد</option>
-              <option value="1">الاثنين</option>
-              <option value="2">الثلاثاء</option>
-              <option value="3">الأربعاء</option>
-              <option value="4">الخميس</option>
-              <option value="5">الجمعة</option>
-              <option value="6">السبت</option>
-            </select>
-            <button class="btn-sm btn-save" onclick="confirmDayOff('${a.id}')">✅ حفظ</button>
-            <button class="btn-sm btn-cancel" onclick="toggleDayOff('${a.id}')">إلغاء</button>
-          </div>
           <div class="rename-panel" id="rename-${a.id}" style="display:none">
             <span style="font-size:13px;font-weight:600;color:#1d4ed8">✏️ الاسم الجديد:</span>
             <input type="text" id="rename-inp-${a.id}" placeholder="اكتب الاسم الجديد..." />
@@ -527,31 +518,26 @@
       }).join('');
     }
 
-    function toggleDayOff(agentId, currentDayOff) {
-      const panel = document.getElementById(`dayoff-${agentId}`);
-      const isHidden = panel.style.display === 'none';
-      panel.style.display = isHidden ? 'flex' : 'none';
-      if (isHidden) {
-        const sel = document.getElementById(`dayoff-sel-${agentId}`);
-        sel.value = (currentDayOff != null) ? String(currentDayOff) : '';
+    // accepts_leads: pause/resume new-lead distribution for one agent.
+    // Replaces the legacy day_off / off-dates flow — admin-controlled,
+    // single click. Round-robin distributor reads agents.accepts_leads
+    // and skips false rows.
+    async function toggleAcceptsLeads(agentId, currentlyAccepting) {
+      const next = !currentlyAccepting;
+      const verb = next ? 'استئناف استلام الرسائل لهذا الوكيل؟' : 'إيقاف استلام الرسائل الجديدة لهذا الوكيل؟ سيتم تخطّيه في التوزيع.';
+      if (!confirm(verb)) return;
+      const { ok, data } = await callAPI(`${API}/agents/${agentId}/accepts-leads`, {
+        method: 'PATCH', body: JSON.stringify({ accepts_leads: next })
+      });
+      if (ok) {
+        showAlert('alert', next ? 'تم استئناف الاستلام' : 'تم إيقاف الاستلام', true);
+        loadAgents();
+      } else {
+        showAlert('alert', data?.detail || 'فشل التحديث', false);
       }
     }
 
-    async function confirmDayOff(agentId) {
-      const val = document.getElementById(`dayoff-sel-${agentId}`).value;
-      const day_off = val === '' ? null : parseInt(val);
-      const { ok, data } = await callAPI(`${API}/agents/${agentId}/day-off`, {
-        method: 'PATCH', body: JSON.stringify({ day_off })
-      });
-      if (ok) {
-        const DAY_NAMES = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
-        const msg = day_off != null ? `تم تعيين إجازة ${DAY_NAMES[day_off]}` : 'تم إلغاء الإجازة الثابتة';
-        showAlert('alert', msg, true);
-        loadAgents();
-      } else {
-        showAlert('alert', data.detail || 'خطأ', false);
-      }
-    }
+    // (legacy day-off / vacation helpers removed — accepts_leads toggle replaces the flow.)
 
     function toggleCreds(agentId) {
       const panel = document.getElementById(`creds-${agentId}`);

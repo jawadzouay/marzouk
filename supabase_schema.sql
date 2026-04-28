@@ -16,6 +16,8 @@ CREATE TABLE agents (
 
 -- Migration (run once if table already exists):
 -- ALTER TABLE agents ADD COLUMN IF NOT EXISTS pin_plain TEXT;
+-- ALTER TABLE agents ADD COLUMN IF NOT EXISTS accepts_leads BOOLEAN DEFAULT true;
+-- UPDATE agents SET accepts_leads = true WHERE accepts_leads IS NULL;
 
 -- LEADS
 CREATE TABLE leads (
