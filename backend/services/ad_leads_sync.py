@@ -463,10 +463,28 @@ def sync_config(config_id: str) -> dict:
 
     header_row = [(h or "").strip() for h in rows[0]]
 
-    # Fetch existing row keys for this config so we only insert new ones
-    existing = sb.table("ad_leads").select("id, source_row_key") \
-        .eq("config_id", config_id).execute()
-    known: Dict[str, str] = {r["source_row_key"]: r["id"] for r in (existing.data or [])}
+    # Fetch existing row keys for this config so we only insert new ones.
+    # Supabase/PostgREST caps a single select at ~1000 rows by default.
+    # Without paging, configs that grew past 1000 leads silently lost the
+    # tail of `known`, mis-classified those leads as new, and tripped the
+    # `(config_id, source_row_key)` unique constraint — which aborted the
+    # whole chunk insert and stopped the branch from receiving new leads.
+    known: Dict[str, str] = {}
+    PAGE = 1000
+    offset = 0
+    while True:
+        page = sb.table("ad_leads").select("id, source_row_key") \
+            .eq("config_id", config_id).order("id") \
+            .range(offset, offset + PAGE - 1).execute()
+        page_rows = page.data or []
+        for r in page_rows:
+            known[r["source_row_key"]] = r["id"]
+        if len(page_rows) < PAGE:
+            break
+        offset += PAGE
+        if offset > 200000:  # safety cap, far beyond any realistic config
+            log.warning(f"[ad_leads] sync paged past 200k rows for config {config_id}")
+            break
 
     to_insert: List[dict] = []
     to_update: List[Tuple[str, dict]] = []
@@ -513,6 +531,7 @@ def sync_config(config_id: str) -> dict:
             to_insert.append(_strip_optional_cols(payload))
 
     inserted = 0
+    skipped_dupes = 0
     if to_insert:
         for i in range(0, len(to_insert), 500):
             chunk = to_insert[i:i + 500]
@@ -520,8 +539,30 @@ def sync_config(config_id: str) -> dict:
                 res = sb.table("ad_leads").insert(chunk).execute()
                 inserted += len(res.data or [])
             except Exception as e:
-                _mark_error(config_id, f"insert failed: {e}")
-                return {"ok": False, "error": f"insert failed: {e}", "inserted": inserted}
+                msg = str(e)
+                # Defensive: if anything still survives the dedup logic and
+                # collides on the unique constraint, fall back to row-by-row
+                # so the rest of the chunk still lands. Postgres rolls back
+                # the whole batch on a single 23505 — without this retry,
+                # one duplicate row would block every legitimately new lead
+                # in the same batch and silently stop the branch.
+                if "23505" in msg or "duplicate" in msg.lower() or "unique constraint" in msg.lower():
+                    log.warning(f"[ad_leads] chunk insert hit duplicate(s); retrying per-row to skip them")
+                    for row in chunk:
+                        try:
+                            r2 = sb.table("ad_leads").insert(row).execute()
+                            inserted += len(r2.data or [])
+                        except Exception as ex2:
+                            m2 = str(ex2)
+                            if "23505" in m2 or "duplicate" in m2.lower():
+                                skipped_dupes += 1
+                                continue
+                            log.warning(f"[ad_leads] single-row insert failed: {ex2}")
+                else:
+                    _mark_error(config_id, f"insert failed: {e}")
+                    return {"ok": False, "error": f"insert failed: {e}", "inserted": inserted}
+    if skipped_dupes:
+        log.info(f"[ad_leads] config {config_id}: skipped {skipped_dupes} duplicate row(s) without aborting sync")
 
     updated = 0
     for lead_id, patch in to_update:

@@ -130,6 +130,25 @@ def apply_date_filter(q, df: Optional[str], dt: Optional[str], field: str = "cre
     return q.gte(field, start_utc).lte(field, end_utc)
 
 
+def fetch_all_pages(query, page_size: int = 1000, max_rows: int = 200000) -> List[dict]:
+    """Run a Supabase select query across as many pages as needed and
+    return every row. PostgREST caps single responses at ~1000 rows by
+    default; ANY admin-side fetch that doesn't paginate silently loses
+    the tail and produces wrong totals / phantom-duplicate inserts."""
+    out: List[dict] = []
+    offset = 0
+    while True:
+        page = query.range(offset, offset + page_size - 1).execute()
+        rows = page.data or []
+        out.extend(rows)
+        if len(rows) < page_size:
+            break
+        offset += page_size
+        if offset >= max_rows:
+            break
+    return out
+
+
 def _agent_scopes(sb, agent_id: str):
     """Returns list of (scope_type, scope_id) the agent belongs to, based on
     their branch and that branch's city. Used to resolve which configs/columns
@@ -912,7 +931,7 @@ def admin_agent_leaderboard(
             sel += f", {activity_field}"
         l_q = sb.table("ad_leads").select(sel).in_("assigned_agent_id", agent_ids)
         l_q = apply_date_filter(l_q, df, dt, field=activity_field)
-        leads = l_q.execute().data or []
+        leads = fetch_all_pages(l_q)  # paginated — Supabase 1000-row cap
         for l in leads:
             aid = l["assigned_agent_id"]
             bucket = counts.setdefault(aid, {"total": 0, "by_status": {}})
@@ -930,9 +949,8 @@ def admin_agent_leaderboard(
         ACTIVE_STATUSES = ["new", "contacted", "rdv", "bv", "waiting", "no_answer", "custom", "visits"]
         p_q = sb.table("ad_leads").select("assigned_agent_id, status") \
             .in_("assigned_agent_id", agent_ids) \
-            .in_("status", ACTIVE_STATUSES) \
-            .execute()
-        for r in (p_q.data or []):
+            .in_("status", ACTIVE_STATUSES)
+        for r in fetch_all_pages(p_q):  # paginated — easily exceeds 1000
             aid = r["assigned_agent_id"]
             if r.get("status") == "new":
                 pending_new_total[aid] = pending_new_total.get(aid, 0) + 1
@@ -1630,7 +1648,7 @@ def admin_ad_quality(
         q = q.eq("scope_type", "city").eq("scope_id", city_id)
     elif branch_id:
         q = q.eq("scope_type", "branch").eq("scope_id", branch_id)
-    res = q.execute()
+    rows_all = fetch_all_pages(q)  # paginated — easily exceeds 1000
 
     # Statuses that have "passed through" RDV / visits / registered. Used to
     # build cumulative funnel counts.
@@ -1669,7 +1687,7 @@ def admin_ad_quality(
         return EMPTY_BUCKET
 
     buckets: Dict[str, dict] = {}
-    for r in (res.data or []):
+    for r in rows_all:
         key = _bucket_key(r)
         b = buckets.setdefault(key, {
             "key": key,
