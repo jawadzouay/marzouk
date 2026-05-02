@@ -904,21 +904,37 @@ def admin_agent_leaderboard(
     df, dt = resolve_range(range, date_from, date_to)
 
     # Resolve agents in scope (all active agents, optionally narrowed by
-    # branch or city).
-    a_q = sb.table("agents").select(
-        "id, name, branch_id, is_active, branches(name, city)"
-    ).eq("is_active", True)
-    if branch_id:
-        a_q = a_q.eq("branch_id", branch_id)
-    elif city_id:
-        city = sb.table("cities").select("name").eq("id", city_id).execute()
-        if city.data:
-            brs = sb.table("branches").select("id").eq("city", city.data[0]["name"]).execute()
-            ids = [b["id"] for b in (brs.data or [])]
-            if not ids:
+    # branch or city). Include accepts_leads when the column exists so the
+    # admin leads page can render the pause toggle alongside each agent.
+    base_sel = "id, name, branch_id, is_active, branches(name, city)"
+    sel_with_accepts = base_sel + ", accepts_leads"
+    def _build_query(sel):
+        q = sb.table("agents").select(sel).eq("is_active", True)
+        if branch_id:
+            q = q.eq("branch_id", branch_id)
+        elif city_id:
+            city = sb.table("cities").select("name").eq("id", city_id).execute()
+            if city.data:
+                brs = sb.table("branches").select("id").eq("city", city.data[0]["name"]).execute()
+                ids = [b["id"] for b in (brs.data or [])]
+                if not ids:
+                    return None
+                q = q.in_("branch_id", ids)
+        return q
+
+    try:
+        q = _build_query(sel_with_accepts)
+        if q is None:
+            return {"agents": [], "date_from": df, "date_to": dt}
+        agents_data = q.execute().data or []
+    except Exception as e:
+        if "accepts_leads" in str(e):
+            q = _build_query(base_sel)
+            if q is None:
                 return {"agents": [], "date_from": df, "date_to": dt}
-            a_q = a_q.in_("branch_id", ids)
-    agents_data = a_q.execute().data or []
+            agents_data = q.execute().data or []
+        else:
+            raise
 
     agent_ids = [a["id"] for a in agents_data]
     counts: Dict[str, Dict[str, Any]] = {}
@@ -985,6 +1001,8 @@ def admin_agent_leaderboard(
             # All-time pile (ignores date filter) — surfaces accumulated work
             "pending_new_total":    pending_new_total.get(a["id"], 0),
             "pending_active_total": pending_active_total.get(a["id"], 0),
+            # Pause/resume toggle state — undefined when migration hasn't run.
+            "accepts_leads": a.get("accepts_leads"),
         })
 
     rows.sort(key=lambda x: (-x["registered_count"], -x["rdv_count"], -x["total"], x["name"]))

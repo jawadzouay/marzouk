@@ -63,7 +63,28 @@
     }
 
     /* Agent cards */
-    .agent-card { background: white; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .agent-card { background: white; border-radius: 14px; padding: 14px 16px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); position: relative; transition: opacity 0.2s; }
+    /* Paused — admin toggled the agent off, the round-robin skips them.
+       Soft red wash + dim so the card is clearly different but still
+       readable. Buttons stay clickable so the admin can resume / view. */
+    .agent-card.paused {
+      background: linear-gradient(180deg, #fef2f2 0%, #fff5f5 100%);
+      border: 1.5px solid #fecaca;
+      box-shadow: 0 1px 6px rgba(220,38,38,0.18);
+    }
+    .agent-card.paused .agent-name,
+    .agent-card.paused .agent-sub,
+    .agent-card.paused .agent-total,
+    .agent-card.paused .status-pills,
+    .agent-card.paused .agent-totals-line { opacity: 0.6; }
+    .agent-card.paused .agent-actions { opacity: 1; } /* keep actions usable */
+    .paused-overlay {
+      position: absolute; top: 8px; left: 12px;
+      background: #dc2626; color: white;
+      padding: 3px 10px; border-radius: 12px;
+      font-size: 11px; font-weight: 800;
+      box-shadow: 0 1px 4px rgba(220,38,38,0.4);
+    }
     .agent-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; flex-wrap: wrap; }
     .agent-id { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
     .rank-badge { width: 34px; height: 34px; border-radius: 50%; background: #f3f4f6; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 15px; color: #374151; flex-shrink: 0; }
@@ -79,6 +100,8 @@
     .btn { padding: 7px 12px; border-radius: 8px; font-family: 'Cairo', sans-serif; font-size: 12px; font-weight: 700; cursor: pointer; border: none; }
     .btn-view  { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
     .btn-xfer  { background: #ecfeff; color: #0e7490; border: 1px solid #a5f3fc; }
+    .btn-pause { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .btn-resume{ background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-weight: 800; }
 
     /* Status breakdown pills */
     .status-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
@@ -501,8 +524,17 @@
           </span>
         </div>` : '';
 
+      // Pause toggle — undefined accepts_leads ⇒ migration not yet run, treat as on.
+      const accepting = a.accepts_leads !== false;
+      const pausedClass = accepting ? '' : ' paused';
+      const acceptBtn = accepting
+        ? `<button class="btn btn-pause" onclick="toggleAgentAcceptLeads('${a.id}', true)" title="إيقاف هذا الوكيل عن استلام الرسائل الجديدة">⏸ إيقاف</button>`
+        : `<button class="btn btn-resume" onclick="toggleAgentAcceptLeads('${a.id}', false)" title="استئناف استلام الرسائل الجديدة">▶ استئناف</button>`;
+      const pausedOverlay = accepting ? '' : `<div class="paused-overlay">⏸ موقوف عن استلام الرسائل الجديدة</div>`;
+
       return `
-        <div class="agent-card" id="card-${a.id}">
+        <div class="agent-card${pausedClass}" id="card-${a.id}">
+          ${pausedOverlay}
           <div class="agent-head">
             <div class="agent-id">
               <div class="rank-badge ${rankClass(a.rank)}">${a.rank <= 3 ? ['🥇','🥈','🥉'][a.rank-1] : '#' + a.rank}</div>
@@ -516,6 +548,7 @@
               <div class="total-lbl">رسائل</div>
             </div>
             <div class="agent-actions">
+              ${acceptBtn}
               <button class="btn btn-view" onclick="toggleAgentLeads('${a.id}')">${isOpen ? 'إخفاء' : '👁️ عرض'}</button>
               <button class="btn btn-xfer" onclick="openTransferModal('${a.id}','${escAttr(a.name)}')">🔄 نقل</button>
             </div>
@@ -524,6 +557,34 @@
           <div class="status-pills">${pills || '<span class="pill muted">لا توجد رسائل</span>'}</div>
           <div class="leads-panel ${isOpen ? 'open' : ''}" id="panel-${a.id}"></div>
         </div>`;
+    }
+
+    // Pause / resume an agent's incoming-lead distribution from the leads
+    // page itself. Optimistic — flips the local card immediately, rolls
+    // back on PATCH failure (almost always = SQL migration not yet run).
+    async function toggleAgentAcceptLeads(agentId, currentlyAccepting) {
+      const next = !currentlyAccepting;
+      const verb = next
+        ? 'استئناف استلام الرسائل لهذا الوكيل؟'
+        : 'إيقاف استلام الرسائل الجديدة لهذا الوكيل؟ سيتم تخطّيه في التوزيع.';
+      if (!confirm(verb)) return;
+      const a = allAgents.find(x => x.id === agentId);
+      const prev = a ? a.accepts_leads : undefined;
+      if (a) { a.accepts_leads = next; renderAgents(); }
+      const { ok, data, status } = await callAPI(`${API}/agents/${agentId}/accepts-leads`, {
+        method: 'PATCH', body: JSON.stringify({ accepts_leads: next })
+      });
+      if (ok) {
+        toast(next ? 'تم استئناف الاستلام' : 'تم إيقاف الاستلام', 'success');
+      } else {
+        if (a) { a.accepts_leads = prev; renderAgents(); }
+        const msg = (data && data.detail) || 'فشل التحديث';
+        if (msg.includes('قاعدة البيانات') || status === 400) {
+          alert('⚠️ ' + msg + '\n\nشغّل في Supabase SQL Editor:\nALTER TABLE agents ADD COLUMN IF NOT EXISTS accepts_leads BOOLEAN DEFAULT true;\nثم أعد تحميل الصفحة.');
+        } else {
+          toast(msg, 'error');
+        }
+      }
     }
 
     // ─── EXPAND PANEL ──────────────────────────────────────

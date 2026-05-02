@@ -178,6 +178,12 @@
 
     <!-- ⑤ Agents List -->
     <div class="section-title">الوكلاء النشطون</div>
+    <div id="migration-banner" style="display:none; background:#fef3c7; color:#92400e; border:1.5px dashed #fbbf24; border-radius:10px; padding:12px 14px; margin-bottom:10px; font-size:13px; font-weight:700;">
+      ⚠️ ميزة "إيقاف/استئناف الاستلام" تتطلب تحديث قاعدة البيانات. شغّل في Supabase SQL Editor:
+      <pre style="background:white; border-radius:6px; padding:8px; margin-top:6px; font-family:monospace; direction:ltr; text-align:left; font-size:12px;">ALTER TABLE agents ADD COLUMN IF NOT EXISTS accepts_leads BOOLEAN DEFAULT true;
+UPDATE agents SET accepts_leads = true WHERE accepts_leads IS NULL;</pre>
+      ثم أعد تحميل الصفحة.
+    </div>
     <div id="agents-list"></div>
   </div>
 
@@ -440,7 +446,21 @@
         return;
       }
       allActiveAgents = (agents || []).filter(a => a.is_active).map(a => ({ id: a.id, name: a.name }));
-      const active = agents.filter(a => a.is_active);
+      // Cache the active list so the optimistic toggle can re-render
+      // without a server round-trip.
+      window._agentsCache = (agents || []).filter(a => a.is_active);
+      // Diagnostic: if accepts_leads field is missing on every agent,
+      // the SQL migration almost certainly hasn't been applied yet —
+      // surface a clear banner with the exact ALTER TABLE to run.
+      const missingField = window._agentsCache.length > 0 &&
+        window._agentsCache.every(a => a.accepts_leads === undefined);
+      const banner = document.getElementById('migration-banner');
+      if (banner) banner.style.display = missingField ? 'block' : 'none';
+      _renderActiveAgentsList(window._agentsCache);
+    }
+
+    function _renderActiveAgentsList(active) {
+      const list = document.getElementById('agents-list');
       if (!active.length) {
         list.innerHTML = '<div class="empty-state">لا يوجد وكلاء نشطون</div>';
         return;
@@ -519,21 +539,37 @@
     }
 
     // accepts_leads: pause/resume new-lead distribution for one agent.
-    // Replaces the legacy day_off / off-dates flow — admin-controlled,
-    // single click. Round-robin distributor reads agents.accepts_leads
-    // and skips false rows.
+    // Optimistic UI — flip the local card immediately so the click feels
+    // instant, then call the API. Roll back + sticky error if the PATCH
+    // fails (almost always means the SQL migration hasn't been applied).
     async function toggleAcceptsLeads(agentId, currentlyAccepting) {
       const next = !currentlyAccepting;
       const verb = next ? 'استئناف استلام الرسائل لهذا الوكيل؟' : 'إيقاف استلام الرسائل الجديدة لهذا الوكيل؟ سيتم تخطّيه في التوزيع.';
       if (!confirm(verb)) return;
-      const { ok, data } = await callAPI(`${API}/agents/${agentId}/accepts-leads`, {
+
+      // Optimistic update — flip the local card instantly so the click
+      // feels responsive, then PATCH. Roll back on error.
+      const a = window._agentsCache && window._agentsCache.find(x => x.id === agentId);
+      const prev = a ? a.accepts_leads : undefined;
+      if (a) { a.accepts_leads = next; _renderActiveAgentsList(window._agentsCache); }
+
+      const { ok, data, status } = await callAPI(`${API}/agents/${agentId}/accepts-leads`, {
         method: 'PATCH', body: JSON.stringify({ accepts_leads: next })
       });
       if (ok) {
         showAlert('alert', next ? 'تم استئناف الاستلام' : 'تم إيقاف الاستلام', true);
-        loadAgents();
+        loadAgents();  // confirm from server
       } else {
-        showAlert('alert', data?.detail || 'فشل التحديث', false);
+        // Roll back optimistic change
+        if (a) { a.accepts_leads = prev; _renderActiveAgentsList(window._agentsCache); }
+        const msg = (data && data.detail) || 'فشل التحديث';
+        // Sticky alert via native confirm so the migration warning can't be
+        // missed — almost always means the ALTER TABLE hasn't been applied.
+        if (msg.includes('قاعدة البيانات') || (status === 400)) {
+          alert('⚠️ ' + msg + '\n\nشغّل في Supabase SQL Editor:\nALTER TABLE agents ADD COLUMN IF NOT EXISTS accepts_leads BOOLEAN DEFAULT true;\nثم أعد تحميل الصفحة.');
+        } else {
+          showAlert('alert', msg, false);
+        }
       }
     }
 

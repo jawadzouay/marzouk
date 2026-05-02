@@ -635,11 +635,26 @@ def sync_leads_from_sheet() -> dict:
 
 def distribute_unassigned_for_scope(scope_type: str, scope_id: str) -> int:
     sb = get_client()
-    unassigned = sb.table("ad_leads").select("id") \
-        .eq("scope_type", scope_type).eq("scope_id", scope_id) \
-        .is_("assigned_agent_id", "null") \
-        .order("created_time").execute()
-    leads = unassigned.data or []
+    # Paginate — same Supabase 1000-row cap that broke sync also bites here.
+    # Without paging, a recovery from a long sync outage would only assign
+    # the first 1000 backlog leads on each tick, dragging out the catch-up.
+    leads: List[dict] = []
+    PAGE = 1000
+    offset = 0
+    while True:
+        page = sb.table("ad_leads").select("id") \
+            .eq("scope_type", scope_type).eq("scope_id", scope_id) \
+            .is_("assigned_agent_id", "null") \
+            .order("created_time") \
+            .range(offset, offset + PAGE - 1).execute()
+        page_rows = page.data or []
+        leads.extend(page_rows)
+        if len(page_rows) < PAGE:
+            break
+        offset += PAGE
+        if offset >= 200000:
+            log.warning(f"[ad_leads] distribute paged past 200k unassigned leads for {scope_type}/{scope_id}")
+            break
     if not leads:
         return 0
 
