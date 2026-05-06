@@ -4,6 +4,7 @@ from jose import jwt
 from services.supabase_service import get_client
 from dotenv import load_dotenv
 from datetime import datetime, date, timedelta
+from typing import Dict, List
 import os
 
 try:
@@ -183,48 +184,158 @@ def compute_agent_score(totals: dict, thresholds: dict, report_count: int = 0) -
     }
 
 
+from services.manager_scope import (
+    require_admin_or_manager, resolve_manager_branch_ids,
+)
+
+
 @router.get("/scores")
 def quality_scores(
     date_from: str = Query(None),
     date_to: str = Query(None),
     branch_id: str = Query(None),
-    admin=Depends(require_admin)
+    source: str = Query("leads"),  # 'leads' (live, default) | 'reports' (legacy)
+    caller=Depends(require_admin_or_manager)
 ):
+    """Quality scoring per active agent. Defaults to deriving totals
+    LIVE from the ad_leads table — every status change an agent makes
+    flows directly into the dashboard, no manual daily-report submission
+    needed. The legacy daily_reports source is still selectable via
+    `source=reports` for back-compat / data archaeology."""
     sb = get_client()
     thresholds = load_thresholds()
 
-    # Get active agents
+    # Get active agents — manager scope clamps the result regardless of
+    # the caller's branch_id query param.
+    scope_branch_ids = resolve_manager_branch_ids(sb, caller)
     agents_q = sb.table("agents").select("id, name, branch_id, branches(name)").eq("is_active", True)
-    if branch_id:
+    if scope_branch_ids is not None:
+        if not scope_branch_ids:
+            return {"scores": [], "thresholds": thresholds, "date_from": date_from, "date_to": date_to}
+        agents_q = agents_q.in_("branch_id", scope_branch_ids)
+        if branch_id and branch_id in scope_branch_ids:
+            agents_q = agents_q.eq("branch_id", branch_id)
+    elif branch_id:
         agents_q = agents_q.eq("branch_id", branch_id)
     agents = agents_q.execute()
 
-    # Default date range: today
+    # Default date range: today (Morocco)
     if not date_from:
         date_from = _today_morocco().isoformat()
     if not date_to:
         date_to = _today_morocco().isoformat()
 
+    agent_ids = [a["id"] for a in (agents.data or [])]
+    totals_by_agent: Dict[str, dict] = {}
+    days_by_agent: Dict[str, set] = {}
+
+    if source == "leads" and agent_ids:
+        # ── Live aggregation from ad_leads ──────────────────────────────
+        # Determine which date field bounds an agent's "activity in the
+        # selected window". status_changed_at exists after migration; fall
+        # back to assigned_at for older deployments.
+        try:
+            sb.table("ad_leads").select("status_changed_at").limit(1).execute()
+            date_field = "status_changed_at"
+        except Exception:
+            date_field = "assigned_at"
+
+        # Morocco-local day bounds → UTC for the timestamptz filter.
+        try:
+            from zoneinfo import ZoneInfo
+        except Exception:
+            from backports.zoneinfo import ZoneInfo  # type: ignore
+        MOROCCO_TZ = ZoneInfo("Africa/Casablanca")
+        start_local = datetime.fromisoformat(f"{date_from}T00:00:00").replace(tzinfo=MOROCCO_TZ)
+        end_local   = datetime.fromisoformat(f"{date_to}T23:59:59").replace(tzinfo=MOROCCO_TZ)
+        start_utc = start_local.astimezone().isoformat()
+        end_utc   = end_local.astimezone().isoformat()
+
+        # Paginate — Supabase caps single selects at ~1000 rows by default.
+        rows: List[dict] = []
+        PAGE = 1000
+        offset = 0
+        while True:
+            page = sb.table("ad_leads") \
+                .select(f"assigned_agent_id, status, {date_field}") \
+                .in_("assigned_agent_id", agent_ids) \
+                .gte(date_field, start_utc).lte(date_field, end_utc) \
+                .range(offset, offset + PAGE - 1).execute()
+            page_rows = page.data or []
+            rows.extend(page_rows)
+            if len(page_rows) < PAGE:
+                break
+            offset += PAGE
+            if offset >= 200000:
+                break
+
+        # Cumulative funnel (a lead currently at "registered" passed through
+        # rdv and visits earlier — count it at every stage it reached).
+        PAST_RDV    = {"rdv", "visits", "registered"}
+        PAST_VISITS = {"visits", "registered"}
+
+        # Map ad_leads statuses → the buckets the dashboard color formula expects
+        TERMINAL_BAD = {"pi", "pe", "autre_ville", "over_40", "contra", "bv"}
+        for r in rows:
+            aid = r.get("assigned_agent_id")
+            if not aid:
+                continue
+            t = totals_by_agent.setdefault(aid, {
+                "messages": 0, "rdv": 0, "autre_ville": 0, "pi": 0,
+                "bv": 0, "pe": 0, "over_40": 0, "contra": 0,
+                "visits": 0, "registered": 0,
+            })
+            t["messages"] += 1
+            s = r.get("status") or "new"
+            if s in PAST_RDV:
+                t["rdv"] += 1
+            if s in PAST_VISITS:
+                t["visits"] += 1
+            if s == "registered":
+                t["registered"] += 1
+            # Terminal "bad" buckets — match the keys the score formula reads.
+            if s in TERMINAL_BAD:
+                if s in t:
+                    t[s] += 1
+            # Track distinct activity days for the per-day average denominator.
+            ts = r.get(date_field)
+            if ts:
+                try:
+                    d = datetime.fromisoformat(str(ts).replace("Z", "+00:00")).astimezone(MOROCCO_TZ).date().isoformat()
+                    days_by_agent.setdefault(aid, set()).add(d)
+                except Exception:
+                    pass
+
     results = []
-    for agent in agents.data:
+    for agent in (agents.data or []):
         aid = agent["id"]
-        # Fetch and aggregate reports for this agent in date range
-        reports = sb.table("daily_reports").select("*") \
-            .eq("agent_id", aid) \
-            .gte("report_date", date_from) \
-            .lte("report_date", date_to) \
-            .execute()
+        if source == "leads":
+            totals = totals_by_agent.get(aid, {
+                "messages": 0, "rdv": 0, "autre_ville": 0, "pi": 0,
+                "bv": 0, "pe": 0, "over_40": 0, "contra": 0,
+                "visits": 0, "registered": 0,
+            })
+            # Active days (denominator for avg/day metrics). When the agent
+            # had no activity, fall back to 1 to avoid div-by-zero — the
+            # `inactive` flag already handles the empty-state UX.
+            report_count = max(len(days_by_agent.get(aid, set())), 0)
+        else:
+            # Legacy path — preserve original daily_reports aggregation.
+            reports = sb.table("daily_reports").select("*") \
+                .eq("agent_id", aid) \
+                .gte("report_date", date_from) \
+                .lte("report_date", date_to) \
+                .execute()
+            totals = {
+                "messages": 0, "rdv": 0, "autre_ville": 0, "pi": 0,
+                "bv": 0, "pe": 0, "over_40": 0, "contra": 0,
+                "visits": 0, "registered": 0
+            }
+            for r in (reports.data or []):
+                for key in totals:
+                    totals[key] += r.get(key, 0)
+            report_count = len(reports.data or [])
 
-        totals = {
-            "messages": 0, "rdv": 0, "autre_ville": 0, "pi": 0,
-            "bv": 0, "pe": 0, "over_40": 0, "contra": 0,
-            "visits": 0, "registered": 0
-        }
-        for r in reports.data:
-            for key in totals:
-                totals[key] += r.get(key, 0)
-
-        report_count = len(reports.data)
         score = compute_agent_score(totals, thresholds, report_count)
         branch_info = agent.get("branches")
         score["agent_id"] = aid

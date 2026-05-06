@@ -4,7 +4,7 @@ from jose import jwt
 from passlib.context import CryptContext
 from services.supabase_service import get_client
 from dotenv import load_dotenv
-from typing import Optional
+from typing import Optional, Dict, Any
 import os
 from datetime import datetime, timedelta
 
@@ -58,7 +58,7 @@ def login(req: LoginRequest):
         token = create_token({"sub": "admin", "role": "admin"})
         return {"token": token, "role": "admin", "name": req.name}
 
-    # Check agent
+    # Check agent (or branch-manager — managers are agents with role='manager')
     sb = get_client()
     result = sb.table("agents").select("*").eq("name", req.name).eq("is_active", True).execute()
 
@@ -70,8 +70,25 @@ def login(req: LoginRequest):
     if not pwd_context.verify(req.pin, agent["pin"]):
         raise HTTPException(status_code=401, detail="رمز PIN غير صحيح")
 
-    token = create_token({"sub": agent["id"], "role": "agent", "name": agent["name"]})
-    return {"token": token, "role": "agent", "name": agent["name"], "agent_id": agent["id"]}
+    # Branch-manager role lives on the same agent record. They keep their
+    # agent capabilities (still receive leads, mark statuses) but the JWT
+    # carries scope so admin endpoints auto-narrow data to that scope.
+    role = (agent.get("role") or "agent").strip()
+    if role not in ("agent", "manager"):
+        role = "agent"
+    payload: Dict[str, Any] = {"sub": agent["id"], "role": role, "name": agent["name"]}
+    if role == "manager":
+        payload["scope_type"] = (agent.get("manager_scope_type") or "branch")
+        payload["scope_id"]   = agent.get("manager_scope_id")
+    token = create_token(payload)
+
+    out: Dict[str, Any] = {
+        "token": token, "role": role, "name": agent["name"], "agent_id": agent["id"],
+    }
+    if role == "manager":
+        out["scope_type"] = payload["scope_type"]
+        out["scope_id"]   = payload["scope_id"]
+    return out
 
 
 @router.post("/register-request")

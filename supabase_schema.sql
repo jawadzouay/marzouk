@@ -18,6 +18,10 @@ CREATE TABLE agents (
 -- ALTER TABLE agents ADD COLUMN IF NOT EXISTS pin_plain TEXT;
 -- ALTER TABLE agents ADD COLUMN IF NOT EXISTS accepts_leads BOOLEAN DEFAULT true;
 -- UPDATE agents SET accepts_leads = true WHERE accepts_leads IS NULL;
+-- ALTER TABLE agents ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'agent';
+-- ALTER TABLE agents ADD COLUMN IF NOT EXISTS manager_scope_type TEXT;
+-- ALTER TABLE agents ADD COLUMN IF NOT EXISTS manager_scope_id   TEXT;
+-- CREATE INDEX IF NOT EXISTS idx_agents_role ON agents(role) WHERE role <> 'agent';
 
 -- LEADS
 CREATE TABLE leads (

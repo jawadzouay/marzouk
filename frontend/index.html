@@ -129,8 +129,17 @@
         // which key it reads.
         localStorage.setItem('agentName', data.name);
         if (data.agent_id) localStorage.setItem('agent_id', data.agent_id);
+        // Branch manager carries scope info so the admin pages can render
+        // a "مدير فرع: …" badge + hide the manager-blocked subnav links.
+        if (data.scope_type) localStorage.setItem('scope_type', data.scope_type);
+        else localStorage.removeItem('scope_type');
+        if (data.scope_id) localStorage.setItem('scope_id', data.scope_id);
+        else localStorage.removeItem('scope_id');
 
-        window.location.href = data.role === 'admin' ? '/admin/dashboard.html' : '/agent/leads.html';
+        // Manager and admin both land on the admin dashboard; the page
+        // reads localStorage.role to decide what to render.
+        const adminLanding = (data.role === 'admin' || data.role === 'manager');
+        window.location.href = adminLanding ? '/admin/dashboard.html' : '/agent/leads.html';
       } catch (err) {
         errorEl.textContent = err.message;
         errorEl.style.display = 'block';

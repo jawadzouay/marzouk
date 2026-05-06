@@ -107,6 +107,13 @@
     .btn-accept { border: none; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 700; font-size: 13px; }
     .btn-accept.accept-on  { background: #fef2f2; color: #b91c1c; border: 1.5px solid #fecaca; }
     .btn-accept.accept-off { background: #ecfdf5; color: #065f46; border: 1.5px solid #bbf7d0; }
+    .btn-promote { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 700; font-size: 13px; }
+    .btn-demote  { background: #f3f4f6; color: #4b5563; border: 1px solid #d1d5db; border-radius: 8px; padding: 8px 14px; font-family: 'Cairo', sans-serif; cursor: pointer; font-weight: 700; font-size: 13px; }
+    .mgr-tag { display: inline-block; background: #fef3c7; color: #92400e; border-radius: 12px; padding: 1px 8px; font-size: 10px; font-weight: 800; margin-right: 4px; vertical-align: middle; }
+    /* Managers can't promote/demote anyone — only admin gets that button.
+       Other actions (fire/wipe/rename/branch/etc) stay enabled per the
+       confirmed permission matrix; backend enforces scope. */
+    body.role-manager .promote-slot { display: none; }
     .dayoff-panel { margin-top: 10px; padding: 10px 12px; background: #fefce8; border-radius: 8px; border: 1px solid #fde68a; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .dayoff-panel select { flex: 1; min-width: 160px; padding: 7px 10px; font-size: 13px; border: 2px solid #fde68a; border-radius: 8px; font-family: 'Cairo', sans-serif; }
 
@@ -253,7 +260,10 @@ UPDATE agents SET accepts_leads = true WHERE accepts_leads IS NULL;</pre>
   <script>
     const API = window.location.origin;
     const token = localStorage.getItem('token');
-    if (!token || localStorage.getItem('role') !== 'admin') window.location.href = '/index.html';
+    {
+      const _r = localStorage.getItem('role');
+      if (!token || (_r !== 'admin' && _r !== 'manager')) window.location.href = '/index.html';
+    }
 
     let allCities   = [];
     let allBranches = [];
@@ -479,16 +489,32 @@ UPDATE agents SET accepts_leads = true WHERE accepts_leads IS NULL;</pre>
         const acceptTagLabel = accepting ? '✅ يستقبل رسائل جديدة' : '⏸ موقوف عن استلام رسائل';
         const acceptTagClass = accepting ? 'accept-on' : 'accept-off';
         const acceptBtnLabel = accepting ? '⏸ إيقاف الاستلام' : '▶ استئناف الاستلام';
+        // Manager-role tagging — agent.role / manager_scope_* are
+        // optional columns; undefined = un-migrated DB or regular agent.
+        const isManager = a.role === 'manager';
+        const mgrScopeLabel =
+          a.manager_scope_type === 'all'    ? 'مدير عام (كل الفروع)' :
+          a.manager_scope_type === 'city'   ? 'مدير مدينة' :
+          a.manager_scope_type === 'branch' ? 'مدير فرع' : '';
+        const mgrTag = isManager
+          ? `<span class="mgr-tag" title="${escQ(mgrScopeLabel)}">🎖 ${mgrScopeLabel || 'مدير'}</span>`
+          : '';
+        const promoteBtn = isManager
+          ? `<button class="btn-demote" onclick="demoteManager('${a.id}','${escQ(a.name)}')" title="إزالة صلاحيات الإدارة">⬇️ إلغاء صلاحيات الإدارة</button>`
+          : `<button class="btn-promote" onclick="promoteManager('${a.id}','${escQ(a.name)}')" title="ترقية الوكيل إلى مدير فرع/مدينة/عام">🎖 ترقية إلى مدير</button>`;
+        // Only the global admin sees promote/demote — the helper hides
+        // it for managers via the .role-manager body class + CSS rule.
         return `<div class="agent-row" id="agent-row-${a.id}">
           <div class="agent-main">
             <div class="agent-info">
-              <div class="agent-name">${a.name}</div>
+              <div class="agent-name">${a.name} ${mgrTag}</div>
               <div class="agent-meta">تاريخ الإضافة: ${new Date(a.created_at).toLocaleDateString('ar-MA')}</div>
               ${branchLabel}
               <span class="accept-tag ${acceptTagClass}">${acceptTagLabel}</span>
               ${driveLink}
             </div>
             <div class="agent-actions">
+              <span class="promote-slot">${promoteBtn}</span>
               <button class="btn-accept ${acceptTagClass}" onclick="toggleAcceptsLeads('${a.id}',${accepting})" title="عند الإيقاف يتم تخطّي الوكيل في توزيع الرسائل الجديدة تلقائياً">${acceptBtnLabel}</button>
               <button class="btn-creds"  onclick="toggleCreds('${a.id}')">🔑 بيانات الدخول</button>
               <button class="btn-xfer"   onclick="openTransferModal('${a.id}','${escQ(a.name)}')">🔄 نقل الرسائل</button>
@@ -574,6 +600,68 @@ UPDATE agents SET accepts_leads = true WHERE accepts_leads IS NULL;</pre>
     }
 
     // (legacy day-off / vacation helpers removed — accepts_leads toggle replaces the flow.)
+
+    // ── Promote / demote branch manager ────────────────────────────────
+    // Admin promotes an agent. Three scope choices:
+    //   'all'    → super-admin lite (every branch — no ads / spend / sources / settings)
+    //   'city'   → every branch in one city
+    //   'branch' → exactly one branch
+    async function promoteManager(agentId, name) {
+      const scope = await _pickScope();
+      if (!scope) return;
+      const body = { scope_type: scope.type };
+      if (scope.type !== 'all') body.scope_id = scope.id;
+      const { ok, data } = await callAPI(`${API}/agents/${agentId}/promote-manager`, {
+        method: 'PATCH', body: JSON.stringify(body)
+      });
+      if (ok) { showAlert('alert', `تمت ترقية ${name} إلى مدير`, true); loadAgents(); }
+      else {
+        const msg = (data && data.detail) || 'فشل';
+        if (msg.includes('قاعدة البيانات')) {
+          alert('⚠️ ' + msg + '\n\nشغّل في Supabase SQL Editor:\n' +
+            'ALTER TABLE agents ADD COLUMN IF NOT EXISTS role TEXT DEFAULT \'agent\';\n' +
+            'ALTER TABLE agents ADD COLUMN IF NOT EXISTS manager_scope_type TEXT;\n' +
+            'ALTER TABLE agents ADD COLUMN IF NOT EXISTS manager_scope_id   TEXT;');
+        } else {
+          showAlert('alert', msg, false);
+        }
+      }
+    }
+    async function demoteManager(agentId, name) {
+      if (!confirm(`إلغاء صلاحيات الإدارة عن ${name}؟`)) return;
+      const { ok, data } = await callAPI(`${API}/agents/${agentId}/demote-manager`, { method: 'PATCH' });
+      if (ok) { showAlert('alert', `تم إلغاء صلاحيات ${name}`, true); loadAgents(); }
+      else showAlert('alert', (data && data.detail) || 'فشل', false);
+    }
+    // Tiny picker — uses prompt() x2. Keeps the surface minimal; can be
+    // upgraded to a styled modal later if needed.
+    async function _pickScope() {
+      const t = prompt(
+        'اختر نطاق الإدارة:\n' +
+        '1 = مدير عام (كل الفروع، بدون إعلانات/إنفاق)\n' +
+        '2 = مدير مدينة\n' +
+        '3 = مدير فرع واحد\n\nاكتب 1 أو 2 أو 3:'
+      );
+      if (!t) return null;
+      if (t.trim() === '1') return { type: 'all' };
+      if (t.trim() === '2') {
+        const cities = (await callAPI(`${API}/cities/`)).data || [];
+        const opts = cities.map((c, i) => `${i + 1}. ${c.name}`).join('\n');
+        const choice = prompt('اختر المدينة (رقم):\n\n' + opts);
+        const idx = parseInt((choice || '').trim()) - 1;
+        if (isNaN(idx) || idx < 0 || idx >= cities.length) return null;
+        return { type: 'city', id: cities[idx].id };
+      }
+      if (t.trim() === '3') {
+        const opts = allBranches.map((b, i) =>
+          `${i + 1}. ${b.city ? b.city + ' — ' : ''}${b.name}`).join('\n');
+        const choice = prompt('اختر الفرع (رقم):\n\n' + opts);
+        const idx = parseInt((choice || '').trim()) - 1;
+        if (isNaN(idx) || idx < 0 || idx >= allBranches.length) return null;
+        return { type: 'branch', id: allBranches[idx].id };
+      }
+      return null;
+    }
 
     function toggleCreds(agentId) {
       const panel = document.getElementById(`creds-${agentId}`);

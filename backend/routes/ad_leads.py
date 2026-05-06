@@ -10,6 +10,10 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from jose import jwt
 from services.supabase_service import get_client
+from services.manager_scope import (
+    require_admin_or_manager, require_admin_only,
+    resolve_manager_branch_ids, assert_agent_in_scope,
+)
 from services.ad_leads_sync import (
     sync_all_enabled,
     sync_config,
@@ -858,12 +862,12 @@ def admin_list_agent_leads(
     date_from: Optional[str] = Query(None),
     date_to: Optional[str] = Query(None),
     limit: int = Query(500),
-    admin=Depends(require_admin),
+    caller=Depends(require_admin_or_manager),
 ):
-    """Leads assigned to an agent — used by the admin leads page and the
-    transfer modal. Date filter is applied on assigned_at so it matches the
-    admin's "leads this agent got today" mental model."""
+    """Leads assigned to an agent — used by the admin/manager leads page
+    and the transfer modal. Manager scope must include the agent."""
     sb = get_client()
+    assert_agent_in_scope(sb, caller, agent_id)
     base = ("id, created_time, assigned_at, full_name, phone_primary, "
             "ad_name, platform, status, last_note")
     if _has_custom_status_col():
@@ -896,21 +900,30 @@ def admin_agent_leaderboard(
     date_to: Optional[str] = Query(None),
     branch_id: Optional[str] = Query(None),
     city_id: Optional[str] = Query(None),
-    admin=Depends(require_admin),
+    caller=Depends(require_admin_or_manager),
 ):
     """Per-agent lead counts + status breakdown, ranked by registered →
-    RDV → total. Powers the admin leads page."""
+    RDV → total. Powers the admin/manager leads page."""
     sb = get_client()
     df, dt = resolve_range(range, date_from, date_to)
 
-    # Resolve agents in scope (all active agents, optionally narrowed by
-    # branch or city). Include accepts_leads when the column exists so the
-    # admin leads page can render the pause toggle alongside each agent.
+    # Manager scope clamps the result to their branch(es) regardless of
+    # the caller-supplied branch_id / city_id.
+    scope_branch_ids = resolve_manager_branch_ids(sb, caller)
+
     base_sel = "id, name, branch_id, is_active, branches(name, city)"
     sel_with_accepts = base_sel + ", accepts_leads"
     def _build_query(sel):
         q = sb.table("agents").select(sel).eq("is_active", True)
-        if branch_id:
+        if scope_branch_ids is not None:
+            # Hard scope override for managers
+            if not scope_branch_ids:
+                return None
+            q = q.in_("branch_id", scope_branch_ids)
+            # Honor a narrower caller-supplied branch_id when it's inside scope
+            if branch_id and branch_id in scope_branch_ids:
+                q = q.eq("branch_id", branch_id)
+        elif branch_id:
             q = q.eq("branch_id", branch_id)
         elif city_id:
             city = sb.table("cities").select("name").eq("id", city_id).execute()
@@ -1020,10 +1033,14 @@ def admin_agent_leaderboard(
 
 
 @router.post("/admin/transfer")
-def admin_transfer(body: AdminTransferBody, admin=Depends(require_admin)):
+def admin_transfer(body: AdminTransferBody, caller=Depends(require_admin_or_manager)):
     sb = get_client()
     if body.from_agent_id == body.to_agent_id:
         raise HTTPException(400, "لا يمكن النقل إلى نفس الوكيل")
+
+    # Manager can only transfer between agents inside their scope.
+    assert_agent_in_scope(sb, caller, body.from_agent_id)
+    assert_agent_in_scope(sb, caller, body.to_agent_id)
 
     # Verify both agents exist (target should also be active; source can be
     # inactive so admin can drain a fired agent's pool).
@@ -1096,24 +1113,29 @@ class AdminDistributeBody(BaseModel):
 
 
 @router.post("/admin/distribute")
-def admin_distribute(body: AdminDistributeBody, admin=Depends(require_admin)):
+def admin_distribute(body: AdminDistributeBody, caller=Depends(require_admin_or_manager)):
     """Round-robin split leads from one agent across either:
       - every active agent in a branch / city (to_scope_type + to_scope_id), or
       - a hand-picked list of agents (to_agent_ids).
-    Source agent is excluded from the target pool either way."""
+    Source agent is excluded from the target pool either way. Manager
+    callers are constrained to their own scope on both sides."""
     sb = get_client()
+
+    # Manager scope: source agent must be in scope.
+    assert_agent_in_scope(sb, caller, body.from_agent_id)
+    scope_branch_ids = resolve_manager_branch_ids(sb, caller)
 
     # Resolve target agents
     if body.to_agent_ids:
         # Hand-picked list — must all be active to receive new leads.
-        ta = sb.table("agents").select("id, name") \
+        ta = sb.table("agents").select("id, name, branch_id") \
             .in_("id", body.to_agent_ids).eq("is_active", True).execute()
         target_agents = ta.data or []
     elif body.to_scope_type and body.to_scope_id:
         if body.to_scope_type not in ("branch", "city"):
             raise HTTPException(400, "to_scope_type must be 'branch' or 'city'")
         if body.to_scope_type == "branch":
-            ta = sb.table("agents").select("id, name") \
+            ta = sb.table("agents").select("id, name, branch_id") \
                 .eq("branch_id", body.to_scope_id).eq("is_active", True).execute()
             target_agents = ta.data or []
         else:
@@ -1125,11 +1147,16 @@ def admin_distribute(body: AdminDistributeBody, admin=Depends(require_admin)):
             branch_ids = [b["id"] for b in (brs.data or [])]
             if not branch_ids:
                 return {"transferred": 0, "distribution": [], "target_count": 0}
-            ta = sb.table("agents").select("id, name") \
+            ta = sb.table("agents").select("id, name, branch_id") \
                 .in_("branch_id", branch_ids).eq("is_active", True).execute()
             target_agents = ta.data or []
     else:
         raise HTTPException(400, "يرجى تحديد نطاق التوزيع أو قائمة الوكلاء")
+
+    # Manager scope clamp on the target side — strip any target agents
+    # that fall outside the manager's branch list.
+    if scope_branch_ids is not None:
+        target_agents = [a for a in target_agents if a.get("branch_id") in scope_branch_ids]
 
     target_agents = [a for a in target_agents if a["id"] != body.from_agent_id]
     if not target_agents:
@@ -1255,7 +1282,7 @@ def _parse_sheet_id(raw: str) -> str:
 
 
 @router.get("/admin/configs")
-def admin_list_configs(admin=Depends(require_admin)):
+def admin_list_configs(admin=Depends(require_admin_only)):
     sb = get_client()
     configs = sb.table("lead_sheet_configs").select("*").order("created_at").execute()
     cities = {c["id"]: c["name"] for c in (sb.table("cities").select("id,name").execute().data or [])}
@@ -1273,7 +1300,7 @@ def admin_list_configs(admin=Depends(require_admin)):
 
 
 @router.post("/admin/configs")
-def admin_create_config(body: ConfigCreate, admin=Depends(require_admin)):
+def admin_create_config(body: ConfigCreate, admin=Depends(require_admin_only)):
     if body.scope_type not in ("city", "branch"):
         raise HTTPException(400, "scope_type must be 'city' or 'branch'")
     sb = get_client()
@@ -1300,7 +1327,7 @@ def admin_create_config(body: ConfigCreate, admin=Depends(require_admin)):
 
 
 @router.put("/admin/configs/{config_id}")
-def admin_update_config(config_id: str, body: ConfigUpdate, admin=Depends(require_admin)):
+def admin_update_config(config_id: str, body: ConfigUpdate, admin=Depends(require_admin_only)):
     sb = get_client()
     updates: Dict[str, Any] = {}
     if body.name is not None:
@@ -1320,14 +1347,14 @@ def admin_update_config(config_id: str, body: ConfigUpdate, admin=Depends(requir
 
 
 @router.delete("/admin/configs/{config_id}")
-def admin_delete_config(config_id: str, admin=Depends(require_admin)):
+def admin_delete_config(config_id: str, admin=Depends(require_admin_only)):
     sb = get_client()
     sb.table("lead_sheet_configs").delete().eq("id", config_id).execute()
     return {"ok": True}
 
 
 @router.get("/admin/configs/{config_id}/columns")
-def admin_get_columns(config_id: str, admin=Depends(require_admin)):
+def admin_get_columns(config_id: str, admin=Depends(require_admin_only)):
     sb = get_client()
     res = sb.table("lead_sheet_columns").select("*") \
         .eq("config_id", config_id).order("display_order").execute()
@@ -1335,7 +1362,7 @@ def admin_get_columns(config_id: str, admin=Depends(require_admin)):
 
 
 @router.put("/admin/configs/{config_id}/columns")
-def admin_save_columns(config_id: str, body: ColumnsUpdate, admin=Depends(require_admin)):
+def admin_save_columns(config_id: str, body: ColumnsUpdate, admin=Depends(require_admin_only)):
     sb = get_client()
     valid_types = {"key", "name", "date", "phone", "ad_name", "platform", "number", "text"}
     for c in body.columns:
@@ -1356,7 +1383,7 @@ def admin_save_columns(config_id: str, body: ColumnsUpdate, admin=Depends(requir
 
 
 @router.post("/admin/configs/{config_id}/fetch-headers")
-def admin_fetch_headers(config_id: str, admin=Depends(require_admin)):
+def admin_fetch_headers(config_id: str, admin=Depends(require_admin_only)):
     sb = get_client()
     cfg = sb.table("lead_sheet_configs").select("sheet_id, sheet_tab") \
         .eq("id", config_id).execute()
@@ -1373,17 +1400,17 @@ def admin_fetch_headers(config_id: str, admin=Depends(require_admin)):
 
 
 @router.post("/admin/configs/{config_id}/sync")
-def admin_sync_config(config_id: str, admin=Depends(require_admin)):
+def admin_sync_config(config_id: str, admin=Depends(require_admin_only)):
     return sync_config(config_id)
 
 
 @router.post("/admin/sync-all")
-def admin_sync_all(admin=Depends(require_admin)):
+def admin_sync_all(admin=Depends(require_admin_only)):
     return sync_all_enabled()
 
 
 @router.post("/redistribute")
-def admin_redistribute(admin=Depends(require_admin)):
+def admin_redistribute(admin=Depends(require_admin_only)):
     return {"assigned": distribute_all_unassigned()}
 
 
@@ -1402,11 +1429,25 @@ def cron_sync(token: str = Query(...)):
 def admin_pool(
     scope_type: str = Query(...),
     scope_id: str = Query(...),
-    admin=Depends(require_admin),
+    caller=Depends(require_admin_or_manager),
 ):
-    """Agents in the requested scope with today's lead count and off-dates."""
+    """Agents in the requested scope with today's lead count and off-dates.
+    Manager scope clamps the response to their branch list."""
     sb = get_client()
     today = today_morocco().isoformat()
+    # Manager scope check — refuse if requested scope is outside theirs.
+    scope_branch_ids = resolve_manager_branch_ids(sb, caller)
+    if scope_branch_ids is not None:
+        if scope_type == "branch":
+            if scope_id not in scope_branch_ids:
+                raise HTTPException(403, "هذا النطاق خارج إدارتك")
+        elif scope_type == "city":
+            c = sb.table("cities").select("name").eq("id", scope_id).execute()
+            if c.data:
+                city_branches = sb.table("branches").select("id").eq("city", c.data[0]["name"]).execute()
+                cb_ids = {b["id"] for b in (city_branches.data or [])}
+                if not cb_ids.issubset(set(scope_branch_ids)):
+                    raise HTTPException(403, "هذا النطاق خارج إدارتك")
 
     if scope_type == "branch":
         agents = sb.table("agents").select(
@@ -1482,7 +1523,7 @@ def admin_ad_quality_drilldown(
     bucket_key: str = Query(...),  # e.g. ad name / adset name / campaign name / platform
     metric: str = Query("leads"),  # leads | rdv | visits | registered | <raw status>
     limit: int = Query(500),
-    admin=Depends(require_admin),
+    admin=Depends(require_admin_only),
 ):
     sb = get_client()
     df, dt = resolve_range(range, date_from, date_to)
@@ -1612,7 +1653,7 @@ def admin_ad_quality(
     branch_id: Optional[str] = Query(None),
     date_basis: str = Query("activity"),
     group_by: str = Query("ad"),
-    admin=Depends(require_admin),
+    admin=Depends(require_admin_only),
 ):
     """Aggregate leads by ad_name. Counts are cumulative through the funnel —
     a lead that progressed new→rdv→visits→registered is counted at every

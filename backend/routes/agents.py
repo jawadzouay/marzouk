@@ -16,6 +16,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 JWT_SECRET = os.getenv("JWT_SECRET")
 ALGORITHM = "HS256"
 
+from services.manager_scope import (
+    require_admin_or_manager, require_admin_only,
+    resolve_manager_branch_ids, assert_agent_in_scope,
+)
+
 
 def require_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
@@ -93,16 +98,36 @@ def _select_agents(sb, branch_id=None):
 
 
 @router.get("/")
-def list_agents(branch_id: str = None, admin=Depends(require_admin)):
-    # pin_plain is stored alongside the bcrypt hash so the admin can view the
-    # actual PIN in the agents list. Intentional tradeoff — the column is only
-    # exposed behind require_admin.
-    return _select_agents(get_client(), branch_id)
+def list_agents(branch_id: str = None, caller=Depends(require_admin_or_manager)):
+    # pin_plain is stored alongside the bcrypt hash so admin/manager can
+    # view the actual PIN in the agents list. Manager scope auto-narrows
+    # the list to their branch(es); they can't see agents outside scope.
+    sb = get_client()
+    scope_branch_ids = resolve_manager_branch_ids(sb, caller)
+    if scope_branch_ids is not None:
+        # Manager scope active. If admin passed a branch_id, only honor it
+        # when it's inside the manager's scope; otherwise we ignore it.
+        if branch_id and branch_id in scope_branch_ids:
+            return _select_agents(sb, branch_id)
+        if not scope_branch_ids:
+            return []
+        # Multi-branch fetch — _select_agents only handles one. Filter post-hoc.
+        rows = _select_agents(sb, None) or []
+        return [a for a in rows if a.get("branch_id") in scope_branch_ids]
+    # Admin or scope='all'
+    return _select_agents(sb, branch_id)
 
 
 @router.post("/")
-def create_agent(agent: AgentCreate, admin=Depends(require_admin)):
+def create_agent(agent: AgentCreate, caller=Depends(require_admin_or_manager)):
     sb = get_client()
+    # Manager can only add agents inside their own scope.
+    scope_branch_ids = resolve_manager_branch_ids(sb, caller)
+    if scope_branch_ids is not None:
+        if not agent.branch_id:
+            raise HTTPException(400, "يجب تحديد الفرع")
+        if agent.branch_id not in scope_branch_ids:
+            raise HTTPException(403, "لا يمكن إضافة وكيل خارج نطاق إدارتك")
 
     # Check name uniqueness
     existing = sb.table("agents").select("id").eq("name", agent.name).execute()
@@ -140,9 +165,9 @@ def create_agent(agent: AgentCreate, admin=Depends(require_admin)):
 
 
 @router.delete("/{agent_id}")
-def fire_agent(agent_id: str, admin=Depends(require_admin)):
+def fire_agent(agent_id: str, caller=Depends(require_admin_or_manager)):
     sb = get_client()
-
+    assert_agent_in_scope(sb, caller, agent_id)
     from datetime import datetime
     sb.table("agents").update({
         "is_active": False,
@@ -153,9 +178,9 @@ def fire_agent(agent_id: str, admin=Depends(require_admin)):
 
 
 @router.delete("/{agent_id}/wipe")
-def fire_and_wipe_agent(agent_id: str, admin=Depends(require_admin)):
+def fire_and_wipe_agent(agent_id: str, caller=Depends(require_admin_or_manager)):
     sb = get_client()
-
+    assert_agent_in_scope(sb, caller, agent_id)
     from datetime import datetime
     placeholder = f"محذوف_{agent_id[:8]}"
     sb.table("agents").update({
@@ -286,7 +311,7 @@ def update_my_profile(body: dict, user=Depends(get_current_user)):
 
 
 @router.get("/requests")
-def list_requests(admin=Depends(require_admin)):
+def list_requests(caller=Depends(require_admin_or_manager)):
     sb = get_client()
     result = sb.table("agent_requests").select("*").eq("status", "pending").order("created_at").execute()
     rows = result.data or []
@@ -300,6 +325,11 @@ def list_requests(admin=Depends(require_admin)):
     for r in rows:
         bid = r.get("requested_branch_id")
         r["requested_branch_name"] = branch_map.get(bid, {}).get("name") if bid else None
+
+    # Manager only sees signup requests targeting their own branches.
+    scope_branch_ids = resolve_manager_branch_ids(sb, caller)
+    if scope_branch_ids is not None:
+        rows = [r for r in rows if r.get("requested_branch_id") in scope_branch_ids]
     return rows
 
 
@@ -309,19 +339,24 @@ class ApproveRequest(BaseModel):
 
 
 @router.post("/requests/{request_id}/approve")
-def approve_request(request_id: str, body: ApproveRequest, admin=Depends(require_admin)):
+def approve_request(request_id: str, body: ApproveRequest, caller=Depends(require_admin_or_manager)):
     sb = get_client()
     req = sb.table("agent_requests").select("*").eq("id", request_id).execute()
     if not req.data:
         raise HTTPException(404, "الطلب غير موجود")
     req = req.data[0]
+    final_branch = body.branch_id or req.get("requested_branch_id")
+    # Manager can only approve into branches inside their scope.
+    scope_branch_ids = resolve_manager_branch_ids(sb, caller)
+    if scope_branch_ids is not None:
+        if not final_branch or final_branch not in scope_branch_ids:
+            raise HTTPException(403, "الفرع المختار خارج نطاق إدارتك")
     name = (body.final_name or req["requested_name"]).strip()
     # Check name not taken
     existing = sb.table("agents").select("id").eq("name", name).execute()
     if existing.data:
         raise HTTPException(400, "هذا الاسم مستخدم مسبقاً")
     hashed = pwd_context.hash(req["password_plain"])
-    final_branch = body.branch_id or req.get("requested_branch_id")
 
     def _do_insert(with_plain):
         data = {"name": name, "pin": hashed, "is_active": True}
@@ -337,8 +372,14 @@ def approve_request(request_id: str, body: ApproveRequest, admin=Depends(require
 
 
 @router.delete("/requests/{request_id}")
-def reject_request(request_id: str, admin=Depends(require_admin)):
+def reject_request(request_id: str, caller=Depends(require_admin_or_manager)):
     sb = get_client()
+    # Manager can only reject requests targeting their own scope.
+    scope_branch_ids = resolve_manager_branch_ids(sb, caller)
+    if scope_branch_ids is not None:
+        req = sb.table("agent_requests").select("requested_branch_id").eq("id", request_id).execute()
+        if req.data and req.data[0].get("requested_branch_id") not in scope_branch_ids:
+            raise HTTPException(403, "هذا الطلب خارج نطاق إدارتك")
     sb.table("agent_requests").update({"status": "rejected"}).eq("id", request_id).execute()
     return {"message": "تم رفض الطلب"}
 
@@ -392,10 +433,12 @@ def set_day_off(agent_id: str, body: dict, admin=Depends(require_admin)):
 
 
 @router.patch("/{agent_id}/reset-pin")
-def reset_agent_pin(agent_id: str, body: dict, admin=Depends(require_admin)):
-    """Admin sets a new PIN for an agent. Stores both the bcrypt hash and
-    the plaintext so the admin can see it in the agents list afterwards."""
+def reset_agent_pin(agent_id: str, body: dict, caller=Depends(require_admin_or_manager)):
+    """Admin or scoped manager sets a new PIN for an agent. Stores both
+    the bcrypt hash and the plaintext so the admin can see it in the
+    agents list afterwards."""
     sb = get_client()
+    assert_agent_in_scope(sb, caller, agent_id)
     new_pin = (body.get("pin") or "").strip()
     if not new_pin:
         raise HTTPException(400, "كلمة المرور فارغة")
@@ -416,8 +459,9 @@ def reset_agent_pin(agent_id: str, body: dict, admin=Depends(require_admin)):
 
 
 @router.patch("/{agent_id}/rename")
-def rename_agent(agent_id: str, body: dict, admin=Depends(require_admin)):
+def rename_agent(agent_id: str, body: dict, caller=Depends(require_admin_or_manager)):
     sb = get_client()
+    assert_agent_in_scope(sb, caller, agent_id)
     new_name = (body.get("name") or "").strip()
     if not new_name:
         raise HTTPException(400, "الاسم فارغ")
@@ -431,21 +475,76 @@ def rename_agent(agent_id: str, body: dict, admin=Depends(require_admin)):
 
 
 @router.patch("/{agent_id}/branch")
-def transfer_agent_branch(agent_id: str, body: dict, admin=Depends(require_admin)):
-    branch_id = body.get("branch_id") or None
+def transfer_agent_branch(agent_id: str, body: dict, caller=Depends(require_admin_or_manager)):
     sb = get_client()
+    assert_agent_in_scope(sb, caller, agent_id)
+    branch_id = body.get("branch_id") or None
+    # Manager can only move agents to branches inside their own scope —
+    # otherwise a branch manager could "leak" an agent to a branch they
+    # don't oversee.
+    scope_branch_ids = resolve_manager_branch_ids(sb, caller)
+    if scope_branch_ids is not None and branch_id and branch_id not in scope_branch_ids:
+        raise HTTPException(403, "لا يمكن نقل الوكيل خارج نطاق إدارتك")
     result = sb.table("agents").update({"branch_id": branch_id}).eq("id", agent_id).execute()
     if not result.data:
         raise HTTPException(404, "الوكيل غير موجود")
     return result.data[0]
 
 
-@router.patch("/{agent_id}/accepts-leads")
-def set_accepts_leads(agent_id: str, body: dict, admin=Depends(require_admin)):
-    """Pause / resume new-lead distribution for a single agent. When false,
-    the round-robin in ad_leads_sync skips this agent until the admin flips
-    it back on. Replaces the agent-managed off-dates / vacation flow."""
+class PromoteManagerBody(BaseModel):
+    scope_type: str               # 'all' | 'city' | 'branch'
+    scope_id: Optional[str] = None  # required when scope_type != 'all'
+
+
+@router.patch("/{agent_id}/promote-manager")
+def promote_to_manager(agent_id: str, body: PromoteManagerBody, admin=Depends(require_admin)):
+    """Admin-only — promote an agent to branch manager with the given
+    scope. The agent keeps their agent identity (still receives leads),
+    but the JWT they get on next login carries role='manager' so admin
+    endpoints scope-narrow data to their branch(es)."""
     sb = get_client()
+    if body.scope_type not in ("all", "city", "branch"):
+        raise HTTPException(400, "scope_type must be 'all', 'city' or 'branch'")
+    if body.scope_type != "all" and not body.scope_id:
+        raise HTTPException(400, "scope_id مطلوب لنطاق المدينة أو الفرع")
+    payload = {
+        "role": "manager",
+        "manager_scope_type": body.scope_type,
+        "manager_scope_id": body.scope_id if body.scope_type != "all" else None,
+    }
+    try:
+        result = sb.table("agents").update(payload).eq("id", agent_id).execute()
+    except Exception as e:
+        if "role" in str(e) or "manager_scope" in str(e):
+            raise HTTPException(400, "يرجى تنفيذ تحديث قاعدة البيانات لتفعيل أدوار المدراء")
+        raise
+    if not result.data:
+        raise HTTPException(404, "الوكيل غير موجود")
+    return {"id": agent_id, "role": "manager", **payload}
+
+
+@router.patch("/{agent_id}/demote-manager")
+def demote_manager(agent_id: str, admin=Depends(require_admin)):
+    """Admin-only — revoke the manager role, returning the agent to a
+    regular agent identity. They keep all their leads / history."""
+    sb = get_client()
+    payload = {"role": "agent", "manager_scope_type": None, "manager_scope_id": None}
+    try:
+        result = sb.table("agents").update(payload).eq("id", agent_id).execute()
+    except Exception:
+        result = sb.table("agents").update({"role": "agent"}).eq("id", agent_id).execute()
+    if not result.data:
+        raise HTTPException(404, "الوكيل غير موجود")
+    return {"id": agent_id, "role": "agent"}
+
+
+@router.patch("/{agent_id}/accepts-leads")
+def set_accepts_leads(agent_id: str, body: dict, caller=Depends(require_admin_or_manager)):
+    """Pause / resume new-lead distribution for a single agent. When false,
+    the round-robin in ad_leads_sync skips this agent until the admin/
+    manager flips it back on. Replaces the agent-managed off-dates flow."""
+    sb = get_client()
+    assert_agent_in_scope(sb, caller, agent_id)
     val = body.get("accepts_leads")
     if not isinstance(val, bool):
         raise HTTPException(400, "accepts_leads must be true or false")

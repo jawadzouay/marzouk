@@ -123,15 +123,20 @@ def get_my_reports(
     return result.data
 
 
+from services.manager_scope import (
+    require_admin_or_manager, resolve_manager_branch_ids,
+)
+
+
 @router.get("/all")
 def get_all_reports(
     date_from: str = Query(None),
     date_to: str = Query(None),
     agent_id: str = Query(None),
-    admin=Depends(require_admin)
+    caller=Depends(require_admin_or_manager)
 ):
     sb = get_client()
-    q = sb.table("daily_reports").select("*, agents(name)")
+    q = sb.table("daily_reports").select("*, agents(name, branch_id)")
     if agent_id:
         q = q.eq("agent_id", agent_id)
     if date_from:
@@ -139,16 +144,28 @@ def get_all_reports(
     if date_to:
         q = q.lte("report_date", date_to)
     result = q.order("report_date", desc=True).execute()
-    return result.data
+    rows = result.data or []
+    # Manager scope clamp
+    scope_branch_ids = resolve_manager_branch_ids(sb, caller)
+    if scope_branch_ids is not None:
+        rows = [r for r in rows if (r.get("agents") or {}).get("branch_id") in scope_branch_ids]
+    return rows
 
 
 @router.get("/submission-status")
-def submission_status(admin=Depends(require_admin)):
+def submission_status(caller=Depends(require_admin_or_manager)):
     sb = get_client()
     today = _today_morocco()
     yesterday = today - timedelta(days=1)
 
-    agents = sb.table("agents").select("id, name, day_off").eq("is_active", True).execute()
+    a_q = sb.table("agents").select("id, name, day_off, branch_id").eq("is_active", True)
+    scope_branch_ids = resolve_manager_branch_ids(sb, caller)
+    if scope_branch_ids is not None:
+        if not scope_branch_ids:
+            return {"not_submitted_today": [], "submitted_today": [], "not_submitted_yesterday": [],
+                    "today": today.isoformat(), "yesterday": yesterday.isoformat()}
+        a_q = a_q.in_("branch_id", scope_branch_ids)
+    agents = a_q.execute()
 
     today_subs = sb.table("daily_reports").select("agent_id").eq("report_date", today.isoformat()).execute()
     yesterday_subs = sb.table("daily_reports").select("agent_id").eq("report_date", yesterday.isoformat()).execute()

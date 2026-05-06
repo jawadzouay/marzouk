@@ -274,11 +274,12 @@
   <a href="dashboard.html" class="active">لوحة التحكم</a>
   <a href="agents.html">الوكلاء</a>
   <a href="leads.html">الرسائل</a>
-  <a href="ads.html">جودة الإعلانات</a>
-  <a href="lead-sources.html">مصادر الرسائل</a>
-  <a href="spend.html">الإنفاق</a>
-  <a href="settings.html">الإعدادات</a>
+  <a href="ads.html" data-admin-only>جودة الإعلانات</a>
+  <a href="lead-sources.html" data-admin-only>مصادر الرسائل</a>
+  <a href="spend.html" data-admin-only>الإنفاق</a>
+  <a href="settings.html" data-admin-only>الإعدادات</a>
 </nav>
+<script src="_role.js"></script>
 
 <div class="container">
 
@@ -362,6 +363,8 @@
 const API = window.location.origin;
 const token = localStorage.getItem('token');
 if (!token) location.href = '/index.html';
+const _role = localStorage.getItem('role');
+if (_role !== 'admin' && _role !== 'manager') location.href = '/index.html';
 
 function hdr() { return { 'Authorization': 'Bearer ' + token }; }
 function hdrJson() { return { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' }; }
