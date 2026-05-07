@@ -103,6 +103,65 @@
     .btn-pause { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
     .btn-resume{ background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-weight: 800; }
 
+    /* Call buttons next to agent name — admin-direct contact for the agent
+       themselves (not the lead). Two icon-only buttons, tap-to-call and
+       tap-to-WhatsApp. Greyed out when the agent hasn't set their phone yet. */
+    .agent-call-btns { display: inline-flex; gap: 6px; margin-right: 8px; vertical-align: middle; }
+    .call-icon-btn {
+      width: 32px; height: 32px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 16px; text-decoration: none; border: 1px solid transparent;
+      cursor: pointer; transition: transform 0.1s;
+    }
+    .call-icon-btn:active { transform: scale(0.92); }
+    .call-icon-btn.call-tel { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
+    .call-icon-btn.call-wa  { background: #d1fae5; color: #047857; border-color: #6ee7b7; }
+    .call-icon-btn.disabled {
+      background: #f3f4f6 !important; color: #9ca3af !important;
+      border-color: #e5e7eb !important; cursor: not-allowed; pointer-events: none;
+    }
+    .agent-call-missing {
+      display: inline-block; font-size: 10px; font-weight: 700;
+      background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 8px;
+      margin-right: 6px; vertical-align: middle;
+    }
+
+    /* Mobile responsiveness for the agent card.
+       Was getting cramped at narrow widths — keep the existing flex-wrap
+       layout but tune sizes/min-widths so name + total share row 1 and
+       action buttons fill the full row 2. */
+    @media (max-width: 640px) {
+      .container { padding: 10px; }
+      .agent-card { padding: 12px 12px; }
+      .agent-head { gap: 8px; align-items: center; }
+      .agent-id { flex: 1 1 calc(100% - 80px); min-width: 0; gap: 8px; }
+      .agent-total { padding: 0 4px; min-width: 64px; }
+      .total-num { font-size: 22px; }
+      .agent-actions { flex: 1 1 100%; gap: 5px; margin-top: 4px; }
+      .agent-actions .btn { flex: 1 1 auto; min-height: 36px; padding: 7px 8px; font-size: 12px; }
+      .agent-name { font-size: 14px; line-height: 1.4; }
+      .agent-call-btns { margin-right: 4px; gap: 5px; }
+      .call-icon-btn { width: 30px; height: 30px; font-size: 14px; }
+      .agent-call-missing { font-size: 9.5px; padding: 2px 6px; }
+      .status-pills { gap: 5px; }
+      .pill { padding: 3px 8px; font-size: 10.5px; }
+      .all-pill { padding: 3px 8px; font-size: 10.5px; }
+      .agent-totals-line { gap: 5px; }
+      .rank-badge { width: 30px; height: 30px; font-size: 13px; }
+      .filter-bar { padding: 10px 12px; }
+      .chip { padding: 7px 11px; font-size: 12.5px; }
+      table.leads { font-size: 11px; }
+      table.leads th, table.leads td { padding: 6px 6px; }
+      .paused-overlay { font-size: 10px; padding: 2px 8px; }
+    }
+    @media (max-width: 380px) {
+      /* Very narrow phones — drop the rank-badge size further and hide the
+         agent-sub branch label (still in DOM for screen readers). */
+      .agent-id { flex: 1 1 100%; }
+      .agent-total { flex: 0 0 auto; margin-right: auto; }
+      .agent-name { font-size: 13.5px; }
+    }
+
     /* Status breakdown pills */
     .status-pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
     .pill { padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; background: #f3f4f6; color: #374151; }
@@ -502,6 +561,27 @@
       return 'muted';
     }
 
+    // Direct-contact buttons next to the agent's name. Calls the agent
+    // themselves on their work phone (set via the agent dashboard's phone
+    // gate). Two paths: tel: and wa.me. wa.me only opens chat — for a WA
+    // call the admin taps the call icon inside WhatsApp itself.
+    function renderAgentCallBtns(a) {
+      const phone = (a.phone || '').trim();
+      if (!phone) {
+        return `<span class="agent-call-missing" title="لم يُدخِل الوكيل رقم هاتفه بعد">رقم غير مُعَيَّن</span>`;
+      }
+      // Strip leading 0, prepend Morocco country code for wa.me.
+      const wa = phone.startsWith('0') ? '212' + phone.slice(1) : phone;
+      const escName = escAttr(a.name);
+      return `
+        <span class="agent-call-btns">
+          <a class="call-icon-btn call-tel" href="tel:${phone}"
+             title="اتصال عادي بـ ${escName}" aria-label="اتصال" onclick="event.stopPropagation()">📞</a>
+          <a class="call-icon-btn call-wa" href="https://wa.me/${wa}" target="_blank" rel="noopener"
+             title="واتساب — رسالة أو مكالمة بـ ${escName}" aria-label="واتساب" onclick="event.stopPropagation()">💬</a>
+        </span>`;
+    }
+
     function renderAgent(a) {
       const pills = STATUS_ORDER
         .filter(s => (a.by_status[s] || 0) > 0)
@@ -543,7 +623,7 @@
             <div class="agent-id">
               <div class="rank-badge ${rankClass(a.rank)}">${a.rank <= 3 ? ['🥇','🥈','🥉'][a.rank-1] : '#' + a.rank}</div>
               <div style="flex:1;min-width:0">
-                <div class="agent-name">${escHTML(a.name)}</div>
+                <div class="agent-name">${renderAgentCallBtns(a)}${escHTML(a.name)}</div>
                 <div class="agent-sub">${escHTML(branchLbl)} · نسبة التسجيل ${convPct}%</div>
               </div>
             </div>

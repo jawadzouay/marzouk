@@ -243,7 +243,16 @@ def get_my_profile(user=Depends(get_current_user)):
     agent_id = user["sub"]
     if agent_id == "admin":
         raise HTTPException(400, "Admin has no profile")
-    res = sb.table("agents").select("id, name, avatar_url, goals, branch_id, branches(name, city)").eq("id", agent_id).execute()
+    # `phone` is optional — column may not exist yet on older deployments.
+    sel_with_phone = "id, name, avatar_url, goals, branch_id, phone, branches(name, city)"
+    sel_base       = "id, name, avatar_url, goals, branch_id, branches(name, city)"
+    try:
+        res = sb.table("agents").select(sel_with_phone).eq("id", agent_id).execute()
+    except Exception as e:
+        if "phone" in str(e):
+            res = sb.table("agents").select(sel_base).eq("id", agent_id).execute()
+        else:
+            raise
     if not res.data:
         raise HTTPException(404, "Not found")
     row = res.data[0]
@@ -251,6 +260,32 @@ def get_my_profile(user=Depends(get_current_user)):
     row["branch_name"] = br.get("name")
     row["branch_city"] = br.get("city")
     return row
+
+
+@router.patch("/me/phone")
+def update_my_phone(body: dict, user=Depends(get_current_user)):
+    """Agent self-service: set or update their work phone number.
+    Required on first login — the dashboard freezes until this is set."""
+    sb = get_client()
+    agent_id = user["sub"]
+    if agent_id == "admin":
+        raise HTTPException(400, "Admin has no profile")
+    raw = (body.get("phone") or "").strip()
+    if not raw:
+        raise HTTPException(400, "رقم الهاتف مطلوب")
+    # Normalize to 10-digit Moroccan format (06/07XXXXXXXX). Accepts +212,
+    # 00212, with or without leading 0, with spaces / dashes / dots.
+    from services.ad_leads_sync import normalize_morocco_phone
+    normalized = normalize_morocco_phone(raw)
+    if not normalized:
+        raise HTTPException(400, "رقم هاتف غير صالح — يجب أن يبدأ بـ 06 أو 07 ويتكوّن من 10 أرقام")
+    try:
+        sb.table("agents").update({"phone": normalized}).eq("id", agent_id).execute()
+    except Exception as e:
+        if "phone" in str(e):
+            raise HTTPException(500, "ميزة الهاتف غير مفعّلة — اطلب من الإدارة تشغيل تحديث قاعدة البيانات (ALTER TABLE agents ADD COLUMN phone TEXT)")
+        raise
+    return {"phone": normalized, "message": "تم حفظ رقم الهاتف"}
 
 
 @router.patch("/me/credentials")

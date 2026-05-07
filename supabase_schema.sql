@@ -22,6 +22,7 @@ CREATE TABLE agents (
 -- ALTER TABLE agents ADD COLUMN IF NOT EXISTS manager_scope_type TEXT;
 -- ALTER TABLE agents ADD COLUMN IF NOT EXISTS manager_scope_id   TEXT;
 -- CREATE INDEX IF NOT EXISTS idx_agents_role ON agents(role) WHERE role <> 'agent';
+-- ALTER TABLE agents ADD COLUMN IF NOT EXISTS phone TEXT;
 
 -- LEADS
 CREATE TABLE leads (

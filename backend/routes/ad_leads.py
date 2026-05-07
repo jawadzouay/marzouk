@@ -913,8 +913,11 @@ def admin_agent_leaderboard(
     # the caller-supplied branch_id / city_id.
     scope_branch_ids = resolve_manager_branch_ids(sb, caller)
 
-    base_sel = "id, name, branch_id, is_active, branches(name, city)"
-    sel_with_accepts = base_sel + ", accepts_leads"
+    # `phone` and `accepts_leads` are optional columns — fall back gracefully
+    # when the migrations haven't been applied yet so the page still renders.
+    base_sel       = "id, name, branch_id, is_active, branches(name, city)"
+    sel_with_phone = base_sel + ", phone"
+    sel_full       = sel_with_phone + ", accepts_leads"
     def _build_query(sel):
         q = sb.table("agents").select(sel).eq("is_active", True)
         if scope_branch_ids is not None:
@@ -937,18 +940,18 @@ def admin_agent_leaderboard(
                 q = q.in_("branch_id", ids)
         return q
 
-    try:
-        q = _build_query(sel_with_accepts)
-        if q is None:
-            return {"agents": [], "date_from": df, "date_to": dt}
-        agents_data = q.execute().data or []
-    except Exception as e:
-        if "accepts_leads" in str(e):
-            q = _build_query(base_sel)
+    agents_data: List[Dict[str, Any]] = []
+    for sel in (sel_full, sel_with_phone, base_sel):
+        try:
+            q = _build_query(sel)
             if q is None:
                 return {"agents": [], "date_from": df, "date_to": dt}
             agents_data = q.execute().data or []
-        else:
+            break
+        except Exception as e:
+            msg = str(e)
+            if "accepts_leads" in msg or "phone" in msg:
+                continue
             raise
 
     agent_ids = [a["id"] for a in agents_data]
@@ -1018,6 +1021,9 @@ def admin_agent_leaderboard(
             "pending_active_total": pending_active_total.get(a["id"], 0),
             # Pause/resume toggle state — undefined when migration hasn't run.
             "accepts_leads": a.get("accepts_leads"),
+            # Work phone — null until the agent fills it in via the
+            # dashboard gate. Powers the admin's call/WhatsApp buttons.
+            "phone": a.get("phone"),
         })
 
     rows.sort(key=lambda x: (-x["registered_count"], -x["rdv_count"], -x["total"], x["name"]))
