@@ -74,10 +74,8 @@
     wrap.innerHTML = `
       <div class="phgate-box" role="dialog" aria-modal="true">
         <div class="phgate-title">📞 رقم هاتفك للعمل</div>
-        <div class="phgate-sub">قبل المتابعة، أدخل رقم هاتفك الذي تستخدمه للعمل.</div>
-        <div class="phgate-warn">
-          ⚠️ <b>تأكّد من صحة الرقم!</b><br>
-          لن نرسل لك أي رمز تحقق. الإدارة ستتواصل معك مباشرة على هذا الرقم.
+        <div class="phgate-sub">
+          المرجو إدخال رقم هاتفك الذي تستخدمه للعمل حتى نتمكّن من التواصل معك. <b>تأكّد من صحة الرقم.</b>
         </div>
         <label class="phgate-label" for="phgate-input">رقم الهاتف</label>
         <input id="phgate-input" type="tel" class="phgate-input"
