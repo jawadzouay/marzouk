@@ -103,28 +103,54 @@
     .btn-pause { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
     .btn-resume{ background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-weight: 800; }
 
-    /* Call buttons next to agent name — admin-direct contact for the agent
-       themselves (not the lead). Two icon-only buttons, tap-to-call and
-       tap-to-WhatsApp. Greyed out when the agent hasn't set their phone yet. */
-    .agent-call-btns { display: inline-flex; gap: 6px; margin-right: 8px; vertical-align: middle; }
-    .call-icon-btn {
-      width: 32px; height: 32px; border-radius: 50%;
+    /* Single phone button next to the agent's name. Tap → small popup
+       with 'normal call' and 'WhatsApp' options. Cleaner than two icons
+       in a row + matches how the lead rows already work. */
+    .agent-call-wrap { position: relative; display: inline-block; vertical-align: middle; margin-right: 8px; }
+    .agent-call-btn {
+      width: 34px; height: 34px; border-radius: 50%;
+      background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+      color: white; border: none; cursor: pointer;
       display: inline-flex; align-items: center; justify-content: center;
-      font-size: 16px; text-decoration: none; border: 1px solid transparent;
-      cursor: pointer; transition: transform 0.1s;
+      font-size: 16px; box-shadow: 0 2px 6px rgba(5, 150, 105, 0.3);
+      transition: transform 0.1s, box-shadow 0.1s;
     }
-    .call-icon-btn:active { transform: scale(0.92); }
-    .call-icon-btn.call-tel { background: #dbeafe; color: #1d4ed8; border-color: #bfdbfe; }
-    .call-icon-btn.call-wa  { background: #d1fae5; color: #047857; border-color: #6ee7b7; }
-    .call-icon-btn.disabled {
-      background: #f3f4f6 !important; color: #9ca3af !important;
-      border-color: #e5e7eb !important; cursor: not-allowed; pointer-events: none;
+    .agent-call-btn:hover { box-shadow: 0 3px 10px rgba(5, 150, 105, 0.45); }
+    .agent-call-btn:active { transform: scale(0.92); }
+    .agent-call-btn.no-phone {
+      background: #f3f4f6; color: #9ca3af; box-shadow: none; cursor: not-allowed;
     }
-    .agent-call-missing {
-      display: inline-block; font-size: 10px; font-weight: 700;
-      background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 8px;
-      margin-right: 6px; vertical-align: middle;
+    .agent-call-popup {
+      position: absolute; top: 42px; right: 0; z-index: 500;
+      background: white; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.18);
+      border: 1px solid #e5e7eb; min-width: 180px; overflow: hidden;
+      display: none;
     }
+    .agent-call-popup.open { display: block; animation: callPopIn 0.12s ease-out; }
+    @keyframes callPopIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+    .agent-call-popup a {
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 14px; color: #1a1a1a; text-decoration: none;
+      font-size: 13px; font-weight: 700;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .agent-call-popup a:last-child { border-bottom: none; }
+    .agent-call-popup a:hover { background: #f9fafb; }
+    .agent-call-popup a .ic {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 14px; flex-shrink: 0;
+    }
+    .agent-call-popup a.opt-tel .ic { background: #dbeafe; color: #1d4ed8; }
+    .agent-call-popup a.opt-wa  .ic { background: #d1fae5; color: #047857; }
+    .agent-call-popup a .num {
+      font-size: 11px; font-weight: 600; color: #9ca3af; margin-right: auto;
+      direction: ltr; letter-spacing: 0.5px;
+    }
+    .agent-call-popup-backdrop {
+      position: fixed; inset: 0; z-index: 499; display: none;
+    }
+    .agent-call-popup-backdrop.open { display: block; }
 
     /* Mobile responsiveness for the agent card.
        Was getting cramped at narrow widths — keep the existing flex-wrap
@@ -140,9 +166,8 @@
       .agent-actions { flex: 1 1 100%; gap: 5px; margin-top: 4px; }
       .agent-actions .btn { flex: 1 1 auto; min-height: 36px; padding: 7px 8px; font-size: 12px; }
       .agent-name { font-size: 14px; line-height: 1.4; }
-      .agent-call-btns { margin-right: 4px; gap: 5px; }
-      .call-icon-btn { width: 30px; height: 30px; font-size: 14px; }
-      .agent-call-missing { font-size: 9.5px; padding: 2px 6px; }
+      .agent-call-wrap { margin-right: 6px; }
+      .agent-call-btn { width: 30px; height: 30px; font-size: 14px; }
       .status-pills { gap: 5px; }
       .pill { padding: 3px 8px; font-size: 10.5px; }
       .all-pill { padding: 3px 8px; font-size: 10.5px; }
@@ -561,26 +586,77 @@
       return 'muted';
     }
 
-    // Direct-contact buttons next to the agent's name. Calls the agent
-    // themselves on their work phone (set via the agent dashboard's phone
-    // gate). Two paths: tel: and wa.me. wa.me only opens chat — for a WA
-    // call the admin taps the call icon inside WhatsApp itself.
+    // Single phone button next to the agent's name. Click → popup with
+    // 'normal call' (tel:) and 'WhatsApp chat' (wa.me) options. Calls
+    // the agent themselves on their work phone (set via the dashboard's
+    // phone gate).
     function renderAgentCallBtns(a) {
       const phone = (a.phone || '').trim();
       if (!phone) {
-        return `<span class="agent-call-missing" title="لم يُدخِل الوكيل رقم هاتفه بعد">رقم غير مُعَيَّن</span>`;
+        return `<span class="agent-call-wrap">
+          <button type="button" class="agent-call-btn no-phone"
+                  title="لم يُدخِل الوكيل رقم هاتفه بعد"
+                  onclick="event.stopPropagation()" aria-label="رقم غير مُعَيَّن">📞</button>
+        </span>`;
       }
-      // Strip leading 0, prepend Morocco country code for wa.me.
       const wa = phone.startsWith('0') ? '212' + phone.slice(1) : phone;
-      const escName = escAttr(a.name);
+      const popupId = 'cpop-' + a.id;
       return `
-        <span class="agent-call-btns">
-          <a class="call-icon-btn call-tel" href="tel:${phone}"
-             title="اتصال عادي بـ ${escName}" aria-label="اتصال" onclick="event.stopPropagation()">📞</a>
-          <a class="call-icon-btn call-wa" href="https://wa.me/${wa}" target="_blank" rel="noopener"
-             title="واتساب — رسالة أو مكالمة بـ ${escName}" aria-label="واتساب" onclick="event.stopPropagation()">💬</a>
+        <span class="agent-call-wrap">
+          <button type="button" class="agent-call-btn"
+                  title="اتصال بـ ${escAttr(a.name)}"
+                  onclick="toggleCallPopup(event, '${popupId}')"
+                  aria-haspopup="menu" aria-expanded="false">📞</button>
+          <div class="agent-call-popup" id="${popupId}" role="menu" onclick="event.stopPropagation()">
+            <a class="opt-tel" href="tel:${phone}" onclick="closeAllCallPopups()">
+              <span class="ic">📱</span>
+              <span>اتصال عادي</span>
+              <span class="num">${phone}</span>
+            </a>
+            <a class="opt-wa" href="https://wa.me/${wa}" target="_blank" rel="noopener" onclick="closeAllCallPopups()">
+              <span class="ic">💬</span>
+              <span>واتساب</span>
+              <span class="num">${phone}</span>
+            </a>
+          </div>
         </span>`;
     }
+
+    function toggleCallPopup(ev, id) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const el = document.getElementById(id);
+      if (!el) return;
+      const wasOpen = el.classList.contains('open');
+      closeAllCallPopups();
+      if (!wasOpen) {
+        el.classList.add('open');
+        ensureCallBackdrop().classList.add('open');
+        const btn = el.previousElementSibling;
+        if (btn && btn.setAttribute) btn.setAttribute('aria-expanded', 'true');
+      }
+    }
+    function closeAllCallPopups() {
+      document.querySelectorAll('.agent-call-popup.open').forEach(p => {
+        p.classList.remove('open');
+        const btn = p.previousElementSibling;
+        if (btn && btn.setAttribute) btn.setAttribute('aria-expanded', 'false');
+      });
+      const bd = document.getElementById('agent-call-backdrop');
+      if (bd) bd.classList.remove('open');
+    }
+    function ensureCallBackdrop() {
+      let bd = document.getElementById('agent-call-backdrop');
+      if (!bd) {
+        bd = document.createElement('div');
+        bd.id = 'agent-call-backdrop';
+        bd.className = 'agent-call-popup-backdrop';
+        bd.onclick = closeAllCallPopups;
+        document.body.appendChild(bd);
+      }
+      return bd;
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeAllCallPopups(); });
 
     function renderAgent(a) {
       const pills = STATUS_ORDER
