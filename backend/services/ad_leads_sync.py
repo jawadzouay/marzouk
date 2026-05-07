@@ -197,6 +197,172 @@ def _find_by_header(row: list, header_idx: Dict[str, int], pattern: re.Pattern) 
     return None
 
 
+# ---------------------------------------------------------------------------
+# Branch routing — detect the branch the prospect chose on the FB lead form
+# (long Arabic question "هاام: التدريب حضوري المرجو إختيار أحد فروعنا الأقرب
+# إليكم" with options like "فرع القنيطرة" / "فرع طنجة" / …) and re-route the
+# lead to that branch's scope, even when the originating Google Sheet was
+# scoped to a different city. A "مدينة أخرى" (other city) trap option
+# silently drops the lead — the prospect self-rejected.
+#
+# Detection is value-based, not header-based: the admin might map the
+# branch question column under any display_name. We scan every value in
+# the lead's `data` dict and look for the longest substring match against
+# any active branch's name / city.
+# ---------------------------------------------------------------------------
+
+# Phrases that mean "outside our service area". When ANY value in the lead's
+# data matches one of these AND the field looks like the branch question
+# (contains "فرع" or matches a known branch token), we drop the lead.
+_TRAP_PHRASES = (
+    "مدينه اخرى",   # normalized form of مدينة أخرى
+    "اخرى",
+    "خارج",
+    "other city",
+    "outside",
+)
+
+_AR_NORM_MAP = str.maketrans({
+    "أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا",
+    "ى": "ي", "ئ": "ي",
+    "ؤ": "و",
+    "ة": "ه",
+    "ـ": "",   # tatweel
+})
+
+def _normalize_arabic(s: str) -> str:
+    """Lower-case + strip Arabic diacritics + unify alif/yaa/ta-marbuta
+    variants so 'فرع القنيطرة' matches 'الْقُنَيْطْرَةُ' and the city name in the
+    branches table. Idempotent — safe to call repeatedly."""
+    if not s:
+        return ""
+    s = s.strip().lower()
+    # Drop diacritics (Arabic combining marks)
+    s = re.sub(r"[ً-ٰٟ]", "", s)
+    s = s.translate(_AR_NORM_MAP)
+    # Collapse whitespace
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
+# Module-level cache of branches built from the `branches` table. Refreshed
+# at the top of every sync_config call (cheap query, tiny table).
+_BRANCHES_CACHE: List[Dict[str, Any]] = []
+_BRANCHES_CACHE_AT: float = 0.0  # unix seconds, for periodic refresh
+
+
+def _load_branches_cache(force: bool = False) -> List[Dict[str, Any]]:
+    """Return [{id, name, city, _tokens: [normalized strings]}, …].
+    Each branch contributes 1-3 tokens (its name, its city, and the combo)
+    so a lead value containing any of them matches that branch."""
+    import time
+    global _BRANCHES_CACHE, _BRANCHES_CACHE_AT
+    now = time.time()
+    if not force and _BRANCHES_CACHE and (now - _BRANCHES_CACHE_AT) < 300:
+        return _BRANCHES_CACHE  # 5-min cache
+    sb = get_client()
+    res = sb.table("branches").select("id, name, city").execute()
+    out: List[Dict[str, Any]] = []
+    for b in (res.data or []):
+        name_n = _normalize_arabic(b.get("name") or "")
+        city_n = _normalize_arabic(b.get("city") or "")
+        tokens = []
+        if name_n: tokens.append(name_n)
+        if city_n and city_n != name_n: tokens.append(city_n)
+        # Skip ultra-short tokens that would false-match. "فاس" and similar
+        # 3-letter cities are still distinctive enough to keep.
+        tokens = [t for t in tokens if len(t) >= 3]
+        if not tokens:
+            continue
+        out.append({
+            "id": b["id"],
+            "name": b.get("name") or "",
+            "city": b.get("city") or "",
+            "_tokens": tokens,
+        })
+    _BRANCHES_CACHE = out
+    _BRANCHES_CACHE_AT = now
+    return out
+
+
+def _route_to_correct_branch(
+    lead: dict,
+    branches_cache: Optional[List[Dict[str, Any]]] = None,
+) -> Optional[dict]:
+    """Inspect the lead's data values and decide where it belongs.
+
+    Returns:
+      - None  → the lead chose a 'مدينة أخرى' / trap option. Sync should
+                drop it entirely (don't insert / update).
+      - dict  → the lead, possibly with scope_type='branch' and scope_id
+                overridden to the matched branch's id. Falls back to the
+                input lead unchanged when no clear match is found.
+    """
+    data = lead.get("data") or {}
+    if not isinstance(data, dict) or not data:
+        return lead
+    cache = branches_cache if branches_cache is not None else _load_branches_cache()
+    if not cache:
+        return lead
+
+    matched_branch_id: Optional[str] = None
+    matched_score = 0
+    matched_ambiguous = False
+    saw_branch_question = False
+    saw_trap = False
+
+    for raw in data.values():
+        if not raw or not isinstance(raw, str):
+            continue
+        v = _normalize_arabic(raw)
+        if not v:
+            continue
+        # Heuristic: this value belongs to the branch question if it mentions
+        # "فرع" OR matches any branch token. We use this to gate the trap
+        # so a free-text comment field saying "اخرى" doesn't accidentally
+        # drop the lead.
+        is_branch_field = "فرع" in v
+        # Branch-token match
+        best_id_for_value = None
+        best_len_for_value = 0
+        for b in cache:
+            for tok in b["_tokens"]:
+                if tok and tok in v:
+                    is_branch_field = True
+                    if len(tok) > best_len_for_value:
+                        best_len_for_value = len(tok)
+                        best_id_for_value = b["id"]
+        if is_branch_field:
+            saw_branch_question = True
+            # Trap detection — only triggers within the branch field.
+            for trap in _TRAP_PHRASES:
+                if trap in v:
+                    saw_trap = True
+                    break
+        if best_id_for_value:
+            if best_len_for_value > matched_score:
+                matched_score = best_len_for_value
+                matched_branch_id = best_id_for_value
+                matched_ambiguous = False
+            elif best_len_for_value == matched_score and best_id_for_value != matched_branch_id:
+                matched_ambiguous = True
+
+    # Trap wins over a branch match: even if "فرع X / مدينة أخرى" both
+    # appear, the prospect's final pick was 'other city'.
+    if saw_branch_question and saw_trap and not matched_branch_id:
+        return None
+    if saw_trap and not matched_branch_id:
+        # Trap phrase outside the branch field — ignore, treat as no-match
+        pass
+
+    # If we found a confident, unambiguous branch match — override scope.
+    if matched_branch_id and not matched_ambiguous:
+        lead = dict(lead)
+        lead["scope_type"] = "branch"
+        lead["scope_id"] = matched_branch_id
+    return lead
+
+
 def _row_key(row: list, header_row: List[str], key_idx: Optional[int]) -> str:
     """Unique stable key per sheet row. Uses the admin-marked key column
     when present; otherwise hashes the row contents."""
@@ -489,7 +655,15 @@ def sync_config(config_id: str) -> dict:
     to_insert: List[dict] = []
     to_update: List[Tuple[str, dict]] = []
     to_delete: List[str] = []
+    # Refresh the branch-routing cache once per config sync — the lead
+    # router uses this to map "فرع القنيطرة" / "فرع طنجة" answers in the
+    # form data to the correct branch_id, regardless of which sheet the
+    # lead arrived via.
+    branches_cache = _load_branches_cache(force=True)
+
     seen_batch = set()
+    skipped_traps = 0
+    rerouted = 0
     for r in rows[1:]:
         if _is_test_lead_row(r):
             # If a test-lead row previously slipped through and is in the DB,
@@ -501,6 +675,17 @@ def sync_config(config_id: str) -> dict:
         lead = _build_lead_from_row(r, header_row, columns, config)
         if not lead:
             continue
+        # Route based on the prospect's chosen branch. Returns None when
+        # the prospect picked a "مدينة أخرى" trap option — drop the lead
+        # entirely so it never reaches the agents.
+        original_scope = (lead.get("scope_type"), lead.get("scope_id"))
+        routed = _route_to_correct_branch(lead, branches_cache)
+        if routed is None:
+            skipped_traps += 1
+            continue
+        lead = routed
+        if (lead.get("scope_type"), lead.get("scope_id")) != original_scope:
+            rerouted += 1
         k = lead["source_row_key"]
         if k in seen_batch:
             continue
@@ -510,7 +695,7 @@ def sync_config(config_id: str) -> dict:
             # (e.g. marking a column as `phone`) fixes leads that were
             # synced before the mapping existed. Never touch assignment,
             # status, or timestamps that belong to the agent workflow.
-            to_update.append((known[k], _strip_adset({
+            update_payload = {
                 "data": lead["data"],
                 "phone_primary": lead["phone_primary"],
                 "phones": lead["phones"],
@@ -520,7 +705,13 @@ def sync_config(config_id: str) -> dict:
                 "platform": lead["platform"],
                 "created_time": lead["created_time"],
                 "updated_at": datetime.now(timezone.utc).isoformat(),
-            })))
+                # Re-routed scope must follow the lead so it lands in the
+                # correct branch's agent pool — the agent on it might also
+                # need to be cleared (handled below at update flush time).
+                "scope_type": lead.get("scope_type"),
+                "scope_id":   lead.get("scope_id"),
+            }
+            to_update.append((known[k], _strip_adset(update_payload)))
         else:
             # Stamp status_changed_at on fresh inserts so the admin's
             # activity-today filter picks up new leads immediately, without
@@ -565,12 +756,46 @@ def sync_config(config_id: str) -> dict:
         log.info(f"[ad_leads] config {config_id}: skipped {skipped_dupes} duplicate row(s) without aborting sync")
 
     updated = 0
-    for lead_id, patch in to_update:
-        try:
-            sb.table("ad_leads").update(patch).eq("id", lead_id).execute()
-            updated += 1
-        except Exception as e:
-            log.warning("[ad_leads] update failed for %s: %s", lead_id, e)
+    reassigned = 0
+    if to_update:
+        # Pre-fetch existing scope + status + assigned_agent for the rows
+        # we're about to touch — needed to decide whether the agent on a
+        # re-routed lead is still in scope. One paginated read beats N
+        # round-trips per row.
+        update_ids = [lid for lid, _ in to_update]
+        existing_state: Dict[str, Dict[str, Any]] = {}
+        offset = 0
+        while update_ids:
+            chunk = update_ids[offset:offset + 1000]
+            if not chunk:
+                break
+            es = sb.table("ad_leads").select(
+                "id, scope_type, scope_id, status, assigned_agent_id"
+            ).in_("id", chunk).execute()
+            for r in (es.data or []):
+                existing_state[r["id"]] = r
+            offset += 1000
+            if offset >= len(update_ids):
+                break
+
+        for lead_id, patch in to_update:
+            es = existing_state.get(lead_id) or {}
+            new_scope = (patch.get("scope_type"), patch.get("scope_id"))
+            old_scope = (es.get("scope_type"), es.get("scope_id"))
+            scope_changed = new_scope != old_scope and patch.get("scope_id") is not None
+            if scope_changed and (es.get("status") or "new") == "new" and es.get("assigned_agent_id"):
+                # New lead got re-routed to a different scope — agent on it
+                # is in the wrong branch now. Clear the assignment so the
+                # next distribute hands it to a correct-branch agent.
+                patch = dict(patch)
+                patch["assigned_agent_id"] = None
+                patch["assigned_at"] = None
+                reassigned += 1
+            try:
+                sb.table("ad_leads").update(patch).eq("id", lead_id).execute()
+                updated += 1
+            except Exception as e:
+                log.warning("[ad_leads] update failed for %s: %s", lead_id, e)
 
     deleted = 0
     if to_delete:
@@ -581,7 +806,10 @@ def sync_config(config_id: str) -> dict:
             log.warning("[ad_leads] test-lead cleanup failed: %s", e)
 
     _mark_sync(config_id, len(rows) - 1, None)
-    assigned = distribute_unassigned_for_scope(config["scope_type"], config["scope_id"])
+    # Distribute every unassigned lead — covers the original config's
+    # scope plus any leads that were routed elsewhere by the branch
+    # detector. distribute_all_unassigned groups by actual lead scope_id.
+    assigned = distribute_all_unassigned()
 
     return {
         "ok": True,
@@ -688,10 +916,64 @@ def distribute_unassigned_for_scope(scope_type: str, scope_id: str) -> int:
 
 
 def distribute_all_unassigned() -> int:
-    """Re-run distribution across every enabled config."""
+    """Distribute every unassigned lead, grouped by the lead's actual scope.
+
+    Critical: groups by the lead's stored (scope_type, scope_id), not by
+    config scope. Branch routing can move a lead from a Tangier-config's
+    scope to the Kenitra branch — that lead has no Kenitra config of its
+    own, so the old config-driven path would skip it forever. Pages past
+    the 1000-row PostgREST cap so backlog catch-ups don't truncate."""
     sb = get_client()
-    res = sb.table("lead_sheet_configs").select("scope_type, scope_id").eq("enabled", True).execute()
+    leads: List[dict] = []
+    PAGE = 1000
+    offset = 0
+    while True:
+        page = sb.table("ad_leads").select("id, scope_type, scope_id, created_time") \
+            .is_("assigned_agent_id", "null") \
+            .order("created_time") \
+            .range(offset, offset + PAGE - 1).execute()
+        page_rows = page.data or []
+        leads.extend(page_rows)
+        if len(page_rows) < PAGE:
+            break
+        offset += PAGE
+        if offset >= 200000:
+            log.warning("[ad_leads] distribute_all paged past 200k unassigned leads")
+            break
+    if not leads:
+        return 0
+
+    by_scope: Dict[Tuple[str, str], List[str]] = {}
+    for r in leads:
+        st = r.get("scope_type")
+        sid = r.get("scope_id")
+        if not st or not sid:
+            continue
+        by_scope.setdefault((st, sid), []).append(r["id"])
+
     total = 0
-    for c in (res.data or []):
-        total += distribute_unassigned_for_scope(c["scope_type"], c["scope_id"])
+    now_iso = datetime.now(timezone.utc).isoformat()
+    for (st, sid), lead_ids in by_scope.items():
+        pool = _agent_pool_for_scope(st, sid)
+        if not pool:
+            log.warning("[ad_leads] no available agents for %s/%s; %d leads stay unassigned",
+                        st, sid, len(lead_ids))
+            continue
+        pool_idx = 0
+        for lead_id in lead_ids:
+            agent = pool[pool_idx % len(pool)]
+            pool_idx += 1
+            try:
+                sb.table("ad_leads").update({
+                    "assigned_agent_id": agent["id"],
+                    "original_agent_id": agent["id"],
+                    "assigned_at": now_iso,
+                    "updated_at": now_iso,
+                }).eq("id", lead_id).execute()
+                sb.table("agents").update({
+                    "last_distributed_at": now_iso,
+                }).eq("id", agent["id"]).execute()
+                total += 1
+            except Exception as e:
+                log.warning("[ad_leads] distribute_all failed for lead %s: %s", lead_id, e)
     return total

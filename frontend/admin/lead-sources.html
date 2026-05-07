@@ -214,6 +214,19 @@
       ثم أنشئ مصدرًا هنا، اختر المدينة أو الفرع، ألصق رابط الجدول، ثم اسحب الأعمدة وحدد نوع كل عمود (رقم هاتف / اسم / إعلان ...). المزامنة تلقائية كل 5 دقائق.
     </div>
 
+    <!-- Branch routing tools -->
+    <div class="card">
+      <h2>🧭 توزيع الرسائل على الفروع الصحيحة</h2>
+      <p style="font-size:12px;color:#6b7280;line-height:1.7;margin-bottom:10px">
+        يمسح كل الرسائل ويعيد توجيه أي رسالة وقعت في فرع خاطئ بناءً على الفرع الذي اختاره العميل في إعلان الفيسبوك (مثال: عميل في القنيطرة وقع في جدول طنجة → يُحَوَّل تلقائيًا للقنيطرة). الرسائل التي اختارت "مدينة أخرى" تُحذف.
+      </p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="rerouteMisplaced(true)">🔍 معاينة (بدون تعديل)</button>
+        <button class="btn btn-primary" onclick="rerouteMisplaced(false)">⚡ تنفيذ إعادة التوزيع</button>
+      </div>
+      <pre id="rerouteResult" style="display:none;margin-top:10px;padding:10px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;font-family:monospace;font-size:12px;line-height:1.6;white-space:pre-wrap;direction:ltr;text-align:left"></pre>
+    </div>
+
     <!-- New config -->
     <div class="card">
       <h2>➕ إضافة مصدر جديد</h2>
@@ -568,6 +581,32 @@ async function deleteConfig(id) {
     toast('تم الحذف', 'success');
     loadConfigs();
   } catch (e) { toast('فشل الحذف', 'error'); }
+}
+
+async function rerouteMisplaced(dryRun) {
+  if (!dryRun && !confirm('سيتم نقل الرسائل إلى فروعها الصحيحة وحذف الرسائل التي اختارت "مدينة أخرى" (بشرط أن تكون لم تُلمس بعد). هل تريد المتابعة؟')) return;
+  const out = document.getElementById('rerouteResult');
+  out.style.display = 'block';
+  out.textContent = dryRun ? 'جاري المعاينة...' : 'جاري التنفيذ...';
+  try {
+    const r = await api(`/ad-leads/admin/reroute-misplaced?dry_run=${dryRun ? 'true' : 'false'}`, { method: 'POST' });
+    const lines = [
+      `${dryRun ? 'DRY RUN — لا تغييرات' : 'تم التنفيذ'}`,
+      `تم فحص: ${r.scanned}`,
+      `أُعيد توجيهها: ${r.rerouted}`,
+      `تم مسح التعيين (لإعادة التوزيع): ${r.cleared_assignment}`,
+      `تم حذفها (مصيدة "مدينة أخرى"): ${r.trap_deleted}`,
+      `مصائد محفوظة (لها نشاط): ${r.trap_kept_for_review}`,
+      `بدون تغيير: ${r.no_change}`,
+      `أُعيد توزيعها على وكلاء: ${r.redistributed}`,
+    ];
+    out.textContent = lines.join('\n');
+    toast(dryRun ? 'تمت المعاينة' : 'تم التنفيذ', 'success');
+    if (!dryRun) loadConfigs();
+  } catch (e) {
+    out.textContent = 'خطأ: ' + e.message;
+    toast('فشل التنفيذ', 'error');
+  }
 }
 
 // ============= Init =============

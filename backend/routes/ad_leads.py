@@ -21,6 +21,8 @@ from services.ad_leads_sync import (
     distribute_unassigned_for_scope,
     distribute_all_unassigned,
     normalize_morocco_phone,
+    _route_to_correct_branch,
+    _load_branches_cache,
 )
 from dotenv import load_dotenv
 from datetime import datetime, date, timedelta, timezone
@@ -1412,6 +1414,134 @@ def admin_sync_all(admin=Depends(require_admin_only)):
 @router.post("/redistribute")
 def admin_redistribute(admin=Depends(require_admin_only)):
     return {"assigned": distribute_all_unassigned()}
+
+
+@router.post("/admin/reroute-misplaced")
+def admin_reroute_misplaced(
+    dry_run: bool = Query(False),
+    admin=Depends(require_admin_only),
+):
+    """Walk every lead, re-evaluate which branch it should belong to based
+    on the prospect's chosen branch in the FB form, and fix scope where wrong.
+
+    Behavior:
+      - Trap leads (chose "مدينة أخرى") with status='new' → DELETED. They're
+        outside our service area; no agent should waste time on them.
+      - Trap leads with status != 'new' → left untouched (preserve any
+        agent work in progress; admin can review via the returned IDs).
+      - Misrouted leads with status='new' AND already assigned → scope
+        updated, assignment cleared, ready for distribute_all_unassigned to
+        re-assign in the correct branch.
+      - Misrouted leads with status='new' AND unassigned → scope updated,
+        will get picked up by distribute_all_unassigned automatically.
+      - Misrouted leads with status != 'new' → scope updated only; agent
+        keeps the lead (don't yank a lead from an active conversation).
+
+    `dry_run=true` returns the would-be counts without writing anything.
+    """
+    sb = get_client()
+    branches_cache = _load_branches_cache(force=True)
+    if not branches_cache:
+        raise HTTPException(400, "no branches defined — cannot route")
+
+    # Page through every lead
+    PAGE = 1000
+    offset = 0
+    seen = 0
+    rerouted = 0
+    cleared_assignment = 0
+    trap_deleted = 0
+    trap_kept = 0
+    no_change = 0
+    trap_kept_ids: List[str] = []
+
+    while True:
+        page = sb.table("ad_leads").select(
+            "id, scope_type, scope_id, status, assigned_agent_id, data"
+        ).order("id").range(offset, offset + PAGE - 1).execute()
+        rows = page.data or []
+        if not rows:
+            break
+        for r in rows:
+            seen += 1
+            current = {
+                "scope_type": r.get("scope_type"),
+                "scope_id": r.get("scope_id"),
+                "data": r.get("data") or {},
+            }
+            routed = _route_to_correct_branch(current, branches_cache)
+            status = (r.get("status") or "new")
+
+            if routed is None:
+                # Trap lead — outside service area
+                if status == "new":
+                    if not dry_run:
+                        try:
+                            sb.table("ad_leads").delete().eq("id", r["id"]).execute()
+                        except Exception as e:
+                            log.warning("[ad_leads] reroute delete failed for %s: %s", r["id"], e)
+                            continue
+                    trap_deleted += 1
+                else:
+                    trap_kept += 1
+                    if len(trap_kept_ids) < 50:
+                        trap_kept_ids.append(r["id"])
+                continue
+
+            new_st = routed.get("scope_type")
+            new_sid = routed.get("scope_id")
+            old_st = current["scope_type"]
+            old_sid = current["scope_id"]
+            if new_st == old_st and new_sid == old_sid:
+                no_change += 1
+                continue
+
+            # Scope is changing
+            patch: Dict[str, Any] = {
+                "scope_type": new_st,
+                "scope_id": new_sid,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }
+            if status == "new" and r.get("assigned_agent_id"):
+                # Clear assignment so distribute_all_unassigned puts it on a
+                # correct-branch agent. Don't touch original_agent_id — the
+                # next distribute will overwrite it.
+                patch["assigned_agent_id"] = None
+                patch["assigned_at"] = None
+                cleared_assignment += 1
+            if not dry_run:
+                try:
+                    sb.table("ad_leads").update(patch).eq("id", r["id"]).execute()
+                except Exception as e:
+                    log.warning("[ad_leads] reroute update failed for %s: %s", r["id"], e)
+                    continue
+            rerouted += 1
+
+        if len(rows) < PAGE:
+            break
+        offset += PAGE
+        if offset >= 200000:
+            log.warning("[ad_leads] reroute paged past 200k leads")
+            break
+
+    assigned = 0
+    if not dry_run and (rerouted > 0 or cleared_assignment > 0):
+        # Re-distribute every unassigned lead — picks up the freshly-cleared
+        # ones and any prior backlog.
+        assigned = distribute_all_unassigned()
+
+    return {
+        "ok": True,
+        "dry_run": dry_run,
+        "scanned": seen,
+        "rerouted": rerouted,
+        "cleared_assignment": cleared_assignment,
+        "trap_deleted": trap_deleted,
+        "trap_kept_for_review": trap_kept,
+        "trap_kept_sample_ids": trap_kept_ids,
+        "no_change": no_change,
+        "redistributed": assigned,
+    }
 
 
 @router.post("/sync/cron")
