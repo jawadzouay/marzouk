@@ -23,10 +23,11 @@
 
   document.body && document.body.classList.add('role-manager');
 
-  // Hide admin-only subnav links.
+  // Hide admin-only elements — works for subnav links, page sections,
+  // form rows, buttons, anything with [data-admin-only].
   function hideBlocked() {
-    document.querySelectorAll('.subnav a[data-admin-only]').forEach(function (a) {
-      a.style.display = 'none';
+    document.querySelectorAll('[data-admin-only]').forEach(function (el) {
+      el.style.display = 'none';
     });
   }
   function injectScopeBadge() {

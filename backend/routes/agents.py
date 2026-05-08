@@ -53,14 +53,18 @@ class BonusCreate(BaseModel):
 
 # Field tiers walked in order by _select_agents — drops the newest optional
 # column on the first error so an un-migrated DB still returns the rest.
+# Order matters: each tier removes the LATEST migration column that might
+# not be applied yet. role + manager_scope_* are first to drop because
+# they're the latest addition (branch-manager feature).
 _AGENT_FIELDS_TIERS = [
+    "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off, pin_plain, accepts_leads, role, manager_scope_type, manager_scope_id",
     "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off, pin_plain, accepts_leads",
     "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off, pin_plain",
     "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off",
 ]
 # Back-compat: existing call sites elsewhere reference these names.
-_AGENT_FIELDS_FULL    = _AGENT_FIELDS_TIERS[1]
-_AGENT_FIELDS_LEGACY  = _AGENT_FIELDS_TIERS[2]
+_AGENT_FIELDS_FULL    = _AGENT_FIELDS_TIERS[2]
+_AGENT_FIELDS_LEGACY  = _AGENT_FIELDS_TIERS[3]
 
 
 def _safe_write(fn, *, fallback_key="pin_plain"):
@@ -80,6 +84,7 @@ def _select_agents(sb, branch_id=None):
     the DB hasn't been migrated yet. Keeps the list working for anyone who
     deployed the new code before running the ALTER TABLE."""
     last_err = None
+    OPTIONAL_COLS = ("accepts_leads", "pin_plain", "role", "manager_scope_type", "manager_scope_id")
     for fields in _AGENT_FIELDS_TIERS:
         try:
             q = sb.table("agents").select(fields).eq("is_active", True).order("created_at")
@@ -88,8 +93,9 @@ def _select_agents(sb, branch_id=None):
             return q.execute().data
         except Exception as e:
             last_err = e
+            msg = str(e)
             # only fall through on missing-column errors
-            if "accepts_leads" in str(e) or "pin_plain" in str(e):
+            if any(col in msg for col in OPTIONAL_COLS):
                 continue
             raise
     if last_err:

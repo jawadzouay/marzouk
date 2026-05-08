@@ -524,15 +524,52 @@
       _allBranches = (await bRes.json()) || [];
       _allCities   = (await cRes.json()) || [];
 
+      // Manager scope clamp — branch manager / city manager should only
+      // see their own scope in the dropdowns. The backend already enforces
+      // scope; this just hides options that aren't actionable.
+      const role      = localStorage.getItem('role') || '';
+      const scopeType = localStorage.getItem('scope_type') || '';
+      const scopeId   = localStorage.getItem('scope_id')   || '';
+      if (role === 'manager') {
+        if (scopeType === 'city' && scopeId) {
+          // Resolve city name then keep only matching branches.
+          const myCity = (_allCities.find(c => c.id === scopeId) || {}).name || '';
+          _allCities   = _allCities.filter(c => c.id === scopeId);
+          _allBranches = _allBranches.filter(b => (b.city || '') === myCity);
+        } else if (scopeType === 'branch' && scopeId) {
+          const myBranch = _allBranches.find(b => b.id === scopeId);
+          const myCityName = myBranch ? (myBranch.city || '') : '';
+          _allCities   = _allCities.filter(c => c.name === myCityName);
+          _allBranches = _allBranches.filter(b => b.id === scopeId);
+        }
+        // scope_type === 'all' keeps everything visible.
+      }
+
       // City dropdown: lists every distinct city we know about. Branches
       // table stores city as TEXT; cities table is the authoritative list
       // of UUIDs needed by the backend's city_id filter.
       const citySel = document.getElementById('cityFilter');
-      citySel.innerHTML = '<option value="">كل المدن</option>' +
+      const cityAllLabel = (role === 'manager' && _allCities.length === 1)
+        ? `كل فروع ${_allCities[0].name}`
+        : 'كل المدن';
+      citySel.innerHTML = `<option value="">${escHTML(cityAllLabel)}</option>` +
         _allCities.map(c => `<option value="${c.id}" data-name="${escAttr(c.name)}">${escHTML(c.name)}</option>`).join('');
+      // For city/branch managers there's only one option besides "all" —
+      // hide the dropdown entirely to keep the layout clean.
+      if (role === 'manager' && _allCities.length <= 1) {
+        citySel.style.display = 'none';
+      }
 
       // Branch dropdown: starts with all branches; narrows when a city is picked.
       _renderBranchOptions('');
+
+      // Branch-scope manager: only one branch in their scope. Auto-pick it
+      // and hide the dropdown — they have no other option.
+      if (role === 'manager' && scopeType === 'branch' && _allBranches.length === 1) {
+        const branchSel = document.getElementById('branchFilter');
+        branchSel.value = _allBranches[0].id;
+        branchSel.style.display = 'none';
+      }
     }
 
     function _renderBranchOptions(cityName) {

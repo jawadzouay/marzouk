@@ -21,7 +21,7 @@ ALGORITHM = "HS256"
 def get_current_agent(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[ALGORITHM])
-        if payload.get("role") not in ("agent", "admin"):
+        if payload.get("role") not in ("agent", "admin", "manager"):
             raise HTTPException(status_code=403, detail="Forbidden")
         return payload
     except Exception:

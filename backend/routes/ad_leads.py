@@ -70,9 +70,13 @@ def morocco_day_bounds_utc(df: str, dt: str) -> tuple[str, str]:
 
 
 def require_agent(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Allows agent OR manager. Managers are still agents under the hood —
+    they get leads round-robined to them and use the same /ad-leads/my,
+    /status, /call-click endpoints. The manager role only adds extra admin
+    capabilities on top, it doesn't remove their agent identity."""
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[ALGORITHM])
-        if payload.get("role") != "agent":
+        if payload.get("role") not in ("agent", "manager"):
             raise HTTPException(status_code=403, detail="Agent only")
         return payload
     except HTTPException:
