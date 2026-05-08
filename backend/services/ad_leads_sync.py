@@ -25,6 +25,8 @@ load_dotenv()
 log = logging.getLogger("ad_leads_sync")
 log.setLevel(logging.INFO)
 
+import traceback as _traceback
+
 # ---------------------------------------------------------------------------
 # Moroccan phone normalization
 #
@@ -605,7 +607,22 @@ def _load_columns(config_id: str) -> List[dict]:
 
 
 def sync_config(config_id: str) -> dict:
-    """Sync a single config. Returns a summary dict."""
+    """Sync a single config. Returns a summary dict — never raises, so a
+    bad sheet / row / DB error never 500s the API. Errors are logged with
+    traceback and returned in the response."""
+    try:
+        return _sync_config_inner(config_id)
+    except Exception as e:
+        tb = _traceback.format_exc()
+        log.error("[ad_leads] sync_config %s crashed: %s\n%s", config_id, e, tb)
+        try:
+            _mark_error(config_id, f"crash: {e}")
+        except Exception:
+            pass
+        return {"ok": False, "error": f"sync crashed: {e}"}
+
+
+def _sync_config_inner(config_id: str) -> dict:
     sb = get_client()
     config = _load_config(config_id)
     if not config:
@@ -658,35 +675,52 @@ def sync_config(config_id: str) -> dict:
     # Refresh the branch-routing cache once per config sync — the lead
     # router uses this to map "فرع القنيطرة" / "فرع طنجة" answers in the
     # form data to the correct branch_id, regardless of which sheet the
-    # lead arrived via.
-    branches_cache = _load_branches_cache(force=True)
+    # lead arrived via. If the branches table read fails (missing column,
+    # transient outage), continue without routing rather than aborting
+    # the entire sync — leads still flow to their config-default scope.
+    try:
+        branches_cache = _load_branches_cache(force=True)
+    except Exception as e:
+        log.warning("[ad_leads] branches cache load failed (%s) — continuing without routing", e)
+        branches_cache = []
 
     seen_batch = set()
     skipped_traps = 0
     rerouted = 0
+    row_errors = 0
     for r in rows[1:]:
-        if _is_test_lead_row(r):
-            # If a test-lead row previously slipped through and is in the DB,
-            # its hash matches the current row — delete that DB record.
-            stale_key = _row_key(r, header_row, None)
-            if stale_key in known:
-                to_delete.append(known[stale_key])
+        try:
+            if _is_test_lead_row(r):
+                # If a test-lead row previously slipped through and is in the DB,
+                # its hash matches the current row — delete that DB record.
+                stale_key = _row_key(r, header_row, None)
+                if stale_key in known:
+                    to_delete.append(known[stale_key])
+                continue
+            lead = _build_lead_from_row(r, header_row, columns, config)
+            if not lead:
+                continue
+            # Route based on the prospect's chosen branch. Returns None when
+            # the prospect picked a "مدينة أخرى" trap option — drop the lead
+            # entirely so it never reaches the agents. Per-row try/except
+            # so one weird row never blocks the rest of the batch.
+            original_scope = (lead.get("scope_type"), lead.get("scope_id"))
+            try:
+                routed = _route_to_correct_branch(lead, branches_cache)
+            except Exception as re:
+                log.warning("[ad_leads] route failed for row, falling back to config scope: %s", re)
+                routed = lead
+            if routed is None:
+                skipped_traps += 1
+                continue
+            lead = routed
+            if (lead.get("scope_type"), lead.get("scope_id")) != original_scope:
+                rerouted += 1
+            k = lead["source_row_key"]
+        except Exception as e:
+            row_errors += 1
+            log.warning("[ad_leads] sync row failed: %s", e)
             continue
-        lead = _build_lead_from_row(r, header_row, columns, config)
-        if not lead:
-            continue
-        # Route based on the prospect's chosen branch. Returns None when
-        # the prospect picked a "مدينة أخرى" trap option — drop the lead
-        # entirely so it never reaches the agents.
-        original_scope = (lead.get("scope_type"), lead.get("scope_id"))
-        routed = _route_to_correct_branch(lead, branches_cache)
-        if routed is None:
-            skipped_traps += 1
-            continue
-        lead = routed
-        if (lead.get("scope_type"), lead.get("scope_id")) != original_scope:
-            rerouted += 1
-        k = lead["source_row_key"]
         if k in seen_batch:
             continue
         seen_batch.add(k)
@@ -809,7 +843,13 @@ def sync_config(config_id: str) -> dict:
     # Distribute every unassigned lead — covers the original config's
     # scope plus any leads that were routed elsewhere by the branch
     # detector. distribute_all_unassigned groups by actual lead scope_id.
-    assigned = distribute_all_unassigned()
+    # Never let a distribute hiccup turn a successful sheet sync into a
+    # 500 — log and return what we have.
+    assigned = 0
+    try:
+        assigned = distribute_all_unassigned()
+    except Exception as e:
+        log.warning("[ad_leads] distribute_all_unassigned failed after sync: %s", e)
 
     return {
         "ok": True,
@@ -818,6 +858,9 @@ def sync_config(config_id: str) -> dict:
         "updated": updated,
         "deleted": deleted,
         "assigned": assigned,
+        "rerouted": rerouted,
+        "skipped_traps": skipped_traps,
+        "row_errors": row_errors,
     }
 
 
@@ -848,7 +891,13 @@ def sync_all_enabled() -> dict:
     configs = res.data or []
     summaries = []
     for c in configs:
-        summaries.append({"config_id": c["id"], **sync_config(c["id"])})
+        # sync_config now never raises (wraps its own body), but keep this
+        # guard anyway — a bad config must not stop the others syncing.
+        try:
+            summaries.append({"config_id": c["id"], **sync_config(c["id"])})
+        except Exception as e:
+            log.error("[ad_leads] sync_all skipped config %s: %s", c["id"], e)
+            summaries.append({"config_id": c["id"], "ok": False, "error": str(e)})
     return {"ok": True, "configs": summaries}
 
 

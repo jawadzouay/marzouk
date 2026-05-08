@@ -1409,12 +1409,23 @@ def admin_fetch_headers(config_id: str, admin=Depends(require_admin_only)):
 
 @router.post("/admin/configs/{config_id}/sync")
 def admin_sync_config(config_id: str, admin=Depends(require_admin_only)):
-    return sync_config(config_id)
+    # sync_config wraps its own body, but defensively swallow anything that
+    # leaks through so the admin gets a usable error message instead of a
+    # generic 500. The actual traceback is logged in services/ad_leads_sync.
+    try:
+        return sync_config(config_id)
+    except Exception as e:
+        log.error("[ad_leads] admin sync endpoint crashed: %s", e)
+        return {"ok": False, "error": f"sync crashed: {e}"}
 
 
 @router.post("/admin/sync-all")
 def admin_sync_all(admin=Depends(require_admin_only)):
-    return sync_all_enabled()
+    try:
+        return sync_all_enabled()
+    except Exception as e:
+        log.error("[ad_leads] sync-all endpoint crashed: %s", e)
+        return {"ok": False, "error": f"sync-all crashed: {e}"}
 
 
 @router.post("/redistribute")
