@@ -49,37 +49,55 @@
     nav.appendChild(badge);
   }
 
-  // Big floating pill that takes the manager to their own agent inbox.
-  // Mirror of _manager_toggle.js (which lives on the agent side and
-  // takes them back here). Two-way switch — role itself never changes.
+  // Inject the "switch to agent view" pill INTO the page header — that's
+  // the dark sticky bar at the top of every admin page, so the pill is
+  // guaranteed visible regardless of subnav layout, scroll position, or
+  // body stacking contexts. Falls back to a body-level fixed pill for
+  // pages that don't have a <header>.
   function injectAgentViewToggle() {
     if (document.getElementById('mgrToggleBtn')) return;
     var btn = document.createElement('button');
     btn.id = 'mgrToggleBtn';
     btn.type = 'button';
-    btn.innerHTML = '📥 الانتقال إلى صفحة الوكيل';
+    btn.innerHTML = '📥 صفحة الوكيل';
     btn.title = 'عرض رسائلك الشخصية كوكيل';
     btn.onclick = function () { window.location.href = '/agent/leads.html'; };
-    btn.style.cssText = [
-      'position:fixed',
-      'top:max(10px, env(safe-area-inset-top))',
-      'left:12px',
-      'z-index:99997',
-      'background:linear-gradient(135deg,#10b981,#059669)',
-      'color:white',
-      'border:2px solid #047857',
-      'border-radius:14px',
-      'padding:9px 14px',
-      'font-family:Cairo,Tajawal,sans-serif',
-      'font-size:12.5px',
-      'font-weight:900',
-      'cursor:pointer',
-      'box-shadow:0 6px 18px rgba(5,150,105,0.45)',
-      'transition:transform .12s ease, box-shadow .12s ease',
-    ].join(';');
-    btn.onmouseenter = function(){ btn.style.transform = 'translateY(-1px)'; btn.style.boxShadow = '0 8px 22px rgba(5,150,105,0.55)'; };
-    btn.onmouseleave = function(){ btn.style.transform = ''; btn.style.boxShadow = '0 6px 18px rgba(5,150,105,0.45)'; };
-    document.body.appendChild(btn);
+    btn.style.background    = 'linear-gradient(135deg, #10b981, #059669)';
+    btn.style.color         = 'white';
+    btn.style.border        = '2px solid #047857';
+    btn.style.borderRadius  = '10px';
+    btn.style.padding       = '7px 14px';
+    btn.style.fontFamily    = "'Cairo', 'Tajawal', sans-serif";
+    btn.style.fontSize      = '12.5px';
+    btn.style.fontWeight    = '900';
+    btn.style.cursor        = 'pointer';
+    btn.style.boxShadow     = '0 4px 12px rgba(5,150,105,0.5)';
+    btn.style.whiteSpace    = 'nowrap';
+    btn.style.marginInlineEnd = '8px';
+
+    var header = document.querySelector('header');
+    if (header) {
+      // Stick it before the first action button in the header so it sits
+      // inside the visible dark bar. Different pages use different anchor
+      // classes (.logout-btn / .back-btn / .header-right > button), so try
+      // a list of probable anchors before falling back to appendChild.
+      var anchor = header.querySelector('.logout-btn')
+                || header.querySelector('.back-btn')
+                || header.querySelector('button')
+                || header.querySelector('a.action-btn, a.back-btn');
+      if (anchor && anchor.parentNode) {
+        anchor.parentNode.insertBefore(btn, anchor);
+      } else {
+        header.appendChild(btn);
+      }
+    } else {
+      // Fallback: floating in the corner.
+      btn.style.position = 'fixed';
+      btn.style.top = '10px';
+      btn.style.left = '10px';
+      btn.style.zIndex = '99997';
+      document.body.appendChild(btn);
+    }
   }
 
   if (document.readyState === 'loading') {
