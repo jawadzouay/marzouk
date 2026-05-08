@@ -663,8 +663,12 @@ async function showDetail(score) {
   const modal = document.getElementById('agentModal');
   const content = document.getElementById('agentModalContent');
 
-  // Diagnosis
+  // Diagnosis. agent_not_calling is overridden by the backend when the
+  // root issue is the agent not even picking up the phone — this comes
+  // before any "won't convert" diagnosis because conversion is impossible
+  // without the call.
   const diagnosisMap = {
+    'agent_not_calling': { cls: 'agent-issue', title: 'الوكيل لا يتصل بالعملاء', msg: 'عدد كبير من الرسائل لم يتصل بها الوكيل — الأولوية الآن: الاتصال بكل الرسائل قبل أي شيء آخر.' },
     'ad_quality': { cls: 'ad-issue', title: 'مشكلة في جودة الإعلان', msg: 'نسبة عالية من العملاء السيئين — المشكلة من الإعلان وليس من الوكيل.' },
     'agent_conversion': { cls: 'agent-issue', title: 'الوكيل لا يحوّل الرسائل لمواعيد', msg: 'العملاء جيدون لكن الوكيل لا يحجز مواعيد كافية.' },
     'agent_followup': { cls: 'agent-issue', title: 'الوكيل لا يتابع المواعيد', msg: 'الحجوزات موجودة لكن العملاء لا يحضرون — يحتاج متابعة أفضل.' },
@@ -721,6 +725,41 @@ async function showDetail(score) {
         <div class="detail-pct">حضور ${(score.show_rate * 100).toFixed(0)}% · إغلاق ${(score.close_rate * 100).toFixed(0)}%</div>
       </div>
     </div>
+
+    ${(() => {
+      // Call-engagement panel — answers "did the agent actually call?"
+      // before we judge them on conversion / closing. Only rendered when
+      // call-tracking is live (migration applied) AND the agent had any
+      // leads in the window.
+      if (!score.call_tracking_active || !score.messages) return '';
+      const called   = score.called_count       || 0;
+      const uncalled = score.uncalled_count     || 0;
+      const uncalledNew = score.uncalled_new_count || 0;
+      const pct = Math.round((score.called_pct || 0) * 100);
+      const tone =
+        pct >= 80 ? { bg: '#ecfdf5', border: '#a7f3d0', color: '#065f46', icon: '✅' } :
+        pct >= 50 ? { bg: '#fffbeb', border: '#fde68a', color: '#92400e', icon: '⏳' } :
+                    { bg: '#fef2f2', border: '#fecaca', color: '#991b1b', icon: '🚨' };
+      return `
+        <div style="font-size:12px; color:#6b7280; margin-bottom:8px; font-weight:600">نشاط الاتصال:</div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px">
+          <div style="flex:1; min-width:120px; background:${tone.bg}; border:1.5px solid ${tone.border}; border-radius:10px; padding:10px 12px; text-align:center">
+            <div style="font-size:22px; font-weight:900; color:${tone.color}">${tone.icon} ${pct}%</div>
+            <div style="font-size:11px; color:${tone.color}; font-weight:700; margin-top:2px">نسبة الاتصال</div>
+            <div style="font-size:10px; color:${tone.color}; opacity:0.85; margin-top:1px">${called} من ${score.messages}</div>
+          </div>
+          <div style="flex:1; min-width:120px; background:#fef2f2; border:1.5px solid #fecaca; border-radius:10px; padding:10px 12px; text-align:center">
+            <div style="font-size:22px; font-weight:900; color:#991b1b">⏳ ${uncalledNew}</div>
+            <div style="font-size:11px; color:#991b1b; font-weight:700; margin-top:2px">لم يتصل بها بعد</div>
+            <div style="font-size:10px; color:#991b1b; opacity:0.85; margin-top:1px">رسائل جديدة بدون اتصال</div>
+          </div>
+          <div style="flex:1; min-width:120px; background:#f3f4f6; border:1.5px solid #d1d5db; border-radius:10px; padding:10px 12px; text-align:center">
+            <div style="font-size:22px; font-weight:900; color:#374151">📵 ${uncalled}</div>
+            <div style="font-size:11px; color:#374151; font-weight:700; margin-top:2px">إجمالي بدون اتصال</div>
+            <div style="font-size:10px; color:#6b7280; opacity:0.85; margin-top:1px">جديدة + مغلقة دون اتصال</div>
+          </div>
+        </div>`;
+    })()}
 
     <div style="font-size:12px; color:#6b7280; margin-bottom:8px; font-weight:600">تفاصيل العملاء السيئين:</div>
     <div class="agent-metrics" style="margin-bottom:14px">

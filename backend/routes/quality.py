@@ -240,6 +240,15 @@ def quality_scores(
         except Exception:
             date_field = "assigned_at"
 
+        # was_called only exists after the call-tracking migration. When
+        # missing, the call-engagement breakdown stays zero and the
+        # "agent isn't calling" bottleneck simply doesn't trigger.
+        try:
+            sb.table("ad_leads").select("was_called").limit(1).execute()
+            has_was_called = True
+        except Exception:
+            has_was_called = False
+
         # Morocco-local day bounds → UTC for the timestamptz filter.
         try:
             from zoneinfo import ZoneInfo
@@ -252,12 +261,15 @@ def quality_scores(
         end_utc   = end_local.astimezone().isoformat()
 
         # Paginate — Supabase caps single selects at ~1000 rows by default.
+        select_cols = f"assigned_agent_id, status, {date_field}"
+        if has_was_called:
+            select_cols += ", was_called"
         rows: List[dict] = []
         PAGE = 1000
         offset = 0
         while True:
             page = sb.table("ad_leads") \
-                .select(f"assigned_agent_id, status, {date_field}") \
+                .select(select_cols) \
                 .in_("assigned_agent_id", agent_ids) \
                 .gte(date_field, start_utc).lte(date_field, end_utc) \
                 .range(offset, offset + PAGE - 1).execute()
@@ -276,6 +288,9 @@ def quality_scores(
 
         # Map ad_leads statuses → the buckets the dashboard color formula expects
         TERMINAL_BAD = {"pi", "pe", "autre_ville", "over_40", "contra", "bv"}
+        # Per-agent call-engagement counts. Keys mirror the front-end
+        # display so the modal can render them without further math.
+        engagement_by_agent: Dict[str, Dict[str, int]] = {}
         for r in rows:
             aid = r.get("assigned_agent_id")
             if not aid:
@@ -284,6 +299,11 @@ def quality_scores(
                 "messages": 0, "rdv": 0, "autre_ville": 0, "pi": 0,
                 "bv": 0, "pe": 0, "over_40": 0, "contra": 0,
                 "visits": 0, "registered": 0,
+            })
+            eng = engagement_by_agent.setdefault(aid, {
+                "called": 0,        # was_called=True
+                "uncalled": 0,      # was_called=False/null
+                "uncalled_new": 0,  # was_called=False AND status='new' (the actionable backlog)
             })
             t["messages"] += 1
             s = r.get("status") or "new"
@@ -297,6 +317,14 @@ def quality_scores(
             if s in TERMINAL_BAD:
                 if s in t:
                     t[s] += 1
+            # Engagement — was_called is None if migration not applied.
+            was_called = r.get("was_called") if has_was_called else None
+            if was_called:
+                eng["called"] += 1
+            else:
+                eng["uncalled"] += 1
+                if s == "new":
+                    eng["uncalled_new"] += 1
             # Track distinct activity days for the per-day average denominator.
             ts = r.get(date_field)
             if ts:
@@ -342,6 +370,25 @@ def quality_scores(
         score["agent_name"] = agent["name"]
         score["branch_name"] = branch_info.get("name", "") if branch_info else ""
         score["report_count"] = report_count
+
+        # Call-engagement metrics + tracking_active flag (false when the
+        # migration hasn't been applied, so frontend can hide the section
+        # gracefully). Only computed for the live-leads source.
+        if source == "leads":
+            eng = engagement_by_agent.get(aid, {"called": 0, "uncalled": 0, "uncalled_new": 0})
+            messages = totals.get("messages", 0)
+            score["called_count"]       = eng["called"]
+            score["uncalled_count"]     = eng["uncalled"]
+            score["uncalled_new_count"] = eng["uncalled_new"]
+            score["called_pct"]         = (eng["called"] / messages) if messages else 0
+            score["call_tracking_active"] = bool(has_was_called)
+
+            # Bottleneck override: if the actionable issue is that the agent
+            # isn't even calling, surface that instead of "agent_conversion".
+            # Threshold: 5+ leads in window AND less than half were called →
+            # the diagnosis is "agent_not_calling", not "won't convert".
+            if has_was_called and messages >= 5 and eng["called"] / messages < 0.5:
+                score["bottleneck"] = "agent_not_calling"
         results.append(score)
 
     # Sort:
