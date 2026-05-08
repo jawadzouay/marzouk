@@ -85,6 +85,15 @@ def require_agent(credentials: HTTPAuthorizationCredentials = Depends(security))
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
+def _block_impersonator(payload: dict):
+    """Reject the request when the JWT was minted via /agents/impersonate.
+    Admin in impersonation mode can read the agent's view but never write —
+    no status changes, no notes, no calls registered as the agent."""
+    if payload and payload.get("impersonated_by"):
+        raise HTTPException(status_code=403,
+                            detail="وضع المعاينة فقط — لا يمكنك إجراء أي تعديل")
+
+
 def require_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[ALGORITHM])
@@ -630,6 +639,7 @@ _TIME_RE = re.compile(r"^\d{2}:\d{2}$")
 
 @router.patch("/{lead_id}/status")
 def update_lead_status(lead_id: str, body: StatusUpdate, agent=Depends(require_agent)):
+    _block_impersonator(agent)
     sb = get_client()
     if body.status not in VALID_STATUSES:
         raise HTTPException(400, f"invalid status: {body.status}")
@@ -734,6 +744,7 @@ def record_call_click(lead_id: str, agent=Depends(require_agent)):
     outcome status afterward via the persistent post-call modal. This
     endpoint just stamps was_called=true so the cheating tracker can flag
     status changes that happen without a preceding call."""
+    _block_impersonator(agent)
     sb = get_client()
     sel = "id, assigned_agent_id, status"
     if _has_call_tracking_cols():
@@ -771,6 +782,7 @@ class NoteUpdate(BaseModel):
 
 @router.patch("/{lead_id}/note")
 def update_lead_note(lead_id: str, body: NoteUpdate, agent=Depends(require_agent)):
+    _block_impersonator(agent)
     sb = get_client()
     note = (body.note or "").strip()
     if len(note) > 2000:
@@ -795,6 +807,7 @@ class NameUpdate(BaseModel):
 
 @router.patch("/{lead_id}/name")
 def update_lead_name(lead_id: str, body: NameUpdate, agent=Depends(require_agent)):
+    _block_impersonator(agent)
     sb = get_client()
     name = (body.full_name or "").strip()
     if not name:
@@ -835,6 +848,7 @@ class OffDatesUpdate(BaseModel):
 
 @router.put("/availability")
 def set_my_off_dates(body: OffDatesUpdate, agent=Depends(require_agent)):
+    _block_impersonator(agent)
     sb = get_client()
     today_iso = today_morocco().isoformat()
     clean = sorted({d for d in body.off_dates if d >= today_iso})
@@ -911,6 +925,7 @@ def _do_transfer(sb, lead_ids: List[str], from_agent: str, to_agent: str) -> int
 
 @router.post("/transfer/by-count")
 def transfer_by_count(body: TransferByCount, agent=Depends(require_agent)):
+    _block_impersonator(agent)
     sb = get_client()
     if body.count <= 0:
         raise HTTPException(400, "count must be > 0")
@@ -929,6 +944,7 @@ def transfer_by_count(body: TransferByCount, agent=Depends(require_agent)):
 
 @router.post("/transfer/by-selection")
 def transfer_by_selection(body: TransferBySelection, agent=Depends(require_agent)):
+    _block_impersonator(agent)
     sb = get_client()
     peers = _branch_peers(sb, agent["sub"])
     if body.to_agent_id not in peers:

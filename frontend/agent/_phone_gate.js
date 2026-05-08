@@ -9,6 +9,9 @@
   // Only run for agents (admin / manager skip; admin has no /agents/me row).
   const role = localStorage.getItem('role') || '';
   if (!token || (role && role !== 'agent' && role !== 'manager')) return;
+  // Skip when admin is just spying via read-only impersonation — they
+  // don't need to set the agent's phone, and the modal would trap them.
+  if (localStorage.getItem('admin_token_backup')) return;
 
   const API = window.location.origin;
 

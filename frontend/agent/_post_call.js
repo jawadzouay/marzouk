@@ -19,6 +19,9 @@
   const token = localStorage.getItem('token');
   const role  = localStorage.getItem('role') || '';
   if (!token || (role && role !== 'agent' && role !== 'manager')) return;
+  // Skip when admin is in read-only impersonation — they shouldn't be
+  // prompted to record outcomes, and the modal would block them.
+  if (localStorage.getItem('admin_token_backup')) return;
 
   const API = window.location.origin;
   const KEY = 'mz_pending_post_call';

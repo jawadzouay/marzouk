@@ -35,6 +35,13 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
+def _block_impersonator(payload: dict):
+    """Reject the request when the JWT was minted via /agents/impersonate."""
+    if payload and payload.get("impersonated_by"):
+        raise HTTPException(status_code=403,
+                            detail="وضع المعاينة فقط — لا يمكنك إجراء أي تعديل")
+
+
 def require_admin(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[ALGORITHM])
@@ -62,6 +69,7 @@ async def submit_daily_report(
     registered: int = Form(0),
     user=Depends(get_current_user)
 ):
+    _block_impersonator(user)
     sb = get_client()
     agent_id = user["sub"]
 
@@ -205,6 +213,7 @@ def submission_status(caller=Depends(require_admin_or_manager)):
 
 @router.post("/goals")
 def create_goal(body: dict, user=Depends(get_current_user)):
+    _block_impersonator(user)
     sb = get_client()
     is_admin = user.get("role") == "admin"
 
@@ -253,6 +262,7 @@ def get_goals(
 
 @router.patch("/goals/{goal_id}")
 def update_goal(goal_id: str, body: dict, user=Depends(get_current_user)):
+    _block_impersonator(user)
     sb = get_client()
     is_admin = user.get("role") == "admin"
 
@@ -286,6 +296,7 @@ def update_goal(goal_id: str, body: dict, user=Depends(get_current_user)):
 
 @router.delete("/goals/{goal_id}")
 def delete_goal(goal_id: str, user=Depends(get_current_user)):
+    _block_impersonator(user)
     sb = get_client()
     is_admin = user.get("role") == "admin"
 

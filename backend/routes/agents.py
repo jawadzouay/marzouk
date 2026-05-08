@@ -40,6 +40,15 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         raise HTTPException(status_code=401, detail="Unauthorized")
 
 
+def _block_impersonator(payload: dict):
+    """Reject the request when the JWT was minted via /impersonate. Admin
+    in impersonation mode can read the agent's view but never write — no
+    status changes, no notes, no calls registered as the agent."""
+    if payload and payload.get("impersonated_by"):
+        raise HTTPException(status_code=403,
+                            detail="وضع المعاينة فقط — لا يمكنك إجراء أي تعديل")
+
+
 class AgentCreate(BaseModel):
     name: str
     pin: str
@@ -277,6 +286,7 @@ def get_my_profile(user=Depends(get_current_user)):
 def update_my_phone(body: dict, user=Depends(get_current_user)):
     """Agent self-service: set or update their work phone number.
     Required on first login — the dashboard freezes until this is set."""
+    _block_impersonator(user)
     sb = get_client()
     agent_id = user["sub"]
     if agent_id == "admin":
@@ -301,6 +311,7 @@ def update_my_phone(body: dict, user=Depends(get_current_user)):
 
 @router.patch("/me/credentials")
 def update_my_credentials(body: dict, user=Depends(get_current_user)):
+    _block_impersonator(user)
     sb = get_client()
     agent_id = user["sub"]
     if agent_id == "admin":
@@ -341,6 +352,7 @@ def update_my_credentials(body: dict, user=Depends(get_current_user)):
 
 @router.patch("/me")
 def update_my_profile(body: dict, user=Depends(get_current_user)):
+    _block_impersonator(user)
     sb = get_client()
     agent_id = user["sub"]
     if agent_id == "admin":
@@ -442,6 +454,7 @@ def get_my_bonuses(user=Depends(get_current_user)):
 
 @router.post("/me/bonuses")
 def add_bonus(bonus: BonusCreate, user=Depends(get_current_user)):
+    _block_impersonator(user)
     sb = get_client()
     agent_id = user["sub"]
     if agent_id == "admin":
@@ -456,6 +469,7 @@ def add_bonus(bonus: BonusCreate, user=Depends(get_current_user)):
 
 @router.delete("/me/bonuses/{bonus_id}")
 def delete_bonus(bonus_id: str, user=Depends(get_current_user)):
+    _block_impersonator(user)
     sb = get_client()
     agent_id = user["sub"]
     existing = sb.table("bonuses").select("id").eq("id", bonus_id).eq("agent_id", agent_id).execute()
@@ -582,6 +596,31 @@ def demote_manager(agent_id: str, admin=Depends(require_admin)):
     if not result.data:
         raise HTTPException(404, "الوكيل غير موجود")
     return {"id": agent_id, "role": "agent"}
+
+
+@router.post("/{agent_id}/impersonate")
+def impersonate_agent(agent_id: str, admin=Depends(require_admin)):
+    """Admin-only — mint a short-lived JWT that lets the admin browse the
+    agent's dashboard / leads page in READ-ONLY mode. The token carries
+    `impersonated_by=<admin_sub>`; backend write endpoints reject any
+    request with that claim (see _block_impersonator across the routes).
+    Frontend banner makes the mode obvious + offers a one-click exit
+    that restores the admin's original token."""
+    from routes.auth import create_token
+    sb = get_client()
+    res = sb.table("agents").select("id, name, is_active").eq("id", agent_id).execute()
+    if not res.data:
+        raise HTTPException(404, "الوكيل غير موجود")
+    a = res.data[0]
+    if not a.get("is_active"):
+        raise HTTPException(400, "لا يمكن الدخول إلى وكيل موقوف")
+    token = create_token({
+        "sub": a["id"],
+        "role": "agent",
+        "name": a["name"],
+        "impersonated_by": admin.get("sub") or "admin",
+    }, expires_hours=2)
+    return {"token": token, "agent_id": a["id"], "name": a["name"]}
 
 
 @router.patch("/{agent_id}/accepts-leads")

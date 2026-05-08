@@ -6,6 +6,10 @@
 (function () {
   var role = localStorage.getItem('role');
   if (role !== 'manager') return;
+  // The "back to admin dashboard" pill is for managers viewing their
+  // own agent inbox. During admin impersonation the dedicated red exit
+  // banner already provides the way out — don't double up.
+  if (localStorage.getItem('admin_token_backup')) return;
 
   function inject() {
     if (document.getElementById('mgrToggleBtn')) return;

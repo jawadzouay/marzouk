@@ -102,6 +102,7 @@
     .btn-xfer  { background: #ecfeff; color: #0e7490; border: 1px solid #a5f3fc; }
     .btn-pause { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
     .btn-resume{ background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; font-weight: 800; }
+    .btn-spy   { background: #f5f3ff; color: #5b21b6; border: 1px solid #c4b5fd; }
 
     /* Single phone button next to the agent's name. Tap → small popup
        with 'normal call' and 'WhatsApp' options. Cleaner than two icons
@@ -787,6 +788,7 @@
             </div>
             <div class="agent-actions">
               ${acceptBtn}
+              <button class="btn btn-spy" onclick="impersonateAgent('${a.id}','${escAttr(a.name)}')" title="عرض الصفحة كما يراها الوكيل (للقراءة فقط)">👀 عرض كوكيل</button>
               <button class="btn btn-view" onclick="toggleAgentLeads('${a.id}')">${isOpen ? 'إخفاء' : '👁️ عرض'}</button>
               <button class="btn btn-xfer" onclick="openTransferModal('${a.id}','${escAttr(a.name)}')">🔄 نقل</button>
             </div>
@@ -795,6 +797,37 @@
           <div class="status-pills">${pills || '<span class="pill muted">لا توجد رسائل</span>'}</div>
           <div class="leads-panel ${isOpen ? 'open' : ''}" id="panel-${a.id}"></div>
         </div>`;
+    }
+
+    // Read-only impersonation. Backs up the admin's current token in
+    // localStorage, swaps in a freshly-minted agent token (carries
+    // impersonated_by=<admin_sub> on the server), and redirects to the
+    // agent's leads page. _impersonation.js detects the backup token
+    // and injects the red "exit impersonation" banner. All write
+    // endpoints reject impersonator JWTs with 403 — admin can browse
+    // freely but can't change anything.
+    async function impersonateAgent(agentId, agentName) {
+      if (!confirm(`الدخول إلى صفحة ${agentName} للعرض فقط؟ لن تتمكن من تعديل أي حالة أو تسجيل أي اتصال.`)) return;
+      try {
+        const { ok, data } = await callAPI(`${API}/agents/${agentId}/impersonate`, { method: 'POST' });
+        if (!ok || !data || !data.token) {
+          toast(data?.detail || 'فشل الدخول', 'error');
+          return;
+        }
+        // Stash the admin session so we can restore it on exit.
+        localStorage.setItem('admin_token_backup', localStorage.getItem('token') || '');
+        localStorage.setItem('admin_role_backup',  localStorage.getItem('role')  || 'admin');
+        localStorage.setItem('admin_name_backup',  localStorage.getItem('name')  || '');
+        localStorage.setItem('impersonating_agent_name', data.name || agentName);
+        // Swap in the agent's token + role so all the agent endpoints work.
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('role', 'agent');
+        localStorage.setItem('agentName', data.name || agentName);
+        localStorage.setItem('name', data.name || agentName);
+        window.location.href = '/agent/leads.html';
+      } catch (e) {
+        toast('خطأ في الاتصال', 'error');
+      }
     }
 
     // Pause / resume an agent's incoming-lead distribution from the leads
