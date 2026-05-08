@@ -51,20 +51,36 @@ class BonusCreate(BaseModel):
     note: Optional[str] = None
 
 
-# Field tiers walked in order by _select_agents — drops the newest optional
-# column on the first error so an un-migrated DB still returns the rest.
-# Order matters: each tier removes the LATEST migration column that might
-# not be applied yet. role + manager_scope_* are first to drop because
-# they're the latest addition (branch-manager feature).
-_AGENT_FIELDS_TIERS = [
-    "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off, pin_plain, accepts_leads, role, manager_scope_type, manager_scope_id",
-    "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off, pin_plain, accepts_leads",
-    "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off, pin_plain",
-    "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off",
-]
-# Back-compat: existing call sites elsewhere reference these names.
-_AGENT_FIELDS_FULL    = _AGENT_FIELDS_TIERS[2]
-_AGENT_FIELDS_LEGACY  = _AGENT_FIELDS_TIERS[3]
+# Required columns + per-column probes. Each optional column is probed
+# independently the first time it's needed and cached, so a missing
+# `accepts_leads` doesn't also strip `role`/`manager_scope_*` from the
+# response (the tier-cascade bug that made promoted managers look
+# un-promoted in the UI). The probe pattern matches ad_leads.has_*_col.
+_AGENT_REQUIRED_FIELDS = "id, name, is_active, created_at, fired_at, branch_id, drive_folder_id, day_off"
+_AGENT_OPTIONAL_COLS = ("pin_plain", "accepts_leads", "role",
+                         "manager_scope_type", "manager_scope_id", "phone")
+_AGENT_COL_AVAILABLE: dict = {}  # col -> bool, populated lazily
+
+# Back-compat: legacy call sites still reference these names.
+_AGENT_FIELDS_FULL   = _AGENT_REQUIRED_FIELDS + ", pin_plain"
+_AGENT_FIELDS_LEGACY = _AGENT_REQUIRED_FIELDS
+
+
+def _agent_col_exists(sb, col: str) -> bool:
+    """One-time probe; caches the result for the lifetime of the process."""
+    if col in _AGENT_COL_AVAILABLE:
+        return _AGENT_COL_AVAILABLE[col]
+    try:
+        sb.table("agents").select(col).limit(1).execute()
+        _AGENT_COL_AVAILABLE[col] = True
+    except Exception:
+        _AGENT_COL_AVAILABLE[col] = False
+    return _AGENT_COL_AVAILABLE[col]
+
+
+def _agent_select_fields(sb) -> str:
+    extras = [c for c in _AGENT_OPTIONAL_COLS if _agent_col_exists(sb, c)]
+    return _AGENT_REQUIRED_FIELDS + ("".join(", " + c for c in extras) if extras else "")
 
 
 def _safe_write(fn, *, fallback_key="pin_plain"):
@@ -80,27 +96,16 @@ def _safe_write(fn, *, fallback_key="pin_plain"):
 
 
 def _select_agents(sb, branch_id=None):
-    """Query agents with optional columns, falling back through tiers when
-    the DB hasn't been migrated yet. Keeps the list working for anyone who
-    deployed the new code before running the ALTER TABLE."""
-    last_err = None
-    OPTIONAL_COLS = ("accepts_leads", "pin_plain", "role", "manager_scope_type", "manager_scope_id")
-    for fields in _AGENT_FIELDS_TIERS:
-        try:
-            q = sb.table("agents").select(fields).eq("is_active", True).order("created_at")
-            if branch_id:
-                q = q.eq("branch_id", branch_id)
-            return q.execute().data
-        except Exception as e:
-            last_err = e
-            msg = str(e)
-            # only fall through on missing-column errors
-            if any(col in msg for col in OPTIONAL_COLS):
-                continue
-            raise
-    if last_err:
-        raise last_err
-    return []
+    """Query agents using the per-column probe-based field list. Each
+    optional column (accepts_leads, role, manager_scope_*, etc.) is probed
+    independently — a missing accepts_leads no longer strips role from the
+    response, which previously made promoted managers look un-promoted in
+    the UI."""
+    fields = _agent_select_fields(sb)
+    q = sb.table("agents").select(fields).eq("is_active", True).order("created_at")
+    if branch_id:
+        q = q.eq("branch_id", branch_id)
+    return q.execute().data
 
 
 @router.get("/")
