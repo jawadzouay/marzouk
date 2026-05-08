@@ -959,8 +959,12 @@ def admin_list_agent_leads(
     and the transfer modal. Manager scope must include the agent."""
     sb = get_client()
     assert_agent_in_scope(sb, caller, agent_id)
+    # `data` (the raw form payload) needed so we can extract the branch the
+    # PROSPECT picked on the FB lead form — not the branch they ended up
+    # routed to. Admins want to see the original choice when deciding who
+    # to transfer the lead to.
     base = ("id, scope_type, scope_id, created_time, assigned_at, full_name, "
-            "phone_primary, ad_name, platform, status, last_note")
+            "phone_primary, ad_name, platform, status, last_note, data")
     if _has_custom_status_col():
         base += ", custom_status"
     if _has_rdv_date_col():
@@ -984,41 +988,62 @@ def admin_list_agent_leads(
     res = q.order("assigned_at", desc=True).limit(max(1, min(2000, limit))).execute()
     leads = res.data or []
 
-    # Resolve scope_id → branch name/city for display. Most leads share
-    # a small set of branches so a single batch lookup is cheap.
+    # Resolve the prospect-chosen branch from the lead's form data. This
+    # is the answer to the long Arabic "هاام: التدريب حضوري …" question —
+    # short label like "القنيطرة" / "طنجة" / "فاس" / "صفرو". Falls back to
+    # the routed scope branch if the form answer is missing/unparsable.
+    from services.ad_leads_sync import _load_branches_cache, _normalize_arabic
+    try:
+        branches_cache = _load_branches_cache()
+    except Exception:
+        branches_cache = []
+    # Also load the routed-scope mapping as a fallback for leads where the
+    # form answer doesn't match any branch token (rare, e.g. very old data).
     branch_ids = {l.get("scope_id") for l in leads
                   if l.get("scope_type") == "branch" and l.get("scope_id")}
-    city_ids   = {l.get("scope_id") for l in leads
-                  if l.get("scope_type") == "city"   and l.get("scope_id")}
-    branch_map: Dict[str, Dict[str, str]] = {}
+    branch_fallback: Dict[str, str] = {}
     if branch_ids:
         try:
-            br = sb.table("branches").select("id, name, city").in_("id", list(branch_ids)).execute()
+            br = sb.table("branches").select("id, city").in_("id", list(branch_ids)).execute()
             for b in (br.data or []):
-                branch_map[b["id"]] = {"name": b.get("name") or "", "city": b.get("city") or ""}
+                # City-only fallback — that's the "short" the admin asked for.
+                branch_fallback[b["id"]] = b.get("city") or ""
         except Exception as e:
-            log.warning("[ad_leads] branch lookup failed: %s", e)
-    city_map: Dict[str, str] = {}
-    if city_ids:
-        try:
-            ci = sb.table("cities").select("id, name").in_("id", list(city_ids)).execute()
-            for c in (ci.data or []):
-                city_map[c["id"]] = c.get("name") or ""
-        except Exception as e:
-            log.warning("[ad_leads] city lookup failed: %s", e)
+            log.warning("[ad_leads] branch fallback lookup failed: %s", e)
+
+    def _chosen_branch_short(lead) -> Optional[str]:
+        """Walk the lead's form values, find the longest branch-token match,
+        return that branch's short city name (e.g. "القنيطرة"). Returns None
+        if no value mentions any branch we know about."""
+        data = lead.get("data") or {}
+        if not isinstance(data, dict) or not branches_cache:
+            return None
+        best_city = None
+        best_len = 0
+        for raw in data.values():
+            if not isinstance(raw, str) or not raw:
+                continue
+            v = _normalize_arabic(raw)
+            if not v:
+                continue
+            for b in branches_cache:
+                for tok in (b.get("_tokens") or []):
+                    if tok and tok in v and len(tok) > best_len:
+                        best_len = len(tok)
+                        best_city = b.get("city") or b.get("name")
+        return best_city
 
     for l in leads:
-        st = l.get("scope_type")
-        sid = l.get("scope_id")
-        if st == "branch" and sid in branch_map:
-            l["branch_name"] = branch_map[sid]["name"]
-            l["branch_city"] = branch_map[sid]["city"]
-        elif st == "city" and sid in city_map:
-            l["branch_name"] = None
-            l["branch_city"] = city_map[sid]
+        chosen = _chosen_branch_short(l)
+        if chosen:
+            l["branch_short"] = chosen
+        elif l.get("scope_type") == "branch" and l.get("scope_id") in branch_fallback:
+            l["branch_short"] = branch_fallback[l["scope_id"]] or None
         else:
-            l["branch_name"] = None
-            l["branch_city"] = None
+            l["branch_short"] = None
+        # Don't ship the full data blob back — it's huge and the table only
+        # needs branch_short. Keeps the transfer popup snappy.
+        l.pop("data", None)
 
     return {"leads": leads}
 

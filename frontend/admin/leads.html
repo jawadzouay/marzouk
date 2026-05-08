@@ -1084,20 +1084,15 @@
             <th>الهاتف</th>
             <th>الحالة</th>
           </tr></thead>
-          <tbody>${sorted.map(l => {
-            const branch = l.branch_name
-              ? `${l.branch_city ? l.branch_city + ' — ' : ''}${l.branch_name}`
-              : (l.branch_city || '—');
-            return `
+          <tbody>${sorted.map(l => `
             <tr>
               <td><input type="checkbox" data-lead="${l.id}" onchange="toggleLeadSelect('${l.id}', this.checked)" /></td>
               <td style="white-space:nowrap;font-size:11px">${formatDateTime(l.assigned_at || l.created_time)}</td>
-              <td style="font-size:11px">${escHTML(branch)}</td>
+              <td style="font-size:11px;white-space:nowrap">${escHTML(l.branch_short || '—')}</td>
               <td>${escHTML(l.full_name || '—')}</td>
               <td style="direction:ltr;text-align:left">${escHTML(l.phone_primary || '—')}</td>
               <td><span class="status-chip s-${l.status || 'new'}">${STATUS_LABEL[l.status] || l.status || '—'}</span></td>
-            </tr>`;
-          }).join('')}
+            </tr>`).join('')}
           </tbody>
         </table>`;
       document.getElementById('xfer-loaded-count').textContent = xferState.leads.length;
