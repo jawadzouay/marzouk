@@ -515,6 +515,21 @@ async function loadScores() {
   }
 }
 
+// Bucket each agent purely on RDV count for the selected period:
+//   0 or 1 RDV     → red    (struggling — almost no appointments)
+//   2 – 4 RDVs     → orange (mid — picking up but needs push)
+//   5 or more RDVs → green  (performing well)
+// Backend's quality scoring still drives the bottleneck-badge labels and
+// per-metric percentages, but the column placement now uses this simple,
+// explicit threshold so the admin can teach/coach without explaining a
+// heuristic.
+function rdvBucketColor(s) {
+  const n = s.rdv || 0;
+  if (n <= 1) return 'red';
+  if (n <= 4) return 'orange';
+  return 'green';
+}
+
 function renderColumns(scores) {
   // Sort by selected metric if not "all"
   let sorted = [...scores];
@@ -522,9 +537,9 @@ function renderColumns(scores) {
     sorted.sort((a, b) => (b[currentMetric] || 0) - (a[currentMetric] || 0));
   }
 
-  const green = sorted.filter(s => s.color === 'green');
-  const orange = sorted.filter(s => s.color === 'orange');
-  const red = sorted.filter(s => s.color === 'red');
+  const green  = sorted.filter(s => rdvBucketColor(s) === 'green');
+  const orange = sorted.filter(s => rdvBucketColor(s) === 'orange');
+  const red    = sorted.filter(s => rdvBucketColor(s) === 'red');
 
   // Within each column, sort by the main matrix (registered DESC, then RDV DESC)
   // — except when the user has picked an explicit metric filter above (that
@@ -606,26 +621,28 @@ function renderAgentCard(s) {
         ${badge}
       </div>
 
+      <!-- RTL flex: source order is rendered right-to-left.
+           Reading right→left: الرسائل · مواعيد · زيارات · مسجلين. -->
       <div class="stat-row">
+        <div class="stat-tile">
+          <div class="stat-num">${s.messages}</div>
+          <div class="stat-lbl">الرسائل</div>
+          <div class="stat-sub ${s.bad_lead_pct > 0.5 ? 'warn' : ''}">${badPct}% سيئة</div>
+        </div>
         <div class="stat-tile primary">
           <div class="stat-num primary">${s.rdv}</div>
           <div class="stat-lbl">مواعيد</div>
           ${rdvLine}
-        </div>
-        <div class="stat-tile good">
-          <div class="stat-num good">${s.registered}</div>
-          <div class="stat-lbl">تسجيل</div>
-          ${regLine}
         </div>
         <div class="stat-tile">
           <div class="stat-num">${s.visits}</div>
           <div class="stat-lbl">زيارات</div>
           ${visitsLine}
         </div>
-        <div class="stat-tile">
-          <div class="stat-num">${s.messages}</div>
-          <div class="stat-lbl">رسائل</div>
-          <div class="stat-sub ${s.bad_lead_pct > 0.5 ? 'warn' : ''}">${badPct}% سيئة</div>
+        <div class="stat-tile good">
+          <div class="stat-num good">${s.registered}</div>
+          <div class="stat-lbl">مسجلين</div>
+          ${regLine}
         </div>
       </div>
 
