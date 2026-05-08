@@ -725,31 +725,15 @@ def update_lead_status(lead_id: str, body: StatusUpdate, agent=Depends(require_a
 
 @router.post("/{lead_id}/call-click")
 def record_call_click(lead_id: str, agent=Depends(require_agent)):
+    """Record that the agent tapped the call/WhatsApp button on this lead.
+    Does NOT change the status — the agent must explicitly pick the
+    outcome status afterward via the persistent post-call modal. This
+    endpoint just stamps was_called=true so the cheating tracker can flag
+    status changes that happen without a preceding call."""
     sb = get_client()
-    if not _has_call_tracking_cols():
-        # Migration not applied — degrade gracefully so the call still works,
-        # status auto-mark happens, but the cheating flag isn't trackable.
-        sel = "id, assigned_agent_id, status"
-        lead = sb.table("ad_leads").select(sel).eq("id", lead_id).execute()
-        if not lead.data:
-            raise HTTPException(404, "Lead not found")
-        cur = lead.data[0]
-        if cur["assigned_agent_id"] != agent["sub"]:
-            raise HTTPException(403, "This lead is not assigned to you")
-        now_iso = datetime.now(timezone.utc).isoformat()
-        if (cur.get("status") or "new") == "new":
-            updates: Dict[str, Any] = {
-                "status": "contacted",
-                "contacted_at": now_iso,
-                "updated_at": now_iso,
-            }
-            if _has_status_changed_at_col():
-                updates["status_changed_at"] = now_iso
-            sb.table("ad_leads").update(updates).eq("id", lead_id).execute()
-            return {"ok": True, "status": "contacted", "tracking": False}
-        return {"ok": True, "status": cur.get("status"), "tracking": False}
-
-    sel = "id, assigned_agent_id, status, was_called, first_called_at"
+    sel = "id, assigned_agent_id, status"
+    if _has_call_tracking_cols():
+        sel += ", was_called, first_called_at"
     lead = sb.table("ad_leads").select(sel).eq("id", lead_id).execute()
     if not lead.data:
         raise HTTPException(404, "Lead not found")
@@ -757,24 +741,18 @@ def record_call_click(lead_id: str, agent=Depends(require_agent)):
     if cur["assigned_agent_id"] != agent["sub"]:
         raise HTTPException(403, "This lead is not assigned to you")
 
+    if not _has_call_tracking_cols():
+        # Migration not applied — call still works, just no tracking flag.
+        return {"ok": True, "status": cur.get("status") or "new", "tracking": False}
+
     now_iso = datetime.now(timezone.utc).isoformat()
     updates: Dict[str, Any] = {"updated_at": now_iso}
     if not cur.get("was_called"):
         updates["was_called"] = True
         updates["first_called_at"] = now_iso
-    # Auto-flip 'new' -> 'contacted' so the lead leaves the new bucket.
-    # Don't touch any other status — agent has already classified it.
-    cur_status = cur.get("status") or "new"
-    new_status = cur_status
-    if cur_status == "new":
-        new_status = "contacted"
-        updates["status"] = "contacted"
-        updates["contacted_at"] = now_iso
-        if _has_status_changed_at_col():
-            updates["status_changed_at"] = now_iso
-
-    sb.table("ad_leads").update(updates).eq("id", lead_id).execute()
-    return {"ok": True, "status": new_status, "tracking": True, "was_called": True}
+    if updates.keys() != {"updated_at"}:
+        sb.table("ad_leads").update(updates).eq("id", lead_id).execute()
+    return {"ok": True, "status": cur.get("status") or "new", "tracking": True, "was_called": True}
 
 
 # ---------------------------------------------------------------------------

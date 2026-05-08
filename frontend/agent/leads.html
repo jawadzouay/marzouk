@@ -1671,24 +1671,44 @@ function showPhones(id) {
   document.getElementById('phoneModal').classList.add('show');
 }
 
-// Fired when the agent taps the tel: or wa.me button. POSTs to /call-click
-// which records was_called=true + auto-flips status from 'new' to 'contacted'.
-// Local cache + UI sync so the lead's status badge updates instantly.
+// Fired when the agent taps the tel: or wa.me button. Two jobs:
+//   1) Save the lead in localStorage so when the agent returns from the
+//      phone/WhatsApp app, _post_call.js opens the persistent status
+//      modal demanding they pick the call's outcome.
+//   2) POST /call-click so the backend records was_called=true. This is
+//      what powers the cheating tracker — if the agent later flips the
+//      status without ever calling, suspicious_status_change is set.
+// We DO NOT auto-mark the status as 'contacted' anymore — the agent must
+// pick a real outcome via the post-call modal.
 async function recordCallClick(leadId, method) {
+  const lead = allLeads.find(l => l.id === leadId);
+  const leadName = lead ? (lead.full_name || lead.phone_primary || '') : '';
+  if (window.MzPostCall) window.MzPostCall.remember(leadId, leadName);
+  // Close the phone modal immediately so when the agent returns, the
+  // post-call modal is the front-and-center surface.
+  const ph = document.getElementById('phoneModal');
+  if (ph) ph.classList.remove('show');
   try {
-    const r = await api(`/ad-leads/${leadId}/call-click`, { method: 'POST' });
-    const lead = allLeads.find(l => l.id === leadId);
-    if (lead) {
-      lead.was_called = true;
-      if (r && r.status) lead.status = r.status;
-      render();
-    }
+    await api(`/ad-leads/${leadId}/call-click`, { method: 'POST' });
+    if (lead) { lead.was_called = true; render(); }
   } catch (e) {
     // Non-blocking — the tel:/wa.me link still fires (we don't preventDefault).
-    // Log to console so we can see auth / network errors during testing.
     console.warn('[call-click] failed:', e);
   }
 }
+
+// Hook called by _post_call.js after the agent picks an outcome — refresh
+// the leads list so the new status shows up immediately.
+window.onPostCallStatusUpdated = function (leadId, status) {
+  const l = allLeads.find(x => x.id === leadId);
+  if (l) {
+    l.status = status;
+    l.was_called = true;
+  }
+  render();
+  // Background refresh to pick up server-side derived fields.
+  if (typeof loadLeads === 'function') loadLeads();
+};
 
 function closeModal(id) {
   document.getElementById(id).classList.remove('show');
@@ -1774,5 +1794,6 @@ async function submitTransfer() {
 loadLeads();
 </script>
 <script src="_phone_gate.js"></script>
+<script src="_post_call.js"></script>
 </body>
 </html>
