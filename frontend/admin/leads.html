@@ -210,10 +210,13 @@
     }
     .all-pill b { font-weight: 900; font-size: 13px; margin-right: 2px; }
     .all-pill .extra { font-size: 10px; font-weight: 700; opacity: 0.85; margin-right: 4px; }
-    .all-pill-new    { background: #fef3c7; color: #92400e; }
     .all-pill-active { background: #e0e7ff; color: #3730a3; }
-    .all-pill-today  { background: #fee2e2; color: #991b1b; border: 1.5px solid #fca5a5; }
-    .all-pill-susp   {
+    .all-pill-uncalled {
+      background: #fef3c7; color: #92400e;
+      border: 1.5px solid #fbbf24; font-size: 12px;
+    }
+    .all-pill-uncalled b { font-size: 14px; }
+    .all-pill-susp {
       background: #fee2e2; color: #7f1d1d;
       border: 1.5px solid #fca5a5;
       animation: suspicious-pulse 2.5s ease-in-out infinite;
@@ -222,7 +225,7 @@
       0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.0); }
       50%      { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.20); }
     }
-    .all-pill-clean  { background: #d1fae5; color: #065f46; }
+    .all-pill-clean { background: #d1fae5; color: #065f46; }
 
     /* Multi-agent transfer list — searchable, with workload counters so the
        admin sends to the agents who actually have capacity. */
@@ -683,37 +686,40 @@
       // All-time pile (ignores the date chip). pending_new_total = leads
       // currently sitting in `new` regardless of when they were assigned;
       // pending_active_total = anything still in the active pipeline.
-      const pendingNew = a.pending_new_total ?? 0;
+      // Two metrics, two pills, no overlap:
+      //   ⏳ بدون اتصال — leads sitting in `new` status (actionable backlog)
+      //   📂 قيد العمل  — every active lead (in-progress + new)
+      // Plus an optional green "تواصل مع الكل اليوم" badge when the agent
+      // has actually closed out all of today's intake. Kept the suspicious
+      // pill — different concept (cheating signal) so it's its own tag.
+      const pendingNew    = a.pending_new_total ?? 0;
       const pendingActive = a.pending_active_total ?? 0;
-      const newToday = a.new_count || 0;
-      const totalToday = a.total || 0;
-      const suspicious = a.suspicious_count || 0;
-      // Always show the totals line so admin can compare today's activity
-      // vs the all-time pile at a glance — that's the whole point of the
-      // dashboard during a "today" filter.
-      const todayPill = (totalToday > 0)
-        ? `<span class="all-pill all-pill-today" title="رسائل اليوم التي لم يتواصل معها الوكيل بعد">
-             🔴 جديدة اليوم <b>${newToday}</b><span class="extra">من ${totalToday}</span>
+      const newToday      = a.new_count || 0;
+      const totalToday    = a.total || 0;
+      const suspicious    = a.suspicious_count || 0;
+
+      const uncalledPill = pendingNew > 0
+        ? `<span class="all-pill all-pill-uncalled" title="رسائل لم يتواصل معها الوكيل بعد — تحتاج اتصال">
+             ⏳ بدون اتصال <b>${pendingNew}</b>
            </span>`
-        : '';
-      const cleanBadge = (totalToday > 0 && newToday === 0)
-        ? `<span class="all-pill all-pill-clean" title="تواصل الوكيل مع كل رسائل اليوم">
-             ✅ تم التواصل مع الجميع
+        : `<span class="all-pill all-pill-clean" title="تم التواصل مع كل الرسائل">
+             ✅ كل الرسائل تم التواصل معها
+           </span>`;
+      const cleanBadge = (totalToday > 0 && newToday === 0 && pendingNew > 0)
+        ? `<span class="all-pill all-pill-clean" title="تم التواصل مع كل رسائل اليوم">
+             ✅ تواصل مع رسائل اليوم
            </span>`
         : '';
       const susPill = (suspicious > 0)
         ? `<span class="all-pill all-pill-susp" title="رسائل غيّر فيها الوكيل الحالة دون أن يضغط زر الاتصال — يحتاج تدقيق">
-             🚨 بدون اتصال <b>${suspicious}</b>
+             🚨 تغيير حالة دون اتصال <b>${suspicious}</b>
            </span>`
         : '';
       const totalsLine = `
         <div class="agent-totals-line">
-          ${todayPill}
+          ${uncalledPill}
           ${cleanBadge}
-          <span class="all-pill all-pill-new" title="إجمالي الرسائل الجديدة (غير المُتواصل معها) لدى الوكيل، بغضّ النظر عن الفلتر الزمني">
-            🆕 جديدة كلياً <b>${pendingNew}</b>
-          </span>
-          <span class="all-pill all-pill-active" title="إجمالي الرسائل التي ما زالت قيد العمل (جديدة أو قيد المتابعة)">
+          <span class="all-pill all-pill-active" title="كل الرسائل النشطة (قيد العمل أو غير المُتَواصَل معها)">
             📂 قيد العمل <b>${pendingActive}</b>
           </span>
           ${susPill}
