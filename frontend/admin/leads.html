@@ -362,7 +362,10 @@
   <div class="xfer-overlay" id="xfer-overlay" onclick="if(event.target===this)closeTransferModal()">
     <div class="xfer-modal">
       <div class="xfer-head">
-        <h3>🔄 نقل الرسائل من <span id="xfer-from-name"></span></h3>
+        <div style="display:flex;flex-direction:column;gap:2px">
+          <h3>🔄 نقل الرسائل من <span id="xfer-from-name"></span></h3>
+          <div id="xfer-from-counts" style="font-size:11px;color:#6b7280;font-weight:600"></div>
+        </div>
         <button class="close" onclick="closeTransferModal()">×</button>
       </div>
       <div class="xfer-body">
@@ -865,6 +868,19 @@
       catch(e) { return '—'; }
     }
 
+    // Day + time, used in the transfer leads table so admin can tell
+    // "30 min ago" from "3 days ago" at a glance. ar-MA locale formats as
+    // DD/MM/YYYY HH:MM in Latin numerals — readable in RTL context.
+    function formatDateTime(iso) {
+      if (!iso) return '—';
+      try {
+        const d = new Date(iso);
+        const day = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
+        const time = d.toLocaleTimeString('ar-MA', { hour: '2-digit', minute: '2-digit' });
+        return `${day} · ${time}`;
+      } catch(e) { return '—'; }
+    }
+
     // ─── TRANSFER MODAL ────────────────────────────────────
     // selectedAgents holds the ids the admin has ticked for the multi-agent
     // transfer mode. Distribution backend round-robins across them.
@@ -893,6 +909,25 @@
         leads: [], selected: new Set(), selectedAgents: new Set(),
       };
       document.getElementById('xfer-from-name').textContent = agentName;
+      // Surface the source agent's pending counts so admin sees clearly
+      // what's transferable. Today's "X من Y" matches the main page pill,
+      // and "Z كلياً" matches the all-time pile — no more "why does this
+      // popup say 16 when the leads page shows 1?" confusion.
+      const src = allAgents.find(a => a.id === agentId);
+      const fromCounts = document.getElementById('xfer-from-counts');
+      if (src) {
+        const newToday    = src.new_count || 0;
+        const totalToday  = src.total || 0;
+        const allTimeNew  = src.pending_new_total ?? 0;
+        const allActive   = src.pending_active_total ?? 0;
+        fromCounts.innerHTML =
+          `🔴 اليوم <b style="color:#991b1b">${newToday}</b>` +
+          (totalToday > 0 ? `/${totalToday}` : '') +
+          ` &nbsp;·&nbsp; 🆕 جديدة كلياً <b style="color:#92400e">${allTimeNew}</b>` +
+          ` &nbsp;·&nbsp; 📂 قيد العمل <b style="color:#3730a3">${allActive}</b>`;
+      } else {
+        fromCounts.innerHTML = '';
+      }
       document.getElementById('xfer-count').value = '';
       document.getElementById('xfer-status').value = '';
       document.getElementById('xfer-select-all').checked = false;
@@ -942,9 +977,9 @@
           <label class="xfer-agent-row${checked ? ' selected' : ''}">
             <input type="checkbox" ${checked} onchange="toggleTargetAgent('${a.id}', this.checked)" />
             <div class="xfer-agent-name">${escHTML(a.name)} ${branch}</div>
-            <div class="xfer-agent-counts" title="جديدة كلياً · قيد العمل">
-              <span class="cnt-new">🆕 ${newCount}</span>
-              <span class="cnt-active">📂 ${activeCount}</span>
+            <div class="xfer-agent-counts" title="جديدة كلياً (غير المُتواصل معها) · قيد العمل (كل المراحل النشطة)">
+              <span class="cnt-new">🆕 جديدة <b>${newCount}</b></span>
+              <span class="cnt-active">📂 قيد العمل <b>${activeCount}</b></span>
             </div>
           </label>`;
       }).join('');
@@ -1032,17 +1067,37 @@
         document.getElementById('xfer-selected-count').textContent = '0';
         return;
       }
+      // Defensive sort: backend already returns assigned_at desc, but if a
+      // future caller passes a date filter we still want newest-first here.
+      const sorted = [...xferState.leads].sort((a, b) => {
+        const ad = a.assigned_at || a.created_time || '';
+        const bd = b.assigned_at || b.created_time || '';
+        return bd.localeCompare(ad);
+      });
       box.innerHTML = `
         <table class="leads">
-          <thead><tr><th style="width:30px"></th><th>التاريخ</th><th>الاسم</th><th>الهاتف</th><th>الحالة</th></tr></thead>
-          <tbody>${xferState.leads.map(l => `
+          <thead><tr>
+            <th style="width:30px"></th>
+            <th>التاريخ</th>
+            <th>الفرع</th>
+            <th>الاسم</th>
+            <th>الهاتف</th>
+            <th>الحالة</th>
+          </tr></thead>
+          <tbody>${sorted.map(l => {
+            const branch = l.branch_name
+              ? `${l.branch_city ? l.branch_city + ' — ' : ''}${l.branch_name}`
+              : (l.branch_city || '—');
+            return `
             <tr>
               <td><input type="checkbox" data-lead="${l.id}" onchange="toggleLeadSelect('${l.id}', this.checked)" /></td>
-              <td>${formatTime(l.assigned_at || l.created_time)}</td>
+              <td style="white-space:nowrap;font-size:11px">${formatDateTime(l.assigned_at || l.created_time)}</td>
+              <td style="font-size:11px">${escHTML(branch)}</td>
               <td>${escHTML(l.full_name || '—')}</td>
               <td style="direction:ltr;text-align:left">${escHTML(l.phone_primary || '—')}</td>
               <td><span class="status-chip s-${l.status || 'new'}">${STATUS_LABEL[l.status] || l.status || '—'}</span></td>
-            </tr>`).join('')}
+            </tr>`;
+          }).join('')}
           </tbody>
         </table>`;
       document.getElementById('xfer-loaded-count').textContent = xferState.leads.length;

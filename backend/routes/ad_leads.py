@@ -959,8 +959,8 @@ def admin_list_agent_leads(
     and the transfer modal. Manager scope must include the agent."""
     sb = get_client()
     assert_agent_in_scope(sb, caller, agent_id)
-    base = ("id, created_time, assigned_at, full_name, phone_primary, "
-            "ad_name, platform, status, last_note")
+    base = ("id, scope_type, scope_id, created_time, assigned_at, full_name, "
+            "phone_primary, ad_name, platform, status, last_note")
     if _has_custom_status_col():
         base += ", custom_status"
     if _has_rdv_date_col():
@@ -978,10 +978,49 @@ def admin_list_agent_leads(
         # yesterday but marked RDV today should count toward today.
         activity_field = "status_changed_at" if _has_status_changed_at_col() else "assigned_at"
         q = apply_date_filter(q, df, dt, field=activity_field)
-    # Sort by the same field we filtered on so the most recent activity is first.
-    order_field = "status_changed_at" if _has_status_changed_at_col() else "assigned_at"
-    res = q.order(order_field, desc=True).limit(max(1, min(2000, limit))).execute()
-    return {"leads": res.data or []}
+    # Sort by assigned_at desc — most-recently-arrived leads at the top.
+    # The transfer modal especially benefits from "newest first": admin
+    # usually wants to redistribute the freshly-piled-up leads.
+    res = q.order("assigned_at", desc=True).limit(max(1, min(2000, limit))).execute()
+    leads = res.data or []
+
+    # Resolve scope_id → branch name/city for display. Most leads share
+    # a small set of branches so a single batch lookup is cheap.
+    branch_ids = {l.get("scope_id") for l in leads
+                  if l.get("scope_type") == "branch" and l.get("scope_id")}
+    city_ids   = {l.get("scope_id") for l in leads
+                  if l.get("scope_type") == "city"   and l.get("scope_id")}
+    branch_map: Dict[str, Dict[str, str]] = {}
+    if branch_ids:
+        try:
+            br = sb.table("branches").select("id, name, city").in_("id", list(branch_ids)).execute()
+            for b in (br.data or []):
+                branch_map[b["id"]] = {"name": b.get("name") or "", "city": b.get("city") or ""}
+        except Exception as e:
+            log.warning("[ad_leads] branch lookup failed: %s", e)
+    city_map: Dict[str, str] = {}
+    if city_ids:
+        try:
+            ci = sb.table("cities").select("id, name").in_("id", list(city_ids)).execute()
+            for c in (ci.data or []):
+                city_map[c["id"]] = c.get("name") or ""
+        except Exception as e:
+            log.warning("[ad_leads] city lookup failed: %s", e)
+
+    for l in leads:
+        st = l.get("scope_type")
+        sid = l.get("scope_id")
+        if st == "branch" and sid in branch_map:
+            l["branch_name"] = branch_map[sid]["name"]
+            l["branch_city"] = branch_map[sid]["city"]
+        elif st == "city" and sid in city_map:
+            l["branch_name"] = None
+            l["branch_city"] = city_map[sid]
+        else:
+            l["branch_name"] = None
+            l["branch_city"] = None
+
+    return {"leads": leads}
 
 
 @router.get("/admin/agent-leaderboard")
