@@ -36,10 +36,13 @@
   }
 
   window.MzPostCall = {
-    remember(leadId, leadName) {
+    remember(leadId, leadName, leadPhone) {
       try {
         localStorage.setItem(KEY, JSON.stringify({
-          leadId, leadName: leadName || '', ts: Date.now()
+          leadId,
+          leadName:  leadName  || '',
+          leadPhone: leadPhone || '',
+          ts: Date.now(),
         }));
       } catch (e) {}
     },
@@ -107,9 +110,14 @@
   .pco-title { font-size: 22px; font-weight: 900; color: #0f172a; margin: 8px 0 4px; }
   .pco-name {
     font-size: 16px; font-weight: 800; color: #6366f1;
-    margin-bottom: 12px; min-height: 18px;
-    word-break: break-word;
+    min-height: 18px; word-break: break-word;
   }
+  .pco-phone {
+    font-size: 14px; font-weight: 700; color: #475569;
+    margin-bottom: 12px; direction: ltr; letter-spacing: 0.5px;
+    font-family: 'Cairo', monospace;
+  }
+  .pco-phone:empty { display: none; }
   .pco-help {
     font-size: 12.5px; color: #78350f; line-height: 1.7;
     background: linear-gradient(135deg, #fef3c7, #fde68a);
@@ -365,6 +373,7 @@
             <div class="pco-icon">📞</div>
             <div class="pco-title">اختر حالة المكالمة</div>
             <div class="pco-name" id="pcoLeadName"></div>
+            <div class="pco-phone" id="pcoLeadPhone"></div>
             <div class="pco-help">المرجو إختيار الحالة المناسبة للمساعدة في تحسين جودة الإعلانات الخاصة بكم — وشكرا 🙏</div>
           </div>
           <div class="pco-grid" id="pcoGrid">${grid}</div>
@@ -428,9 +437,10 @@
     });
   }
 
-  function openModal(leadId, leadName) {
+  function openModal(leadId, leadName, leadPhone) {
     if (!document.getElementById('pcoOverlay')) buildModal();
-    document.getElementById('pcoLeadName').textContent = leadName || '';
+    document.getElementById('pcoLeadName').textContent  = leadName  || '';
+    document.getElementById('pcoLeadPhone').textContent = leadPhone || '';
     document.getElementById('pcoOverlay').classList.add('show');
     document.body.style.overflow = 'hidden';
   }
@@ -608,7 +618,7 @@
     if (!pending) return;
     const ov = document.getElementById('pcoOverlay');
     if (ov && ov.classList.contains('show')) return;
-    openModal(pending.leadId, pending.leadName);
+    openModal(pending.leadId, pending.leadName, pending.leadPhone);
   }
 
   document.addEventListener('visibilitychange', () => { if (!document.hidden) maybeOpen(); });

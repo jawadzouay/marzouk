@@ -1682,8 +1682,9 @@ function showPhones(id) {
 // pick a real outcome via the post-call modal.
 async function recordCallClick(leadId, method) {
   const lead = allLeads.find(l => l.id === leadId);
-  const leadName = lead ? (lead.full_name || lead.phone_primary || '') : '';
-  if (window.MzPostCall) window.MzPostCall.remember(leadId, leadName);
+  const leadName  = lead ? (lead.full_name || '') : '';
+  const leadPhone = lead ? (lead.phone_primary || '') : '';
+  if (window.MzPostCall) window.MzPostCall.remember(leadId, leadName, leadPhone);
   // Close the phone modal immediately so when the agent returns, the
   // post-call modal is the front-and-center surface.
   const ph = document.getElementById('phoneModal');
