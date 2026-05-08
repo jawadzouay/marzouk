@@ -1663,12 +1663,31 @@ function showPhones(id) {
           <div class="phone-num">${escapeHtml(num)}</div>
         </div>
         ${valid ? `<div class="phone-btns">
-          <a class="call" href="tel:${num}">📞 اتصال</a>
-          <a class="wa" href="${wa}" target="_blank">💬 واتساب</a>
+          <a class="call" href="tel:${num}" onclick="recordCallClick('${id}','tel')">📞 اتصال</a>
+          <a class="wa" href="${wa}" target="_blank" onclick="recordCallClick('${id}','wa')">💬 واتساب</a>
         </div>` : '<span style="color:#dc2626; font-size:11px; font-weight:700;">⚠️ صيغة غير صالحة</span>'}
       </div>`;
   }).join('');
   document.getElementById('phoneModal').classList.add('show');
+}
+
+// Fired when the agent taps the tel: or wa.me button. POSTs to /call-click
+// which records was_called=true + auto-flips status from 'new' to 'contacted'.
+// Local cache + UI sync so the lead's status badge updates instantly.
+async function recordCallClick(leadId, method) {
+  try {
+    const r = await api(`/ad-leads/${leadId}/call-click`, { method: 'POST' });
+    const lead = allLeads.find(l => l.id === leadId);
+    if (lead) {
+      lead.was_called = true;
+      if (r && r.status) lead.status = r.status;
+      render();
+    }
+  } catch (e) {
+    // Non-blocking — the tel:/wa.me link still fires (we don't preventDefault).
+    // Log to console so we can see auth / network errors during testing.
+    console.warn('[call-click] failed:', e);
+  }
 }
 
 function closeModal(id) {

@@ -305,6 +305,21 @@ UPDATE ad_leads
 CREATE INDEX IF NOT EXISTS idx_ad_leads_status_changed_at
   ON ad_leads(status_changed_at DESC);
 
+-- Call-click tracking + cheating detection.
+--   was_called                — true once the agent has tapped 📞 or 💬 in the
+--                                phone modal at least once.
+--   first_called_at           — when they first tapped a call button.
+--   suspicious_status_change  — sticky flag set when the agent updated the
+--                                status to a real outcome (rdv/bv/registered/
+--                                etc.) WITHOUT having clicked any call button
+--                                first. Admin uses this to spot agents who
+--                                fake-update statuses without actually calling.
+ALTER TABLE ad_leads ADD COLUMN IF NOT EXISTS was_called               BOOLEAN DEFAULT FALSE;
+ALTER TABLE ad_leads ADD COLUMN IF NOT EXISTS first_called_at          TIMESTAMPTZ;
+ALTER TABLE ad_leads ADD COLUMN IF NOT EXISTS suspicious_status_change BOOLEAN DEFAULT FALSE;
+CREATE INDEX IF NOT EXISTS idx_ad_leads_suspicious
+  ON ad_leads(assigned_agent_id) WHERE suspicious_status_change IS TRUE;
+
 -- ============================================================================
 -- AGENT OFF-DATES — per-agent list of future off days (unchanged)
 -- ============================================================================

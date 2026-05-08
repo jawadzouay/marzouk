@@ -246,6 +246,10 @@ def _lead_select_fields() -> str:
         extras.append("rdv_time")
     if _has_status_changed_at_col():
         extras.append("status_changed_at")
+    if _has_call_tracking_cols():
+        extras.append("was_called")
+        extras.append("first_called_at")
+        extras.append("suspicious_status_change")
     return _LEAD_FIELDS_BASE + ("".join(f", {e}" for e in extras) if extras else "")
 
 
@@ -548,6 +552,7 @@ _HAS_CUSTOM_STATUS_COL: Optional[bool] = None
 _HAS_RDV_DATE_COL: Optional[bool] = None
 _HAS_RDV_TIME_COL: Optional[bool] = None
 _HAS_STATUS_CHANGED_AT_COL: Optional[bool] = None
+_HAS_CALL_TRACKING_COLS: Optional[bool] = None
 
 
 def _has_custom_status_col() -> bool:
@@ -598,6 +603,23 @@ def _has_status_changed_at_col() -> bool:
     return _HAS_STATUS_CHANGED_AT_COL
 
 
+def _has_call_tracking_cols() -> bool:
+    """Probe for call-tracking columns: was_called, first_called_at,
+    suspicious_status_change. All three are added in one migration so we
+    treat them as a single feature flag."""
+    global _HAS_CALL_TRACKING_COLS
+    if _HAS_CALL_TRACKING_COLS is None:
+        try:
+            get_client().table("ad_leads").select(
+                "was_called, first_called_at, suspicious_status_change"
+            ).limit(1).execute()
+            _HAS_CALL_TRACKING_COLS = True
+        except Exception:
+            _HAS_CALL_TRACKING_COLS = False
+            log.warning("[ad_leads] call-tracking columns missing — agent call clicks won't be recorded")
+    return _HAS_CALL_TRACKING_COLS
+
+
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 _TIME_RE = re.compile(r"^\d{2}:\d{2}$")
 
@@ -608,10 +630,15 @@ def update_lead_status(lead_id: str, body: StatusUpdate, agent=Depends(require_a
     if body.status not in VALID_STATUSES:
         raise HTTPException(400, f"invalid status: {body.status}")
 
-    lead = sb.table("ad_leads").select("id, assigned_agent_id").eq("id", lead_id).execute()
+    # Need was_called for cheating detection — pull it when the column exists.
+    sel = "id, assigned_agent_id, status"
+    if _has_call_tracking_cols():
+        sel += ", was_called, suspicious_status_change"
+    lead = sb.table("ad_leads").select(sel).eq("id", lead_id).execute()
     if not lead.data:
         raise HTTPException(404, "Lead not found")
-    if lead.data[0]["assigned_agent_id"] != agent["sub"]:
+    cur = lead.data[0]
+    if cur["assigned_agent_id"] != agent["sub"]:
         raise HTTPException(403, "This lead is not assigned to you")
 
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -625,6 +652,29 @@ def update_lead_status(lead_id: str, body: StatusUpdate, agent=Depends(require_a
     # in today's admin bucket even if the lead itself was assigned yesterday.
     if _has_status_changed_at_col():
         updates["status_changed_at"] = now_iso
+
+    # Cheating detection: if the agent flips the status to a real outcome
+    # (anything other than 'new' / 'contacted') WITHOUT having clicked any
+    # call/WhatsApp button on the lead first, flag it as suspicious. Admin
+    # can then audit. We don't block the update — agents may legitimately
+    # contact leads off-platform — but the flag is sticky once set so the
+    # admin sees it even after the agent realises and goes back to call.
+    if _has_call_tracking_cols():
+        outcome_statuses = {"rdv", "bv", "pi", "pe", "autre_ville", "over_40",
+                            "contra", "visits", "registered", "waiting",
+                            "no_answer", "custom"}
+        already_called = bool(cur.get("was_called"))
+        already_flagged = bool(cur.get("suspicious_status_change"))
+        if (body.status in outcome_statuses
+                and not already_called
+                and not already_flagged):
+            updates["suspicious_status_change"] = True
+            log.info("[ad_leads] suspicious: agent %s set lead %s to %s without calling first",
+                     agent["sub"], lead_id, body.status)
+        # If agent explicitly marks "contacted", count it as a call too.
+        if body.status == "contacted" and not already_called:
+            updates["was_called"] = True
+            updates["first_called_at"] = now_iso
 
     # Custom status — requires the free-text label.
     if body.status == "custom":
@@ -664,6 +714,67 @@ def update_lead_status(lead_id: str, body: StatusUpdate, agent=Depends(require_a
 
     sb.table("ad_leads").update(updates).eq("id", lead_id).execute()
     return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Call-click tracker — agent fires this when they tap the tel:/wa.me button
+# on a lead. Records the first call timestamp + auto-marks status='contacted'
+# when the lead is still 'new'. Admin uses was_called to spot agents who
+# update statuses without ever actually calling.
+# ---------------------------------------------------------------------------
+
+@router.post("/{lead_id}/call-click")
+def record_call_click(lead_id: str, agent=Depends(require_agent)):
+    sb = get_client()
+    if not _has_call_tracking_cols():
+        # Migration not applied — degrade gracefully so the call still works,
+        # status auto-mark happens, but the cheating flag isn't trackable.
+        sel = "id, assigned_agent_id, status"
+        lead = sb.table("ad_leads").select(sel).eq("id", lead_id).execute()
+        if not lead.data:
+            raise HTTPException(404, "Lead not found")
+        cur = lead.data[0]
+        if cur["assigned_agent_id"] != agent["sub"]:
+            raise HTTPException(403, "This lead is not assigned to you")
+        now_iso = datetime.now(timezone.utc).isoformat()
+        if (cur.get("status") or "new") == "new":
+            updates: Dict[str, Any] = {
+                "status": "contacted",
+                "contacted_at": now_iso,
+                "updated_at": now_iso,
+            }
+            if _has_status_changed_at_col():
+                updates["status_changed_at"] = now_iso
+            sb.table("ad_leads").update(updates).eq("id", lead_id).execute()
+            return {"ok": True, "status": "contacted", "tracking": False}
+        return {"ok": True, "status": cur.get("status"), "tracking": False}
+
+    sel = "id, assigned_agent_id, status, was_called, first_called_at"
+    lead = sb.table("ad_leads").select(sel).eq("id", lead_id).execute()
+    if not lead.data:
+        raise HTTPException(404, "Lead not found")
+    cur = lead.data[0]
+    if cur["assigned_agent_id"] != agent["sub"]:
+        raise HTTPException(403, "This lead is not assigned to you")
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    updates: Dict[str, Any] = {"updated_at": now_iso}
+    if not cur.get("was_called"):
+        updates["was_called"] = True
+        updates["first_called_at"] = now_iso
+    # Auto-flip 'new' -> 'contacted' so the lead leaves the new bucket.
+    # Don't touch any other status — agent has already classified it.
+    cur_status = cur.get("status") or "new"
+    new_status = cur_status
+    if cur_status == "new":
+        new_status = "contacted"
+        updates["status"] = "contacted"
+        updates["contacted_at"] = now_iso
+        if _has_status_changed_at_col():
+            updates["status_changed_at"] = now_iso
+
+    sb.table("ad_leads").update(updates).eq("id", lead_id).execute()
+    return {"ok": True, "status": new_status, "tracking": True, "was_called": True}
 
 
 # ---------------------------------------------------------------------------
@@ -990,6 +1101,20 @@ def admin_agent_leaderboard(
                 pending_new_total[aid] = pending_new_total.get(aid, 0) + 1
             pending_active_total[aid] = pending_active_total.get(aid, 0) + 1
 
+    # Cheating tracker: leads where agent flipped status to a real outcome
+    # without ever clicking a call/WhatsApp button. Sticky once set.
+    suspicious_total: Dict[str, int] = {}
+    if agent_ids and _has_call_tracking_cols():
+        try:
+            s_q = sb.table("ad_leads").select("assigned_agent_id") \
+                .in_("assigned_agent_id", agent_ids) \
+                .eq("suspicious_status_change", True)
+            for r in fetch_all_pages(s_q):
+                aid = r["assigned_agent_id"]
+                suspicious_total[aid] = suspicious_total.get(aid, 0) + 1
+        except Exception as e:
+            log.warning("[ad_leads] suspicious-count query failed: %s", e)
+
     rows = []
     for a in agents_data:
         cd = counts.get(a["id"], {"total": 0, "by_status": {}})
@@ -1024,6 +1149,10 @@ def admin_agent_leaderboard(
             # Work phone — null until the agent fills it in via the
             # dashboard gate. Powers the admin's call/WhatsApp buttons.
             "phone": a.get("phone"),
+            # Cheating tracker — leads where agent set a real outcome status
+            # without ever clicking a call button. 0 when the migration
+            # hasn't run yet.
+            "suspicious_count": suspicious_total.get(a["id"], 0),
         })
 
     rows.sort(key=lambda x: (-x["registered_count"], -x["rdv_count"], -x["total"], x["name"]))
