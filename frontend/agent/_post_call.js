@@ -48,11 +48,13 @@
   };
 
   // Order: most-aspirational first (gold + green) so the eye lands on
-  // the outcomes the agent should be aiming for.
+  // the outcomes the agent should be aiming for. Then mid-funnel
+  // statuses, then dead-ends, then the catch-all مخصص.
   const STATUSES = [
-    { id: 'rdv',         lbl: 'موعد',        emoji: '📅', big: true  },
     { id: 'registered',  lbl: 'مسجل',        emoji: '🎉', big: true  },
+    { id: 'rdv',         lbl: 'موعد',        emoji: '📅', big: true  },
     { id: 'visits',      lbl: 'زيارة',       emoji: '🚪', big: false },
+    { id: 'contacted',   lbl: 'تم التواصل',  emoji: '✅', big: false },
     { id: 'waiting',     lbl: 'في الانتظار', emoji: '⏳', big: false },
     { id: 'no_answer',   lbl: 'لا يجيب',     emoji: '📵', big: false },
     { id: 'bv',          lbl: 'بريد صوتي',   emoji: '🎙️', big: false },
@@ -61,6 +63,7 @@
     { id: 'autre_ville', lbl: 'مدينة أخرى',  emoji: '🏙️', big: false },
     { id: 'over_40',     lbl: 'فوق 40',      emoji: '🎂', big: false },
     { id: 'contra',      lbl: 'كونترا',      emoji: '🚫', big: false },
+    { id: 'custom',      lbl: 'مخصص',        emoji: '✏️', big: false },
   ];
 
   const STYLES = `
@@ -115,8 +118,11 @@
   }
 
   .pco-grid {
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    gap: 10px; margin-top: 16px;
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 8px; margin-top: 14px;
+  }
+  @media (max-width: 600px) {
+    .pco-grid { grid-template-columns: repeat(3, 1fr); }
   }
   @media (max-width: 480px) {
     .pco-overlay { padding: 10px; }
@@ -125,35 +131,42 @@
     .pco-icon { font-size: 44px; }
     .pco-name { font-size: 14px; }
     .pco-help { font-size: 11.5px; padding: 9px 12px; }
-    .pco-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .pco-grid { grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  }
+  @media (max-width: 360px) {
+    .pco-grid { grid-template-columns: repeat(2, 1fr); }
   }
 
   .pco-btn {
-    background: white; border: 2px solid #e5e7eb; border-radius: 16px;
-    padding: 16px 6px;
-    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    background: white; border: 2px solid #e5e7eb; border-radius: 14px;
+    padding: 10px 4px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
     font-family: inherit; cursor: pointer;
     transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1),
                 box-shadow 0.15s ease;
-    min-height: 96px;
+    min-height: 76px;
   }
-  .pco-btn:hover  { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.12); }
+  .pco-btn:hover  { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,0.1); }
   .pco-btn:active { transform: scale(0.94); }
-  .pco-btn-emoji { font-size: 28px; line-height: 1; }
-  .pco-btn-lbl   { font-size: 13px; font-weight: 800; color: #374151; }
+  .pco-btn-emoji { font-size: 22px; line-height: 1; }
+  .pco-btn-lbl   { font-size: 12px; font-weight: 800; color: #374151; line-height: 1.25; }
 
   .pco-btn-rdv {
     background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
     border-color: #fbbf24;
   }
-  .pco-btn-rdv .pco-btn-lbl { color: #78350f; font-size: 14px; }
+  .pco-btn-rdv .pco-btn-lbl { color: #78350f; }
+  .pco-btn-rdv .pco-btn-emoji { font-size: 24px; }
   .pco-btn-registered {
     background: linear-gradient(135deg, #d1fae5 0%, #6ee7b7 100%);
     border-color: #10b981;
   }
-  .pco-btn-registered .pco-btn-lbl { color: #064e3b; font-size: 14px; }
+  .pco-btn-registered .pco-btn-lbl { color: #064e3b; }
+  .pco-btn-registered .pco-btn-emoji { font-size: 24px; }
   .pco-btn-visits      { background: #ecfdf5; border-color: #a7f3d0; }
   .pco-btn-visits .pco-btn-lbl { color: #065f46; }
+  .pco-btn-contacted   { background: #dbeafe; border-color: #93c5fd; }
+  .pco-btn-contacted .pco-btn-lbl { color: #1e40af; }
   .pco-btn-waiting     { background: #fef3c7; border-color: #fde68a; }
   .pco-btn-waiting .pco-btn-lbl { color: #78350f; }
   .pco-btn-no_answer   { background: #fef2f2; border-color: #fecaca; }
@@ -170,6 +183,8 @@
   .pco-btn-over_40 .pco-btn-lbl { color: #5b21b6; }
   .pco-btn-contra      { background: #fce7f3; border-color: #fbcfe8; }
   .pco-btn-contra .pco-btn-lbl { color: #9d174d; }
+  .pco-btn-custom      { background: #f5f3ff; border-color: #c4b5fd; }
+  .pco-btn-custom .pco-btn-lbl { color: #5b21b6; }
 
   .pco-btn.picking {
     animation: pcoPick 0.55s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
@@ -254,6 +269,80 @@
     color: #dc2626; font-size: 13px; font-weight: 800;
     text-align: center; margin-top: 10px; min-height: 16px;
   }
+
+  /* Success checkmark — shown briefly after a normal-status save before the
+     modal closes. The mark scales+rotates in, then a thank-you fades up. */
+  .pco-success {
+    position: absolute; inset: 0;
+    display: none; flex-direction: column; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.96); border-radius: 24px; z-index: 6;
+    gap: 14px;
+  }
+  .pco-success.show { display: flex; }
+  .pco-check-circle {
+    width: 96px; height: 96px; border-radius: 50%;
+    background: #10b981; display: flex; align-items: center; justify-content: center;
+    animation: pcoCheckPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 12px 32px rgba(16, 185, 129, 0.35);
+  }
+  @keyframes pcoCheckPop {
+    0%   { transform: scale(0) rotate(-45deg); opacity: 0; }
+    60%  { transform: scale(1.15) rotate(0deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0deg);    opacity: 1; }
+  }
+  .pco-check-svg {
+    width: 56px; height: 56px;
+    stroke: white; stroke-width: 5;
+    stroke-linecap: round; stroke-linejoin: round; fill: none;
+  }
+  .pco-check-svg path {
+    stroke-dasharray: 60;
+    stroke-dashoffset: 60;
+    animation: pcoCheckDraw 0.4s ease-out 0.2s forwards;
+  }
+  @keyframes pcoCheckDraw { to { stroke-dashoffset: 0; } }
+  .pco-thanks {
+    font-size: 22px; font-weight: 900; color: #065f46;
+    opacity: 0; transform: translateY(8px);
+    animation: pcoThanksUp 0.4s ease-out 0.4s forwards;
+  }
+  .pco-thanks-sub {
+    font-size: 13px; font-weight: 700; color: #6b7280;
+    opacity: 0; transform: translateY(6px);
+    animation: pcoThanksUp 0.4s ease-out 0.55s forwards;
+  }
+  @keyframes pcoThanksUp { to { opacity: 1; transform: translateY(0); } }
+
+  /* Custom-status panel — same shell as RDV but a single text input */
+  .pco-custom-panel {
+    display: none; margin-top: 14px;
+    background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+    border: 2px solid #c4b5fd; border-radius: 16px; padding: 16px;
+    animation: pcoSlide 0.3s ease-out;
+  }
+  .pco-custom-panel.show { display: block; }
+  .pco-custom-panel label {
+    font-size: 12px; font-weight: 800; color: #5b21b6;
+    display: block; margin-bottom: 6px;
+  }
+  .pco-custom-panel input {
+    width: 100%; padding: 12px 14px; border: 2px solid #c4b5fd;
+    border-radius: 10px; font-size: 15px; font-family: inherit;
+    background: white; box-sizing: border-box; margin-bottom: 12px;
+  }
+  .pco-custom-panel input:focus { outline: none; border-color: #7c3aed; }
+  .pco-custom-actions { display: flex; gap: 8px; }
+  .pco-custom-save {
+    flex: 1; background: #7c3aed; color: white; border: none;
+    padding: 13px; border-radius: 12px; font-weight: 800; font-size: 15px;
+    font-family: inherit; cursor: pointer;
+  }
+  .pco-custom-save:disabled { opacity: 0.6; cursor: wait; }
+  .pco-custom-cancel {
+    background: white; color: #5b21b6; border: 2px solid #ddd6fe;
+    padding: 13px 18px; border-radius: 12px; font-weight: 700; font-size: 14px;
+    font-family: inherit; cursor: pointer;
+  }
   `;
 
   const styleEl = document.createElement('style');
@@ -295,9 +384,26 @@
               <button class="pco-rdv-cancel" id="pcoRdvCancel">رجوع للحالات</button>
             </div>
           </div>
+          <div class="pco-custom-panel" id="pcoCustomPanel">
+            <label for="pcoCustomInput">✏️ اكتب الحالة المخصصة</label>
+            <input type="text" id="pcoCustomInput" maxlength="100" placeholder="مثال: طلب وقتاً للتفكير" />
+            <div class="pco-custom-actions">
+              <button class="pco-custom-save" id="pcoCustomSave">✓ حفظ الحالة</button>
+              <button class="pco-custom-cancel" id="pcoCustomCancel">رجوع للحالات</button>
+            </div>
+          </div>
           <div class="pco-error" id="pcoError"></div>
           <div class="pco-saving" id="pcoSaving">
             <div class="pco-saving-spinner"></div>
+          </div>
+          <div class="pco-success" id="pcoSuccess">
+            <div class="pco-check-circle">
+              <svg class="pco-check-svg" viewBox="0 0 60 60" aria-hidden="true">
+                <path d="M14 31 L26 43 L46 19" />
+              </svg>
+            </div>
+            <div class="pco-thanks">شكراً لك! 🙏</div>
+            <div class="pco-thanks-sub">تم حفظ الحالة بنجاح</div>
           </div>
         </div>
         <div class="pco-confetti" id="pcoConfetti"></div>
@@ -307,7 +413,12 @@
 
     document.getElementById('pcoGrid').addEventListener('click', onStatusClick);
     document.getElementById('pcoRdvSave').addEventListener('click', onRdvSave);
-    document.getElementById('pcoRdvCancel').addEventListener('click', cancelRdvPanel);
+    document.getElementById('pcoRdvCancel').addEventListener('click', cancelInlinePanels);
+    document.getElementById('pcoCustomSave').addEventListener('click', onCustomSave);
+    document.getElementById('pcoCustomCancel').addEventListener('click', cancelInlinePanels);
+    document.getElementById('pcoCustomInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); onCustomSave(); }
+    });
 
     // Block Esc — modal must be answered.
     document.addEventListener('keydown', e => {
@@ -329,16 +440,22 @@
     if (!ov) return;
     ov.classList.remove('show');
     document.body.style.overflow = '';
-    cancelRdvPanel();
+    cancelInlinePanels();
     document.getElementById('pcoError').textContent = '';
+    const success = document.getElementById('pcoSuccess');
+    if (success) success.classList.remove('show');
     document.querySelectorAll('.pco-btn').forEach(b => b.classList.remove('picking', 'picking-big'));
   }
 
-  function cancelRdvPanel() {
-    const panel = document.getElementById('pcoRdvPanel');
-    const grid  = document.getElementById('pcoGrid');
-    if (panel) panel.classList.remove('show');
-    if (grid)  grid.style.display = '';
+  // Hide RDV / custom inline panels and bring the status grid back.
+  function cancelInlinePanels() {
+    const rdv    = document.getElementById('pcoRdvPanel');
+    const cust   = document.getElementById('pcoCustomPanel');
+    const grid   = document.getElementById('pcoGrid');
+    if (rdv)  rdv.classList.remove('show');
+    if (cust) cust.classList.remove('show');
+    if (grid) grid.style.display = '';
+    document.getElementById('pcoError').textContent = '';
     document.querySelectorAll('.pco-btn').forEach(b => b.classList.remove('picking', 'picking-big'));
   }
 
@@ -364,32 +481,65 @@
       }, 350);
       return;
     }
+    if (status === 'custom') {
+      // Show free-text inline panel — don't save yet.
+      setTimeout(() => {
+        document.getElementById('pcoGrid').style.display = 'none';
+        document.getElementById('pcoCustomPanel').classList.add('show');
+        const inp = document.getElementById('pcoCustomInput');
+        inp.value = '';
+        setTimeout(() => inp.focus(), 80);
+      }, 250);
+      return;
+    }
     if (status === 'registered') {
       fireConfetti(140, ['#10b981', '#fbbf24', '#3b82f6', '#ec4899', '#a855f7']);
       tryPlaySound();
     }
 
-    setTimeout(() => commitStatus(status, null, null), isBig ? 700 : 380);
+    setTimeout(() => commitStatus(status, null, null, null), isBig ? 700 : 380);
   }
 
   async function onRdvSave() {
-    const date = document.getElementById('pcoRdvDate').value;
-    const time = document.getElementById('pcoRdvTime').value;
+    const date  = document.getElementById('pcoRdvDate').value;
+    const time  = document.getElementById('pcoRdvTime').value;
     const errEl = document.getElementById('pcoError');
     if (!date) { errEl.textContent = 'أدخل تاريخ الموعد'; return; }
     document.getElementById('pcoRdvSave').disabled = true;
-    await commitStatus('rdv', date, time || null);
+    await commitStatus('rdv', date, time || null, null);
     document.getElementById('pcoRdvSave').disabled = false;
   }
 
-  async function commitStatus(status, rdvDate, rdvTime) {
+  async function onCustomSave() {
+    const label = document.getElementById('pcoCustomInput').value.trim();
+    const errEl = document.getElementById('pcoError');
+    if (!label)            { errEl.textContent = 'اكتب الحالة المخصصة'; return; }
+    if (label.length > 100) { errEl.textContent = 'الحالة طويلة جداً (الحد 100 حرف)'; return; }
+    document.getElementById('pcoCustomSave').disabled = true;
+    await commitStatus('custom', null, null, label);
+    document.getElementById('pcoCustomSave').disabled = false;
+  }
+
+  function showSuccessAnimation(callback) {
+    const success = document.getElementById('pcoSuccess');
+    if (!success) { callback(); return; }
+    success.classList.add('show');
+    // 1.4s total: 0.5s pop + 0.4s draw + 0.4s thanks fade-up + 0.1s breathe.
+    setTimeout(() => {
+      success.classList.remove('show');
+      callback();
+    }, 1400);
+  }
+
+  async function commitStatus(status, rdvDate, rdvTime, customLabel) {
     const pending = getPending();
     if (!pending) { closeModal(); return; }
     document.getElementById('pcoSaving').classList.add('show');
     try {
       const body = { status };
-      if (rdvDate) body.rdv_date = rdvDate;
-      if (rdvTime) body.rdv_time = rdvTime;
+      if (rdvDate)     body.rdv_date      = rdvDate;
+      if (rdvTime)     body.rdv_time      = rdvTime;
+      if (customLabel) body.custom_status = customLabel;
       const res = await fetch(API + `/ad-leads/${pending.leadId}/status`, {
         method: 'PATCH',
         headers: {
@@ -403,14 +553,24 @@
         throw new Error(err.detail || ('HTTP ' + res.status));
       }
       window.MzPostCall.clear();
-      const isBig = status === 'rdv' || status === 'registered';
-      setTimeout(() => {
-        document.getElementById('pcoSaving').classList.remove('show');
+      document.getElementById('pcoSaving').classList.remove('show');
+
+      const finish = () => {
         closeModal();
         if (typeof window.onPostCallStatusUpdated === 'function') {
           try { window.onPostCallStatusUpdated(pending.leadId, status); } catch (_) {}
         }
-      }, isBig ? 1100 : 380);
+      };
+
+      // Big celebrations (موعد + مسجل) already had confetti + animation
+      // on the button itself. For everything else, show the satisfying
+      // checkmark + "شكراً لك" overlay before closing.
+      const isBig = status === 'rdv' || status === 'registered';
+      if (isBig) {
+        setTimeout(finish, 900);
+      } else {
+        showSuccessAnimation(finish);
+      }
     } catch (e) {
       document.getElementById('pcoSaving').classList.remove('show');
       document.getElementById('pcoError').textContent = 'فشل الحفظ — حاول مجدداً';
