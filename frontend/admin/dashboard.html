@@ -46,17 +46,6 @@
       max-width: 1100px; margin: 0 auto;
     }
 
-    /* ── Warning Cards ── */
-    .warnings-row { display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
-    .warning-card {
-      flex: 1; min-width: 200px; border-radius: 12px; padding: 12px 14px;
-      font-size: 12px; font-weight: 600;
-    }
-    .warning-card.red { background: #fee2e2; border: 1.5px solid #fca5a5; color: #991b1b; }
-    .warning-card.orange { background: #fff7ed; border: 1.5px solid #fed7aa; color: #9a3412; }
-    .warning-card .warn-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
-    .warning-card .warn-names { font-size: 11px; line-height: 1.7; }
-
     /* ── Filter Bar ── */
     .filter-bar {
       background: white; border-radius: 14px; padding: 12px 14px;
@@ -284,7 +273,6 @@
 <div class="container">
 
   <!-- Submission Warnings -->
-  <div class="warnings-row" id="warningsRow" style="display:none"></div>
 
   <!-- Filter Bar -->
   <div class="filter-bar">
@@ -503,37 +491,6 @@ document.getElementById('branchFilter').addEventListener('change', (e) => {
   currentBranch = e.target.value;
   loadScores();
 });
-
-// ── Submission Warnings ──
-async function loadWarnings() {
-  try {
-    const res = await fetch(API + '/reports/submission-status', { headers: hdr() });
-    if (!res.ok) return;
-    const data = await res.json();
-    const row = document.getElementById('warningsRow');
-
-    const yesterday = data.not_submitted_yesterday || [];
-    const today = data.not_submitted_today || [];
-
-    if (!yesterday.length && !today.length) { row.style.display = 'none'; return; }
-
-    let html = '';
-    if (yesterday.length) {
-      html += `<div class="warning-card red">
-        <div class="warn-title">لم يرسل أمس (${yesterday.length})</div>
-        <div class="warn-names">${yesterday.map(a => a.name).join(' — ')}</div>
-      </div>`;
-    }
-    if (today.length) {
-      html += `<div class="warning-card orange">
-        <div class="warn-title">لم يرسل اليوم بعد (${today.length})</div>
-        <div class="warn-names">${today.map(a => a.name).join(' — ')}</div>
-      </div>`;
-    }
-    row.innerHTML = html;
-    row.style.display = 'flex';
-  } catch (e) { console.error('Warnings error:', e); }
-}
 
 // ── Quality Scores ──
 async function loadScores() {
@@ -932,7 +889,6 @@ document.getElementById('agentModal').addEventListener('click', (e) => {
 // ── Init ──
 calcDates('today');
 loadBranches();
-loadWarnings();
 loadScores();
 </script>
 </body>
