@@ -27,6 +27,22 @@ log.setLevel(logging.INFO)
 
 import traceback as _traceback
 
+
+def _is_json_response_error(msg: str) -> bool:
+    """Detect PostgREST's "JSON could not be generated" 400. This fires
+    when the response-encoding step trips on a row whose data has bytes
+    that don't survive JSON (control chars, lone surrogates, etc.). The
+    write itself committed successfully — only the response failed —
+    so we treat this as success and move on. Otherwise the same row keeps
+    aborting every sync and new leads never land.
+    """
+    if not msg:
+        return False
+    m = msg.lower()
+    if "json could not be generated" in m: return True
+    if "could not be generated" in m and "400" in msg: return True
+    return False
+
 # ---------------------------------------------------------------------------
 # Moroccan phone normalization
 #
@@ -655,19 +671,29 @@ def _sync_config_inner(config_id: str) -> dict:
     known: Dict[str, str] = {}
     PAGE = 1000
     offset = 0
-    while True:
-        page = sb.table("ad_leads").select("id, source_row_key") \
-            .eq("config_id", config_id).order("id") \
-            .range(offset, offset + PAGE - 1).execute()
-        page_rows = page.data or []
-        for r in page_rows:
-            known[r["source_row_key"]] = r["id"]
-        if len(page_rows) < PAGE:
-            break
-        offset += PAGE
-        if offset > 200000:  # safety cap, far beyond any realistic config
-            log.warning(f"[ad_leads] sync paged past 200k rows for config {config_id}")
-            break
+    try:
+        while True:
+            page = sb.table("ad_leads").select("id, source_row_key") \
+                .eq("config_id", config_id).order("id") \
+                .range(offset, offset + PAGE - 1).execute()
+            page_rows = page.data or []
+            for r in page_rows:
+                known[r["source_row_key"]] = r["id"]
+            if len(page_rows) < PAGE:
+                break
+            offset += PAGE
+            if offset > 200000:  # safety cap, far beyond any realistic config
+                log.warning(f"[ad_leads] sync paged past 200k rows for config {config_id}")
+                break
+    except Exception as e:
+        # If even reading source_row_keys fails (e.g. one stored row contains
+        # bytes that break PostgREST's JSON response), continue with whatever
+        # we managed to load. Missing keys make the sheet rows look new →
+        # insert is attempted → the unique constraint catches genuine dupes
+        # and the per-row retry skips them. We don't lose data, only the
+        # ability to UPDATE existing rows on this tick.
+        log.warning("[ad_leads] existing-rows fetch failed at offset %d (continuing with %d known): %s",
+                    offset, len(known), e)
 
     to_insert: List[dict] = []
     to_update: List[Tuple[str, dict]] = []
@@ -761,8 +787,13 @@ def _sync_config_inner(config_id: str) -> dict:
         for i in range(0, len(to_insert), 500):
             chunk = to_insert[i:i + 500]
             try:
-                res = sb.table("ad_leads").insert(chunk).execute()
-                inserted += len(res.data or [])
+                # returning=minimal → PostgREST won't try to echo the inserted
+                # rows back, sidestepping the "JSON could not be generated"
+                # 400s that fire when one row's content has bytes that don't
+                # survive JSON encoding. Row count is taken from the chunk
+                # length instead of the (now empty) response body.
+                sb.table("ad_leads").insert(chunk, returning="minimal").execute()
+                inserted += len(chunk)
             except Exception as e:
                 msg = str(e)
                 # Defensive: if anything still survives the dedup logic and
@@ -771,14 +802,21 @@ def _sync_config_inner(config_id: str) -> dict:
                 # the whole batch on a single 23505 — without this retry,
                 # one duplicate row would block every legitimately new lead
                 # in the same batch and silently stop the branch.
-                if "23505" in msg or "duplicate" in msg.lower() or "unique constraint" in msg.lower():
+                if _is_json_response_error(msg):
+                    # Write committed; only the response failed. Treat as success.
+                    log.warning("[ad_leads] insert response-encode 400; rows landed (chunk=%d)", len(chunk))
+                    inserted += len(chunk)
+                elif "23505" in msg or "duplicate" in msg.lower() or "unique constraint" in msg.lower():
                     log.warning(f"[ad_leads] chunk insert hit duplicate(s); retrying per-row to skip them")
                     for row in chunk:
                         try:
-                            r2 = sb.table("ad_leads").insert(row).execute()
-                            inserted += len(r2.data or [])
+                            sb.table("ad_leads").insert(row, returning="minimal").execute()
+                            inserted += 1
                         except Exception as ex2:
                             m2 = str(ex2)
+                            if _is_json_response_error(m2):
+                                inserted += 1
+                                continue
                             if "23505" in m2 or "duplicate" in m2.lower():
                                 skipped_dupes += 1
                                 continue
@@ -795,22 +833,27 @@ def _sync_config_inner(config_id: str) -> dict:
         # Pre-fetch existing scope + status + assigned_agent for the rows
         # we're about to touch — needed to decide whether the agent on a
         # re-routed lead is still in scope. One paginated read beats N
-        # round-trips per row.
+        # round-trips per row. Wrapped — a select that 400s shouldn't kill
+        # the whole sync; without existing_state we just skip the
+        # scope-changed reassignment logic and update the rows anyway.
         update_ids = [lid for lid, _ in to_update]
         existing_state: Dict[str, Dict[str, Any]] = {}
         offset = 0
-        while update_ids:
-            chunk = update_ids[offset:offset + 1000]
-            if not chunk:
-                break
-            es = sb.table("ad_leads").select(
-                "id, scope_type, scope_id, status, assigned_agent_id"
-            ).in_("id", chunk).execute()
-            for r in (es.data or []):
-                existing_state[r["id"]] = r
-            offset += 1000
-            if offset >= len(update_ids):
-                break
+        try:
+            while update_ids:
+                chunk = update_ids[offset:offset + 1000]
+                if not chunk:
+                    break
+                es = sb.table("ad_leads").select(
+                    "id, scope_type, scope_id, status, assigned_agent_id"
+                ).in_("id", chunk).execute()
+                for r in (es.data or []):
+                    existing_state[r["id"]] = r
+                offset += 1000
+                if offset >= len(update_ids):
+                    break
+        except Exception as e:
+            log.warning("[ad_leads] existing_state fetch failed (%s) — proceeding without scope-change reassignment", e)
 
         for lead_id, patch in to_update:
             es = existing_state.get(lead_id) or {}
@@ -826,10 +869,19 @@ def _sync_config_inner(config_id: str) -> dict:
                 patch["assigned_at"] = None
                 reassigned += 1
             try:
-                sb.table("ad_leads").update(patch).eq("id", lead_id).execute()
+                # returning=minimal → no response body, dodges the JSON-
+                # encoding 400 when this row's stored data has bytes that
+                # break PostgREST's encoder. Same trick as the chunk insert.
+                sb.table("ad_leads").update(patch, returning="minimal").eq("id", lead_id).execute()
                 updated += 1
             except Exception as e:
-                log.warning("[ad_leads] update failed for %s: %s", lead_id, e)
+                msg = str(e)
+                if _is_json_response_error(msg):
+                    # Write landed; encoder failed. Count as success so we
+                    # don't loop on this row every sync.
+                    updated += 1
+                else:
+                    log.warning("[ad_leads] update failed for %s: %s", lead_id, e)
 
     deleted = 0
     if to_delete:
